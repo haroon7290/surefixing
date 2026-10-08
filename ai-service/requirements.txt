@@ -1,3 +1,5 @@
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.3
+# Runtime dependencies. Ranges are tested on FastAPI 0.109–0.143 /
+# Pydantic 2.5–2.13 and Python 3.10–3.13.
+fastapi>=0.109,<1
+uvicorn[standard]>=0.27
+pydantic>=2.5,<3

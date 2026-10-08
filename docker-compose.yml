@@ -1,0 +1,52 @@
+# Full SureFix stack in containers: MongoDB + backend + AI service.
+#
+#   docker compose up --build          # start everything on :4000 / :5001
+#   docker compose exec backend npm run seed -- --force   # load demo data
+#
+# The Flutter app runs on your machine as usual (flutter run) and talks to
+# http://localhost:4000. Set JWT_SECRET in your shell or a .env file next
+# to this compose file for anything beyond local testing.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ai:
+    build: ./ai-service
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      MONGO_URI: mongodb://mongo:27017/fixit
+      AI_SERVICE_URL: http://ai:5001
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "4000:4000"
+
+volumes:
+  mongo-data:
+  uploads:
