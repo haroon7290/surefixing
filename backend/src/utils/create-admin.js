@@ -5,12 +5,12 @@
 // Usage:
 //   node src/utils/create-admin.js
 //   node src/utils/create-admin.js --name="Jane Admin" --email=jane@company.com --password="StrongPass123!"
-require('dotenv').config();
+
 const mongoose = require('mongoose');
 const readline = require('readline');
 const User = require('../models/User');
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/fixit';
+const { mongoUri: MONGO_URI } = require('../config');
 
 function parseArgs() {
   const args = {};

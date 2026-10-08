@@ -11,9 +11,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist node_modules (
-  echo ==^> Dependencies missing; running npm install
-  call npm install --no-audit --no-fund
+REM Always sync dependencies: fast when nothing changed, and it picks up
+REM new packages after a git pull (otherwise the server fails to start).
+echo ==^> Checking backend dependencies...
+call npm install --no-audit --no-fund --loglevel=error
+if errorlevel 1 (
+  echo ERROR: npm install failed. Check your internet connection and try again.
+  pause
+  exit /b 1
 )
 
 if not exist .env (
