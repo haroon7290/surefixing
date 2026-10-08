@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Needed in release builds too (debug builds get it from src/debug). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- usesCleartextTraffic lets the app reach a local http:// backend
+         (localhost via adb reverse, or a LAN IP). Remove it once the API
+         is served over HTTPS. -->
     <application
-        android:label="fixit"
+        android:label="SureFix"
+        android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

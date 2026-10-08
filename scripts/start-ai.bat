@@ -1,5 +1,5 @@
 @echo off
-REM Starts the Python FastAPI ranking service on :5001.
+REM Starts the SureFix AI service (FastAPI) on :5001. API docs: http://localhost:5001/docs
 setlocal
 cd /d "%~dp0..\ai-service"
 
@@ -16,9 +16,13 @@ if not exist venv (
   python -m venv venv
   call venv\Scripts\activate.bat
   python -m pip install --upgrade pip >nul
-  pip install -r requirements.txt
 ) else (
   call venv\Scripts\activate.bat
 )
+
+REM Always sync requirements (quick when already installed) so a git pull
+REM that adds a package doesn't break startup.
+echo ==^> Checking AI service dependencies...
+pip install -q -r requirements.txt
 
 uvicorn app.main:app --reload --port 5001

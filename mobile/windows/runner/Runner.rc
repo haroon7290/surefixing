@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.fixit" "\0"
-            VALUE "FileDescription", "fixit" "\0"
+            VALUE "FileDescription", "SureFix" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "fixit" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.fixit. All rights reserved." "\0"
             VALUE "OriginalFilename", "fixit.exe" "\0"
-            VALUE "ProductName", "fixit" "\0"
+            VALUE "ProductName", "SureFix" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
