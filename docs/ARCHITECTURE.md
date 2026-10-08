@@ -1,342 +1,270 @@
 # Architecture
 
-## Top-level layout
-
 ```
-talha/
-├── backend/         Node.js + Express + MongoDB REST API + Socket.IO  (:4000)
-├── ai-service/      Python FastAPI technician-ranking microservice    (:5001)
-├── mobile/          Flutter app (web / Linux / Android / iOS)
-├── scripts/         install-prereqs + start-* helpers
-├── setup.sh         per-project bootstrap
-└── docs/            this folder
+surefixing/
+├── backend/      Node 18+ · Express 5 · Mongoose · Socket.IO       (:4000)
+├── ai-service/   Python · FastAPI · Naive Bayes + explainable scorer (:5001)
+├── mobile/       Flutter 3.35 (Android / iOS / web / desktop)
+├── scripts/      Windows start / test / demo-data helpers
+├── docker-compose.yml   MongoDB + backend + AI service in containers
+└── docs/
 ```
 
----
-
-## Component diagram
+## Components
 
 ```mermaid
 flowchart LR
     subgraph Mobile[Flutter app]
-      M[lib/main.dart]
-      Auth[AuthService]
-      RT[RealtimeService<br/>socket_io_client]
-      API[ApiClient<br/>http]
+      Screens[Role shells + screens]
+      Auth[AuthService · ChangeNotifier]
+      API[ApiClient · http + JWT]
+      RT[RealtimeService · socket_io_client]
+      Badges[BadgeService · unread counts]
     end
 
     subgraph Backend[Node backend :4000]
-      Express[Express routes]
-      SIO[Socket.IO server]
-      Notify[notify util]
-      Realtime[realtime util]
+      App[app.js · helmet, CORS, rate limit, compression]
+      Routes[routes/*]
+      Services[services/ scoring.js · rentals.js]
+      AIClient[utils/ai.js]
+      Notify[utils/notify.js]
+      Realtime[utils/realtime.js · rooms + presence]
     end
 
-    subgraph AI[Python FastAPI :5001]
-      Rank[/rank endpoint/]
+    subgraph AI[Python AI service :5001]
+      Clf[classifier.py · Naive Bayes]
+      Urg[urgency.py]
+      Score[scoring.py]
     end
 
-    Mongo[(MongoDB :27017)]
-    Uploads[(backend/uploads/)]
+    Mongo[(MongoDB)]
+    Uploads[(uploads/)]
 
-    M -->|HTTP REST + JWT| API --> Express
-    M -->|WebSocket + JWT| RT --> SIO
-    Auth -.token.- API
-    Auth -.token.- RT
-
-    Express --> Mongo
-    Express --> Uploads
-    Express -->|HTTP| Rank
-    Notify -->|create doc| Mongo
-    Notify -->|emit 'notification'| Realtime
-    Realtime --> SIO
-    SIO -->|push events| RT
+    Screens --> API --> App --> Routes
+    Screens --> RT <--> Realtime
+    Routes --> Mongo
+    Routes --> Uploads
+    Routes --> AIClient -->|HTTP, 2.5 s timeout| Clf & Score
+    AIClient -.->|service down| Services
+    Routes --> Notify --> Realtime
 ```
 
-The backend has both an HTTP server (Express) and a WebSocket server
-(Socket.IO) sharing the same `http.Server`. They authenticate the same way:
-JWTs issued by `/api/auth/login`. HTTP routes use `Authorization: Bearer <jwt>`;
-the socket reads the token from `socket.handshake.auth.token`.
-
----
+- **One JWT for everything**: HTTP uses `Authorization: Bearer <jwt>`; the socket sends it in
+  `handshake.auth.token`. Suspended users are rejected at login, on every API call and their
+  sockets are disconnected.
+- **AI is optional at runtime**: `utils/ai.js` calls the Python service with a timeout and falls
+  back to `services/scoring.js`, a port of the same scorer (kept identical by a parity test in
+  `ai-service/tests/test_scoring.py`). Every AI response carries `engine: "ai-service" | "fallback"`.
+- **Express 5** forwards async errors to one error handler (`middleware/error.js`), which turns
+  Mongoose cast/validation errors, multer errors and bad JSON into clean `400`s.
 
 ## Data model
 
 ```mermaid
 erDiagram
     User ||--o{ Job : "client posts"
-    User ||--o{ Job : "tech assigned"
-    User ||--o{ Bid : "tech bids"
-    Job  ||--o{ Bid : "has"
+    User ||--o{ Job : "technician assigned / requested"
+    Job  ||--o{ Bid : "has (embedded)"
+    Job  ||--o{ JobEvent : "history (embedded)"
     User ||--o{ Tool : "supplier owns"
-    User ||--o{ Rental : "renter takes"
     Tool ||--o{ Rental : "rented as"
+    User ||--o{ Rental : "renter"
+    Job  ||--o{ Message : "thread"
     User ||--o{ Notification : "for"
     User ||--|| Kyc : "submits"
-    Job  ||--o{ Message : "thread"
-    User ||--o{ Message : "sender"
-    User ||--o{ Message : "recipient"
+    User ||--o{ Report : "files"
 ```
 
-### Collections (Mongoose schemas)
+| Model | Notable fields |
+|---|---|
+| **User** | role (client/technician/supplier/admin), status (active/suspended), kycStatus, avatar, city, bio · technician profile: headline, skills[], hourlyRate, experienceYears, isAvailable · stats: rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes (+ responseSamples), lastSeenAt |
+| **Job** | client, title, description, category, budget, city, location, urgency (low/normal/high/emergency), preferredDate, images[], status (pending/in_progress/completed/cancelled), requestedTechnician + requestDeclined (direct requests), assignedTechnician, acceptedBid, agreedPrice, bids[] {technician, amount, etaDays, message, status}, history[] {status, note, by, at}, cancelReason, rating, review |
+| **Tool** | supplier, name, description, category, condition, city, images[] (+ legacy image), rentPricePerDay, deposit, purchasePrice, installmentMonths/Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
+| **Rental** | tool, renter, supplier, type (rent/installment), startDate, endDate, days, totalCost, deposit, fulfillment (pickup/delivery), note, status (requested/active/returned/completed/rejected/cancelled), rejectionReason, approvedAt, returnedAt, rating, review · computed in responses: overdue, daysLeft |
+| **Message** | job, sender, recipient, text, image, readAt — a thread is (job, client, technician) |
+| **Notification** | user, type, title, body, data {jobId / toolId / rentalId … for deep links}, readAt |
+| **Kyc** | user, fullName, idType, idNumber, idFrontImage, idBackImage, selfieImage, status, rejectionReason |
+| **Report** | reporter, targetType (user/job/tool), targetId, targetLabel, reason, details, status (open/resolved/dismissed), resolutionNote, resolvedBy |
 
-| Schema | File | Notable fields |
-|---|---|---|
-| `User` | `backend/src/models/User.js` | role enum (client/technician/supplier/admin), kycStatus, rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes, skills[], bio, avatar, password (bcrypt-hashed via `pre('save')`) |
-| `Job` | `backend/src/models/Job.js` | client, title, description, category, budget, location, images[], status (pending/in_progress/completed/cancelled), assignedTechnician, acceptedBid, bids[] (sub-doc with technician/amount/message/etaDays/status), completedAt, rating, review |
-| `Tool` | `backend/src/models/Tool.js` | supplier, name, description, category, image, rentPricePerDay, purchasePrice, installmentMonths, installmentMonthly, available, stock |
-| `Rental` | `backend/src/models/Rental.js` | tool, renter, type (rent/installment), startDate, endDate, days, totalCost, monthsRemaining, status (active/returned/completed) |
-| `Message` | `backend/src/models/Message.js` | job, sender, recipient, text, readAt |
-| `Notification` | `backend/src/models/Notification.js` | user, type, title, body, data (object), readAt |
-| `Kyc` | `backend/src/models/Kyc.js` | user (unique), fullName, idType (cnic/passport/driver_license), idNumber, idFrontImage, idBackImage, selfieImage, status (pending/approved/rejected), rejectionReason |
+All fields added in v2 have defaults, so documents created by v1 load unchanged. The database
+name stays `fixit`.
 
-User-public projection (`User.toPublicJSON`) strips `password` and exposes
-`id` (mapped from `_id`).
+## Lifecycles
 
----
-
-## REST API reference
-
-All paths prefixed with `/api`. Protected routes require
-`Authorization: Bearer <jwt>`. Bodies are JSON unless noted.
-
-### Auth — `routes/auth.js`
-
-| Method | Path | Auth | Body | Notes |
-|---|---|---|---|---|
-| POST | `/auth/register` | none | `{name, email, password (≥6), role, phone?}` | Rejects `role: admin`. Returns `{token, user}`. |
-| POST | `/auth/login` | none | `{email, password}` | Returns `{token, user}`. |
-
-### Users — `routes/users.js`
-
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/users/me` | yes | Current user's public projection |
-| PATCH | `/users/me` | yes | Allowed fields: `name`, `phone`, `bio`, `skills`, `avatar` |
-| GET | `/users/technicians` | yes | All technicians (no pagination) |
-| GET | `/users/:id` | yes | Public projection of any user |
-| GET | `/users/me/notifications` | yes | Last 50, newest first |
-| POST | `/users/me/notifications/:id/read` | yes | Marks as read |
-
-### Jobs — `routes/jobs.js`
-
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/jobs?status=&mine=1` | yes | Filtering rules below |
-| POST | `/jobs` | client | `{title, description, category, budget, location, images?}`. Emits `job:new` to all connected technicians. |
-| GET | `/jobs/:id` | yes | Populates client, assignedTechnician, bids.technician |
-| POST | `/jobs/:id/bids` | technician | `{amount (>0), message?, etaDays?}`. One bid per technician. Emits `job:bid` to client. |
-| DELETE | `/jobs/:id/bids/me` | technician | Withdraws own bid (only while status `pending`). Notifies client. |
-| POST | `/jobs/:id/accept/:bidId` | client | Marks job `in_progress`, sets assignedTechnician, increments tech's `jobsAssigned`. Emits `job:hired`. |
-| PATCH | `/jobs/:id/status` | client/tech/admin (must be participant) | `{status}` from the `Job.STATUSES` enum. On `completed`: sets `completedAt` and increments tech's `jobsCompleted`. Emits `job:status`. |
-| POST | `/jobs/:id/rate` | client | `{rating (1-5), review?}`. Updates tech's running average. Emits `job:rated`. |
-| GET | `/jobs/:id/ranked-bids` | yes | Calls AI service with each bid's tech metrics + `jobCategory`. Returns the bids list with a `score` field added. |
-
-**`GET /jobs` filter rules:**
-- `status=<x>` always filters by that status.
-- `mine=1` + role `client` → `client = me`.
-- `mine=1` + role `technician` → `assignedTechnician = me`.
-- No `mine`, role `technician` → defaults to `status: pending` (the open-jobs view).
-- No `mine`, role `client` → all jobs (rarely used in UI).
-
-### Tools — `routes/tools.js`
-
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/tools?mine=1` | yes | `mine=1` for supplier returns own tools. Otherwise returns all. |
-| POST | `/tools` | supplier | Creates tool with `supplier = me`. |
-| PATCH | `/tools/:id` | supplier (owner) | Updates fields. |
-| DELETE | `/tools/:id` | supplier (owner) | Hard delete. |
-| POST | `/tools/:id/rent` | yes | `{days (≥1)}`. Refuses self-rent. Decrements `stock`; sets `available=false` at 0. Creates `Rental` doc. Notifies supplier. Emits `tool:rented`. |
-| POST | `/tools/:id/purchase` | yes | Requires `installmentMonths > 0`. Refuses self-purchase. Same stock logic. Emits `tool:purchased`. |
-| GET | `/tools/me/rentals` | yes | What I've rented/bought. |
-| GET | `/tools/me/incoming` | supplier | Rentals/purchases on my tools. |
-
-### Messages — `routes/messages.js`
-
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/messages/:jobId` | participant or admin | Chronological. |
-| POST | `/messages/:jobId` | participant | `{text}`. Recipient is the other participant (returns 400 if no tech assigned yet). Notifies + emits `message:new` to **both** sender and recipient. |
-
-### KYC — `routes/kyc.js`
-
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/kyc/me` | yes | Current user's KYC submission, or `null`. |
-| POST | `/kyc` | yes | **Multipart** route (multer fields `idFront`, `idBack`, `selfie` + JSON-style fields `fullName`, `idType`, `idNumber`). Upserts on `user`. Sets `user.kycStatus = pending`. **Note**: the Flutter screen sends JSON without files — submission works, image fields stay empty. |
-
-### Admin — `routes/admin.js` (all require `role: admin`)
-
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/admin/stats` | `{users, jobs, tools, pendingKyc}` counts. |
-| GET | `/admin/users?role=` | Filterable. |
-| DELETE | `/admin/users/:id` | Refuses self-delete. |
-| GET | `/admin/kyc?status=` | Filterable. |
-| POST | `/admin/kyc/:id/verify` | `{decision: approved|rejected, reason?}`. Updates `User.kycStatus`. Notifies the submitter. |
-| GET | `/admin/jobs` | Every job, populated. |
-
----
-
-## Real-time (Socket.IO)
-
-The backend's HTTP server is wrapped in `http.createServer(app)` and Socket.IO
-is attached to the same listener (`backend/src/utils/realtime.js`).
-
-### Handshake
-
-```
-client → server: io(baseUrl, { auth: { token: '<jwt>' } })
-server: jwt.verify(token) → socket.userId, socket.role
-        socket.join(`user:<userId>`)
-        socket.join(`role:<role>`)
-```
-
-### Events emitted by server
-
-| Event | Recipient room | Payload | Triggered by |
-|---|---|---|---|
-| `notification` | `user:<id>` | `{_id, type, title, body, data, createdAt}` | Every `notify()` call (so this duplicates the per-event toasts below; mobile only toasts on `notification`, treats the others as live-refresh signals). |
-| `job:new` | `role:technician` (broadcast) | `{jobId, title, category, budget}` | Client posts a job. No DB notification (would spam every tech). Mobile toasts directly. |
-| `job:bid` | `user:<clientId>` | `{jobId, title, technicianName, amount, cancelled?}` | Tech places or withdraws a bid. |
-| `job:hired` | `user:<techId>` | `{jobId, title, amount}` | Client accepts a bid. |
-| `job:status` | `user:<otherPartyId>` | `{jobId, title, status}` | Either party changes status. |
-| `job:rated` | `user:<techId>` | `{jobId, title, rating, review}` | Client rates the job. |
-| `tool:rented` | `user:<supplierId>` | `{toolId, toolName, renterName, days, totalCost}` | Tool rented. |
-| `tool:purchased` | `user:<supplierId>` | `{toolId, toolName, renterName, totalCost, months}` | Tool purchased on installments. |
-| `message:new` | `user:<recipientId>` AND `user:<senderId>` | `{_id, job, sender, text, createdAt}` | Message sent (both ends so the sender's chat updates without a refetch). |
-
-### Mobile subscription
-
-`mobile/lib/services/realtime_service.dart` subscribes to all of the above and
-fans them out via a single `Stream<RealtimeEvent>`. Listeners:
-
-- `main.dart` — toasts on `notification` + `job:new` (the only two intended for global toast).
-- `client_home._MyJobsTab` — re-loads on `job:bid`, `job:status`, `job:rated`.
-- `tech_home._JobsList` (open) — re-loads on `job:new`.
-- `tech_home._JobsList` (mine) — re-loads on `job:hired`, `job:status`.
-- `supplier_home` — re-bumps both tab keys on `tool:rented` / `tool:purchased`.
-- `notifications_screen` — prepends new `notification` events to the list live.
-- `messages_screen` — appends `message:new` for the open job; smart-scrolls only when at bottom.
-
----
-
-## AI ranking service
-
-`ai-service/app/main.py` exposes:
-
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| GET | `/` | — | `{ok, service}` |
-| GET | `/health` | — | `{status: healthy}` |
-| POST | `/rank` | `{technicians: [...], jobCategory?: string}` | `{ranked: [...]}` (each item has a `score` 0–5, sorted desc) |
-| POST | `/score` | one technician dict | `{score}` |
-
-### Scoring
-
-Weighted sum, then scaled to 0–5. Weights live in
-`ai-service/app/ranker.py`:
-
-| Component | Weight | Source field |
-|---|---|---|
-| Rating (×confidence) | 0.40 | `rating` × min(`ratingCount`/10, 1) |
-| Completion rate | 0.25 | `completionRate` (clamped 0–1) |
-| Skill match | 0.15 | `skillMatch` (1 if pre-computed, else 1 if `jobCategory ∈ skills` else 0) |
-| Response speed | 0.10 | `responseSpeed` (clamped 0–1) |
-| Experience | 0.10 | min(`jobsCompleted`/50, 1) |
-
-### Local fallback
-
-If the AI service is unreachable, `backend/src/utils/ai.js` runs the same
-formula in JS so `/api/jobs/:id/ranked-bids` keeps working. Weights are kept
-in sync; if you change one, change the other.
-
----
-
-## Job lifecycle
+### Job
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending: client posts
-    pending --> in_progress: client accepts a bid<br/>(also locks accepted bid + assignedTechnician)
-    pending --> cancelled: client/admin
-    in_progress --> completed: tech or client marks complete<br/>(sets completedAt, ++tech.jobsCompleted)
-    in_progress --> cancelled: client/admin
-    completed --> [*]
+    [*] --> pending: client posts (open, or direct request to one technician)
+    pending --> pending: requested tech declines → client "opens to all"
+    pending --> in_progress: client hires a quote (others auto-declined)
+    pending --> cancelled: client / admin
+    in_progress --> completed: client or hired technician (counts once)
+    in_progress --> cancelled: client / admin (technician notified)
+    completed --> [*]: client rates 1–5 ★ (once)
     cancelled --> [*]
-
-    completed --> rated: client rates (one-shot, status doesn't change)
 ```
 
-Bid sub-statuses on accept: the accepted bid becomes `accepted`, the rest
-flip to `rejected`.
+Transitions are enforced in `routes/jobs.js` (`TRANSITIONS`). Every step appends to
+`history` (shown as the timeline). Phone numbers and emails are only revealed between the
+client and the hired technician.
 
----
+### Rental
 
-## KYC flow
+```
+requested ──approve──▶ active ──return──▶ returned     (rent)
+requested ──approve──▶ active ──complete─▶ completed   (installment)
+requested ──reject───▶ rejected      requested ──cancel (renter)──▶ cancelled
+```
+
+Stock is reserved on approve with an atomic `findOneAndUpdate({stock: {$gt: 0}})`, so two
+approvals can never oversell the last unit; it is released on return.
+
+## REST API
+
+All paths start with `/api`. 🔒 = needs a JWT. Lists accept `?page=&limit=` and return a plain
+array with the total in the `X-Total-Count` header. Errors are `{ error, errors? }`.
+
+### Auth & users
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/auth/register` | `{name, email, password, role, phone?, city?}` (admin can't self-register) → `{token, user}` |
+| POST | `/auth/login` | → `{token, user}`; `403 {code:"suspended"}` for suspended accounts |
+| POST | `/auth/change-password` 🔒 | `{currentPassword, newPassword}` |
+| GET / PATCH | `/users/me` 🔒 | Profile; PATCH whitelists name, phone, bio, city, headline, skills[], hourlyRate, experienceYears, isAvailable |
+| POST | `/users/me/avatar` 🔒 | multipart `avatar` |
+| GET | `/users/me/summary` 🔒 | Dashboard numbers for the caller's role |
+| GET | `/users/me/notifications` 🔒 | `?unread=1` · also `/unread-count`, `POST /read-all`, `POST /:id/read` |
+| GET | `/users/technicians` 🔒 | `?q=&category=&city=&minRating=&available=1&verified=1&sort=rating\|jobs\|price\|newest` |
+| GET | `/users/:id` 🔒 | Public profile (email/phone only for self/admin) + `online` |
+| GET | `/meta` | Categories, tool categories, urgency levels, report reasons (public) |
+
+### Jobs
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/jobs` 🔒 | Client: own jobs. Technician: open marketplace (`?q=&category=&city=&urgency=&matching=1&sort=newest\|budget`), `?view=requests`, `?view=bids`, `?mine=1&status=`. Admin: all |
+| POST | `/jobs` 🔒 client | multipart: title, description, category, budget, city, location, urgency, preferredDate, requestedTechnician?, `images` (≤ 5) |
+| GET | `/jobs/:id` 🔒 | Visible to owner, admin, and technicians who may see it; includes `history` |
+| POST | `/jobs/:id/bids` 🔒 technician | `{amount, etaDays?, message?}`; records response time |
+| DELETE | `/jobs/:id/bids/me` 🔒 technician | Withdraw a pending quote |
+| POST | `/jobs/:id/decline` 🔒 technician | Requested technician declines `{reason?}` |
+| POST | `/jobs/:id/open` 🔒 client | Turn a direct request into an open job |
+| POST | `/jobs/:id/accept/:bidId` 🔒 client | Hire; sets agreedPrice; other bidders notified |
+| PATCH | `/jobs/:id/status` 🔒 | `{status: completed\|cancelled, note?}` per the state machine |
+| POST | `/jobs/:id/rate` 🔒 client | `{rating 1–5, review?}` once, after completion |
+| GET | `/jobs/:id/ranked-bids` 🔒 owner/admin | Quotes ranked by the AI: `score`, `matchPercent`, `reasons[]`, `notes[]`, `breakdown`, `engine` |
+| GET | `/reviews/technician/:id` 🔒 | Reviews · `/summary` → `{count, average, distribution}` |
+
+### Tools & rentals
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/tools` 🔒 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&installment=1&sort=newest\|price_asc\|price_desc\|rating\|popular`; supplier `?mine=1` |
+| GET | `/tools/:id` 🔒 | Detail + recent reviews |
+| POST / PATCH | `/tools` · `/tools/:id` 🔒 supplier | multipart; field whitelist; `images` (≤ 4) appended, `removeImages` JSON list |
+| DELETE | `/tools/:id` 🔒 supplier/admin | Refused while rentals are active; pending requests cancelled |
+| POST | `/tools/:id/rent` 🔒 | `{startDate, endDate}` or `{days}`, `fulfillment`, `note` → rental `requested` |
+| POST | `/tools/:id/purchase` 🔒 | Installment request |
+| GET | `/rentals` 🔒 | `?as=renter\|supplier&status=a,b` |
+| GET | `/rentals/:id` 🔒 | Renter, supplier or admin |
+| POST | `/rentals/:id/approve` · `/reject` · `/return` · `/complete` 🔒 supplier | Lifecycle (see above) |
+| POST | `/rentals/:id/cancel` · `/review` 🔒 renter | Cancel a request · review after it ends |
+
+### Messages, KYC, reports, AI, admin
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/messages` 🔒 | Inbox: one row per (job, other person) with last message + unread |
+| GET | `/messages/unread-count` 🔒 | |
+| GET / POST | `/messages/:jobId` 🔒 | Thread (`?with=<technicianId>` for clients); POST JSON `{text, to?}` or multipart `image`. Reading marks as read |
+| POST | `/messages/:jobId/read` 🔒 | Mark read |
+| GET / POST | `/kyc/me` · `/kyc` 🔒 | Multipart `idFront`, `idBack`, `selfie` (front + selfie required); approved KYC is locked |
+| POST | `/reports` 🔒 | `{targetType, targetId, reason, details?}`; duplicates refused |
+| GET | `/ai/status` 🔒 | Is the Python service reachable? |
+| POST | `/ai/analyze` 🔒 | `{text}` → `{category, confidence, categories[], urgency, urgencyTerms[], keywords[], engine}` |
+| POST | `/ai/recommend` 🔒 | `{description, category?, city?, budget?, urgency?, limit?}` → `{analysis, category, urgency, ranked[], engine}` |
+| GET | `/admin/stats` 🔒 admin | Counts, breakdowns by role/status/category, job & rental value, 7-day series |
+| GET | `/admin/users` 🔒 admin | `?q=&role=&status=` · `PATCH /admin/users/:id/status` · `DELETE /admin/users/:id` |
+| GET / POST | `/admin/kyc` · `/admin/kyc/:id/verify` 🔒 admin | `{decision, reason?}` |
+| GET / POST | `/admin/reports` · `/admin/reports/:id/resolve` 🔒 admin | `{status: resolved\|dismissed, note?, suspendUser?}` |
+| GET | `/admin/jobs` · `/admin/tools` 🔒 admin | Oversight lists |
+| GET | `/health` | `{ok, db, uptime}` |
+
+## Realtime (Socket.IO)
+
+Each socket joins `user:<id>` and `role:<role>`. Presence (open sockets per user) powers the
+green "online" dots; `lastSeenAt` is updated on connect/disconnect.
+
+| Event | To | Payload | When |
+|---|---|---|---|
+| `notification` | user | `{_id, type, title, body, data, createdAt}` | Every persisted notification (toast + badge) |
+| `job:new` | role:technician | `{jobId, title, category, budget, city, urgency}` | Open job posted / opened to all |
+| `job:request` | technician | `{jobId, title, clientName}` | Direct request |
+| `job:bid` | client | `{jobId, technicianName, amount, cancelled?}` | Quote placed / withdrawn |
+| `job:hired` | technician | `{jobId, title, amount}` | Quote accepted |
+| `job:status` | other parties | `{jobId, status}` | Completed / cancelled / filled / request declined |
+| `job:rated` | technician | `{jobId, rating, review}` | Review left |
+| `rental:new` | supplier | `{rentalId, toolName, renterName, …}` | Rental or installment requested |
+| `rental:update` | renter + supplier | `{rentalId, status}` | Any rental status change |
+| `message:new` | sender + recipient | message + `senderName`, `jobTitle` | Chat message |
+| `message:read` | sender | `{jobId, by}` | Recipient read the thread (✓✓) |
+| `typing` | client → server → other party | `{jobId, to/from, typing}` | Typing indicator |
+| `kyc:new`, `report:new` | role:admin | ids | New KYC submission / report |
+
+## AI pipeline
 
 ```mermaid
 sequenceDiagram
-    participant U as User (tech/supplier)
-    participant API as Backend
-    participant DB as Mongo
-    participant A as Admin
-
-    U->>API: POST /api/kyc (fullName, idType, idNumber)
-    API->>DB: Kyc.findOneAndUpdate({user}, ..., {upsert: true})<br/>User.kycStatus = 'pending'
-    API-->>U: 201 Kyc
-
-    A->>API: GET /api/admin/kyc
-    API-->>A: list
-
-    A->>API: POST /api/admin/kyc/:id/verify {decision, reason?}
-    API->>DB: Kyc.status = decision; User.kycStatus = decision
-    API->>U: notify('kyc', ...) → 'notification' socket event
-    A-->>A: list reloads
+    participant App
+    participant API as Backend /api/ai/recommend
+    participant AI as AI service /recommend
+    App->>API: "AC is blowing warm air, need it today"
+    API->>API: load active technicians (stats, skills, city, availability, KYC)
+    API->>AI: description + candidates (2.5 s timeout)
+    AI->>AI: tokenize → stem → unigrams+bigrams → Naive Bayes → hvac (0.96)
+    AI->>AI: urgency rules → high ("today")
+    AI->>AI: score 8 components, urgency-boost weights, reasons + notes
+    AI-->>API: {analysis, ranked}
+    API-->>App: ranked matches, engine "ai-service"
+    Note over API: if the AI call fails → services/scoring.js does the same with a keyword classifier
 ```
 
----
+Scoring components, weights and the classifier are documented in
+[ai-service/README.md](../ai-service/README.md).
 
-## File map (where things live)
+## Security
 
-### Backend
+- Passwords: bcrypt (10 rounds). JWT (HS256) with configurable expiry; production refuses the
+  default secret.
+- `helmet` headers; CORS allow-list via `CORS_ORIGINS`; rate limits: 1000 req / 15 min per IP
+  on the API and 30 / 15 min on login + register.
+- Input validation with `express-validator` on every write; field whitelists on profile and
+  tool updates (no mass assignment); uploads are images only, 10 MB max, random file names;
+  failed requests delete already-uploaded files.
+- Authorization in every handler: ownership checks for jobs, tools, rentals, chat threads;
+  contact details hidden until hire; suspended accounts locked out everywhere.
+
+## File map
+
 ```
 backend/src/
-├── server.js              Express + Socket.IO bootstrap, route mounting, error handler
-├── middleware/
-│   ├── auth.js            authRequired (JWT) + requireRole(...roles)
-│   └── upload.js          multer disk-storage config
-├── models/                Mongoose schemas (one per collection)
-├── routes/                One file per top-level resource (auth, users, jobs, tools, messages, kyc, admin)
-└── utils/
-    ├── ai.js              AI ranker HTTP client + JS fallback
-    ├── notify.js          Notification doc create + socket emit
-    ├── realtime.js        Socket.IO init + emit / emitRole helpers
-    └── seed.js            Demo-data seeder (npm run seed)
-```
+├── app.js / server.js     app factory (used by tests) · HTTP + Socket.IO + graceful shutdown
+├── config/                index.js (env with defaults) · catalog.js (categories, enums)
+├── middleware/            auth · upload (images only) · validate · error
+├── models/                User Job Tool Rental Message Notification Kyc Report
+├── routes/                auth users jobs tools rentals messages kyc reviews reports ai meta admin
+├── services/              scoring.js (AI fallback) · rentals.js (serialisation, queries)
+└── utils/                 ai.js · notify.js · realtime.js · http.js · seed.js · create-admin.js
 
-### Mobile
-```
+ai-service/app/            main.py · classifier.py · training_data.py · urgency.py · scoring.py · text.py · ranker.py (v1 API)
+
 mobile/lib/
-├── main.dart              MaterialApp, root router, global ScaffoldMessenger,
-│                          realtime → toast handler
-├── services/
-│   ├── api_client.dart    Static get/post/patch/delete with JSON + JWT
-│   ├── api_config.dart    Per-platform baseUrl (web/iOS/android/desktop) +
-│   │                      --dart-define=API_BASE_URL override
-│   ├── auth_service.dart  Singleton; login/register/logout/refreshUser;
-│   │                      starts/stops RealtimeService
-│   └── realtime_service.dart  socket_io_client wrapper, broadcast Stream
-├── models/                Plain Dart DTOs with fromJson/toJson
-├── widgets/
-│   ├── app_drawer.dart    Profile / Notifications / KYC / Logout
-│   └── status_chip.dart   Colored pill for status strings
-└── screens/
-    ├── auth/              login, register
-    ├── client/            client_home (tabs), post_job, job_detail_client
-    ├── technician/        tech_home (tabs), tech_job_detail
-    ├── supplier/          supplier_home (tabs), add_tool
-    ├── admin/             admin_home (3 tabs in one file: stats, users, kyc)
-    └── shared/            tools_list, messages, notifications, kyc, profile
+├── main.dart / app.dart   bootstrap · theme · root gate · global realtime toasts
+├── core/                  theme.dart (design system) · catalog.dart · format.dart
+├── services/              api_client · auth · realtime · badges · settings · navigation
+├── models/                user job tool rental message app_notification recommendation
+├── widgets/               cards · match_card · pills · states · media · visuals · dialogs · async_list …
+└── screens/               shells.dart · routes.dart · auth/ client/ technician/ supplier/ admin/ shared/
 ```

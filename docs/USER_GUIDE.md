@@ -1,250 +1,131 @@
 # User Guide
 
-The app has four roles. The role is chosen at registration (admin can't be
-self-registered — see [Admin](#admin)).
+SureFix has four roles. Clients, technicians and suppliers sign up from the app
+(**Create an account** → pick a role); admin accounts are created with
+`npm run create-admin` in `backend/`.
 
-After login, the app routes to the role-specific home screen. The drawer
-(hamburger menu) is shared and contains: **Profile**, **Notifications**,
-**KYC verification** (technicians + suppliers only), and **Log out**.
+The first launch shows a short onboarding. After login each role gets its own bottom
+navigation; **Account** is always the last tab (profile, verification, notifications,
+theme, password, logout).
 
-A toast (snackbar) appears for every action that succeeds or fails, and for
-every relevant cross-role event delivered over Socket.IO in real time.
+> **Demo data:** run `scripts\reset-demo-data.bat` (wipes the database!). Every demo
+> account uses the password `password123`; debug builds show one-tap demo buttons on the
+> login screen.
 
----
-
-## Demo data
-
-After `npm run seed` (auto-run by `start-backend.sh` on first launch with an
-empty DB), these accounts exist. Password is `password123` for all.
-
-| Role | Email | Notes |
-|---|---|---|
-| Client | `client@demo.com` | Sara Client |
-| Technician | `tech@demo.com` | Ahmad Tech — plumbing/electrical, KYC approved, rating 4.6 |
-| Technician | `tech2@demo.com` | Noor Fix — carpentry, KYC approved, rating 4.1 |
-| Supplier | `supplier@demo.com` | ToolCo — owns the seeded tools |
-| Admin | `admin@demo.com` | — |
-
-Plus 2 jobs ("Fix leaking kitchen sink" with 2 bids, "Install ceiling fan"
-with no bids) and 3 tools (Bosch drill, pipe-wrench set, tile cutter).
-
----
-
-## Common to all roles
-
-### Login / Register
-
-- `LoginScreen` (`mobile/lib/screens/auth/login_screen.dart`) — email +
-  password. Demo email/password are pre-filled to speed up testing.
-- "Create an account" → `RegisterScreen`. Pick role (client / technician /
-  supplier — admin is not in the segmented control).
-
-### Profile
-
-- `ProfileScreen` (drawer → Profile). Edit name, phone, bio. Technicians also
-  edit `skills` (comma-separated).
-- Technicians additionally see: rating + count, jobs completed/assigned, avg
-  response, current KYC status.
-- Save → PATCH `/api/users/me` → local `User` is refreshed via
-  `AuthService.refreshUser()` so the drawer header updates immediately.
-
-### Notifications
-
-- Drawer → Notifications. Lists the last 50, newest first.
-- Live-prepends new notifications via the `notification` Socket.IO event.
-- Tap a notification → marks read on the server + reloads.
-
-### KYC verification (technician + supplier only)
-
-- Drawer → KYC verification. Enter full name, ID type
-  (CNIC / passport / driver_license), ID number.
-- Submission goes to `POST /api/kyc` and sets `user.kycStatus = pending`.
-- The screen also re-fetches the user on open so any admin verdict that
-  arrived while you were away is reflected.
-- **Image upload is not implemented in this screen** — the form sends JSON
-  only. Admin still gets a submission to review (without images).
-
-### Logout
-
-Drawer → Log out. Disconnects the realtime socket and `pushAndRemoveUntil`
-back to the login screen.
+| Demo account | Who |
+|---|---|
+| `client@demo.com` | Sara Khan (Lahore) — open jobs with quotes, an AC job in progress with chat, completed + reviewed jobs, an active drill rental |
+| `client2@demo.com` | Bilal Ahmed (Karachi) — a direct request to Ahmad, a rental and an installment request, a report |
+| `tech@demo.com` | Ahmad Raza — electrician & plumber, verified, 12 reviews, one direct request |
+| `tech3@demo.com` | Usman Ali — AC specialist, hired on Sara's AC job |
+| `tech2/4/5/6/7/8@demo.com` | Carpenter, painter (KYC pending), plumber, cleaner, a brand-new electrician, a busy locksmith |
+| `supplier@demo.com` | ToolCo Rentals — 8 tools, pending requests, an overdue rental |
+| `admin@demo.com` | Admin — pending KYC, an open report |
 
 ---
 
 ## Client
 
-Home: `ClientHome` with two bottom-nav tabs.
+### Find a technician with Smart Match (AI)
+1. **Home → "Describe your problem…"** (or tap a suggestion such as *AC not cooling*).
+2. Write the problem in your own words, check your city and tap **Find the best technicians**.
+3. SureFix shows what it understood — the trade (with AI confidence), how urgent it sounds
+   and the words it picked up on. If it guessed wrong, tap the right trade and it re-ranks.
+4. Each technician gets a **match %** with reasons (✓ specialisation, rating, completed jobs,
+   response time, city, ID verified) and cautions (ⓘ new on SureFix, outside your city,
+   currently busy).
+5. **Request** sends the job privately to that technician; *Prefer to compare quotes?* posts
+   it to everyone.
 
-### Tab 1 — My jobs
+### Post a job
+- **Post a job** (home or My jobs). As you describe the problem, the AI suggests the
+  category and urgency — tap **Apply** (it applies automatically until you pick yourself).
+- Add a budget (optional), preferred date, city, address (only shared with the technician you
+  hire) and up to 5 photos.
 
-- Lists all jobs you've posted, newest first. Empty state explains how to
-  post one.
-- FAB "Post job" → `PostJobScreen`:
-  - Title (required)
-  - Description (required)
-  - Category dropdown: plumbing / electrical / carpentry / painting /
-    appliance / general
-  - Budget ($) — optional, accepts 0
-  - Location / address — optional
-  - Submit → POST `/api/jobs`. List refreshes via key bump on return.
+### Compare quotes and hire
+- **My jobs → the job.** Quotes are **ranked by the AI**: skills, reviews, reliability,
+  response time, distance and price. Each shows the price, when they can start, their
+  message, reasons and cautions such as *17 % over your budget*.
+- **Ask** opens a chat with that technician before you hire. **Hire** accepts the quote;
+  the others are declined automatically and you can now see each other's phone numbers.
+- A direct request shows *Waiting for … to respond*. If they decline, tap
+  **Open to all technicians**.
 
-- Tap a job → `JobDetailClient`:
-  - Job summary + status chip + budget.
-  - **Bids** section — AI-ranked. Each card shows the technician's name,
-    AI score (0–5), bid amount, ETA in days, message, rating with count.
-    `Accept bid` button on each (only when job is `pending`). Accepted bid
-    gets a green chip.
-  - When job is `in_progress`: `Mark completed` button.
-  - When job is `completed` and not yet rated: `Rate & review` (1–5 stars
-    + optional review).
-  - When a tech is assigned: chat icon in the app bar → `MessagesScreen`.
+### During and after the job
+- Chat from the job or the **Messages** tab (photos, read receipts ✓✓, typing indicator).
+- **Mark as completed**, then rate 1–5 ★ with a review. The **Activity** timeline shows every
+  step. Cancel any time before completion from the ⋮ menu (with a reason).
+- Report a technician from the ⋮ menu or their profile (🚩).
 
-### Real-time events you receive
+### Technicians directory
+**Home → All technicians** or tap a service tile. Search, filter (available now, verified,
+trade), sort (top rated, most jobs, lowest rate). Profiles show stats, about, skills, the star
+breakdown and every review, with **Request** at the bottom.
 
-- New bid arrives → toast "New bid on your job — Ahmad bid 75". List reloads.
-- Bid withdrawn → toast "Bid withdrawn". List reloads.
-- Status update from the assigned tech → toast.
-
-### Tab 2 — Rent / Buy tools
-
-- `ToolsListScreen` — all tools from all suppliers.
-- Each card: name, description, rent $/day, buy $ (with installments if
-  configured), Rent / Buy buttons.
-- **Rent**: dialog asks for days. POST `/api/tools/:id/rent` → snackbar with
-  total cost. Stock decrements server-side.
-- **Buy on installments**: shown only if `installmentMonths > 0`. Confirm
-  dialog shows months × monthly. POST `/api/tools/:id/purchase`.
+### Rent or buy tools
+- **Tools** tab: search, filter by category / in stock / installments, sort by price or rating.
+- **Rent**: choose dates, pickup or delivery, add a note — the sheet shows days × price,
+  deposit and the total. The supplier approves before anything is reserved.
+- **Installments**: request a monthly plan where offered.
+- **My rentals** (receipt icon on the Tools tab, or Account): cancel pending requests, see
+  days left / overdue, and review a tool once it's returned.
 
 ---
 
 ## Technician
 
-Home: `TechHome` with two bottom-nav tabs.
+- **Home**: availability switch (turn off when fully booked — you'll rank lower in Smart Match),
+  earnings, active jobs, quotes awaiting reply, rating; prompts to get verified and complete
+  your profile; **direct requests**; jobs matching your skills.
+- **Find work**: open jobs with search and filters (my skills, my city, urgent / emergency,
+  trade, highest budget). New jobs arrive live (*N new jobs — tap to refresh*).
+- **Job detail**: client, details (address appears after you're hired), how many other quotes
+  and the lowest. **Send a quote** (price — pre-filled with the budget — start day, message),
+  **Decline** a direct request, **Withdraw** a pending quote, **Chat** with the client, and
+  **Mark as completed** once hired.
+- **My jobs**: Requests · Quoted · Active · Completed.
+- **Account → Edit profile**: photo, headline, about, skills (the biggest factor in AI
+  ranking), hourly rate, years of experience, availability. **Identity verification** adds the
+  verified badge.
 
-### Tab 1 — Open jobs
-
-- All jobs in `pending` status (across all clients).
-- Each job card shows: title, description (2 lines), status chip, budget,
-  number of bids. **A small "You bid" badge appears if you've already bid
-  on this job** — you can still tap in to view, withdraw, or watch others.
-- Tap → `TechJobDetail`.
-
-### Tab 2 — My work
-
-- Jobs where you're the assigned technician.
-- Same card layout. Tap → `TechJobDetail`.
-
-### Job detail (`TechJobDetail`)
-
-- Top: status chip, budget, description, location, "Posted by".
-- **If pending and you haven't bid**: `Place bid` button → dialog
-  (amount, ETA days, message). Backend rejects amount ≤ 0.
-- **If you have a bid**: indigo "Your bid" card with status chip. While the
-  bid is `pending`, a `Cancel bid` button appears. Cancelling fires
-  `DELETE /api/jobs/:id/bids/me` and notifies the client.
-- **Other bids on this job (N)** — lists every bid except yours, with
-  technician name, ETA, amount.
-- **If you're the assigned tech and job is `in_progress`**: `Mark completed`
-  button → PATCH `/api/jobs/:id/status` with `completed`.
-- **If you're the assigned tech**: chat icon → `MessagesScreen`.
-
-### Real-time events you receive
-
-- Any client posts a job → toast "New job posted: …", Open-jobs tab reloads.
-- A client accepts your bid → toast "Bid accepted", My-work tab reloads.
-- A client (or anyone) changes a job's status while it's yours → toast.
-- A client rates your job → toast "New 5★ rating".
+How you're ranked: skills match, Bayesian-smoothed rating, completed-vs-hired jobs, how fast
+you usually quote, experience, distance, availability and verification (plus price on quotes).
 
 ---
 
 ## Supplier
 
-Home: `SupplierHome` with two bottom-nav tabs.
-
-### Tab 1 — My tools
-
-- Lists tools you own (`GET /api/tools?mine=1`).
-- Each row: name, "Rent $X/day · Buy $Y · stock N", red trash icon to delete.
-- Delete asks for confirmation, then `DELETE /api/tools/:id` and reloads
-  with a snackbar.
-- FAB "Add tool" → `AddToolScreen`:
-  - Name (required)
-  - Description
-  - Category: power / hand / measurement / plumbing / electrical / general
-  - Rent price per day, purchase price
-  - Installment months (0 = no installment plan), monthly amount
-  - Stock
-  - Submit → POST `/api/tools`. List refreshes on return.
-
-### Tab 2 — Rentals
-
-- `_IncomingRentalsTab` — every rental + installment-purchase against your
-  tools (`GET /api/tools/me/incoming`).
-- Each row shows: tool name, renter name, type (rent / installment), days /
-  months, total cost, timestamp, status.
-
-### Real-time events you receive
-
-- Anyone rents one of your tools → toast "Tool rented" (and the same goes
-  for installment purchases). The rentals tab key bumps so it reloads with
-  the new entry visible.
-
-### Notes
-
-- The tools-browsing screen (`ToolsListScreen`) is **not** mounted in the
-  supplier home — suppliers don't browse other suppliers' tools in this
-  build. The backend defends self-rent / self-purchase regardless.
-- KYC link is in the drawer for suppliers (same flow as technicians).
+- **Home**: rental revenue, tools listed, new requests, items out on rent, **overdue returns**,
+  and requests waiting for you with Approve / Decline buttons.
+- **My tools**: grid of your listings with stock. **Add tool** / tap to edit: up to 4 photos,
+  category, condition, pickup city, price per day, deposit, sale price, installments (months ×
+  monthly), stock, and *Listed in the marketplace*. Delete from the editor (blocked while a
+  rental is active).
+- **Requests**: Pending (approve reserves one unit of stock; decline with a reason) · Active
+  (**Mark returned** puts it back in stock; installment plans → **Mark fully paid**) · History.
 
 ---
 
 ## Admin
 
-Home: `AdminHome` with three bottom-nav tabs.
-
-### Tab 1 — Dashboard
-
-- Four stat cards: total Users, total Jobs, total Tools, pending KYC count.
-- `RefreshIndicator` re-fetches via `GET /api/admin/stats`.
-
-### Tab 2 — Users
-
-- `SegmentedButton` filter: All / Clients / Techs / Suppliers (admins are
-  in "All" only).
-- For each user: avatar with initial, name, email, role, KYC status, red
-  trash icon. **Your own row** shows a "You" badge instead of the trash icon
-  — the API also rejects DELETE on your own id.
-- Delete → confirmation → `DELETE /api/admin/users/:id`.
-
-### Tab 3 — KYC review
-
-- All KYC submissions from `GET /api/admin/kyc`, newest first, populated
-  with user info.
-- Each card: full name, status chip, user name + role, ID type + number.
-- For `pending` status: **Reject** (asks for reason) and **Approve** buttons.
-- Verdict → `POST /api/admin/kyc/:id/verify` updates KYC + user, notifies the
-  submitter.
-
-### Notes
-
-- Admin accounts can **only be created by the seeder** (`backend/src/utils/seed.js`)
-  or by inserting directly into Mongo. The `/api/auth/register` route returns
-  403 for `role: admin`.
-- Admin **does not** have a KYC link in the drawer (the drawer only shows
-  KYC for technicians and suppliers).
+- **Overview**: users, jobs, completed job value, rental value, KYC to review, open reports,
+  average technician rating, suspended accounts; 7-day charts for new jobs and sign-ups; jobs by
+  status, users by role, most requested services; AI engine online/fallback.
+- **Users**: search by name/email/phone/city, filter by role or suspended. Tap a user to
+  suspend (logs them out immediately), reactivate or delete.
+- **Verify**: KYC queue with ID front/back and selfie (tap to zoom). Approve, or reject with a
+  reason the user sees.
+- **Reports**: open reports with reason and details. Dismiss, resolve, or resolve and suspend
+  the reported user. The reporter is notified.
+- **Account → All jobs / All tools** for oversight; tool listings can be removed.
 
 ---
 
-## Cross-role flows worth seeing
+## Everyone
 
-Open two browser windows side-by-side (one regular, one private) and log in
-as two different roles to watch real-time push:
-
-1. **Client posts a job → all techs get a toast.**
-2. **Tech bids → only that client gets the toast + the bids panel reloads.**
-3. **Client accepts → only the winning tech gets the toast + their My-work tab reloads.**
-4. **Either marks complete → the other gets a toast.**
-5. **Client rates → tech gets a toast.**
-6. **Client/tech rents/buys a tool → only that tool's supplier gets a toast and their Rentals tab reloads.**
-7. **Either side messages → the other side's chat appends without waiting (the 15-second poll is just a safety net).**
-8. **Admin approves/rejects KYC → that user gets a toast and their KYC screen status updates on next open.**
+- **Notifications** (bell on dashboards, or Account): grouped by day, unread highlighted,
+  **Mark all read**, and tapping one opens the related job, rental or tool.
+- **Realtime**: quotes, hires, status changes, rentals and messages arrive instantly with a
+  toast; a *Reconnecting…* banner appears if the live connection drops.
+- **Theme**: Account → Theme → light / system / dark.

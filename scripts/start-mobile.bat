@@ -35,7 +35,7 @@ if exist ios goto skip_create
 if exist web goto skip_create
 if exist windows goto skip_create
 echo ==^> flutter create ^(platform folders missing^)
-flutter create --org com.fixit --project-name fixit .
+flutter create --org com.fixit --project-name surefix .
 :skip_create
 
 if "%~1"=="" (

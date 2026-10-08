@@ -1,48 +1,36 @@
-# FixIt Mobile App
-
-Flutter app for clients, technicians, suppliers, and admins.
-
-## Setup
-
-First time — generate the Android/iOS/web platform folders (this won't overwrite `lib/`
-or `pubspec.yaml`):
+# SureFix mobile app (Flutter)
 
 ```bash
-flutter create --org com.fixit --project-name fixit .
 flutter pub get
+flutter run                     # pick a device
+flutter run -d chrome           # web
+flutter test && flutter analyze
 ```
 
-Subsequent runs just need `flutter pub get` when dependencies change.
+Requires Flutter 3.35+ (Dart 3.9). Runs on Android, iOS, web and desktop.
 
-## Run
+## Build-time options
 
-Make sure the backend (`:4000`) and AI service (`:5001`) are running first.
+| Flag | Default | Purpose |
+|---|---|---|
+| `--dart-define=API_BASE_URL=http://host:4000` | `http://localhost:4000` | Backend URL (`10.0.2.2` for the Android emulator; `adb reverse tcp:4000 tcp:4000` for a USB phone) |
+| `--dart-define=CURRENCY=$` | `Rs` | Currency symbol |
+| `--dart-define=DEMO=true` | off in release | Show demo-account buttons on the login screen |
 
-```bash
-flutter run
+## Structure
+
+```
+lib/
+├── main.dart, app.dart   bootstrap, themes, root gate, global realtime toasts
+├── core/                 theme.dart (design system, light/dark), catalog.dart, format.dart
+├── services/             api_client, auth (ChangeNotifier), realtime (Socket.IO), badges, settings, navigation
+├── models/               user, job, tool, rental, message, app_notification, recommendation
+├── widgets/              cards, match_card, pills, states (empty/error/skeleton), media, visuals, dialogs, async_list
+└── screens/
+    ├── shells.dart       bottom navigation per role
+    ├── routes.dart       notification deep links
+    ├── auth/  client/  technician/  supplier/  admin/  shared/
 ```
 
-### Picking the backend URL
-
-`lib/services/api_config.dart` auto-picks per platform — no edit needed for
-the common cases:
-
-| Target                | Auto-picked baseUrl                    |
-| --------------------- | -------------------------------------- |
-| iOS simulator         | `http://localhost:4000`                |
-| Android emulator      | `http://10.0.2.2:4000`                 |
-| Web / Linux desktop   | `http://localhost:4000`                |
-
-For a physical device on your LAN (or a different host entirely), override
-at build time:
-
-```bash
-flutter run --dart-define=API_BASE_URL=http://192.168.1.10:4000
-```
-
-## Demo login
-
-- Client:     `client@demo.com / password123`
-- Technician: `tech@demo.com / password123`
-- Supplier:   `supplier@demo.com / password123`
-- Admin:      `admin@demo.com / password123`
+Design system: brand blue `#2F54EB` + tool orange `#FF8A00`, Plus Jakarta Sans (bundled, OFL —
+see `assets/fonts/OFL.txt`), semantic palette via `context.palette`, light and dark themes.
