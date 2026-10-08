@@ -103,7 +103,11 @@ async function run() {
     u({ name: 'BuildPro Equipment', email: 'supplier2@demo.com', role: 'supplier', phone: '021-7654321', city: 'Karachi' }),
     u({ name: 'Admin', email: 'admin@demo.com', role: 'admin', city: 'Lahore' })
   ]);
-  console.log('Seeded 13 users (password: password123)');
+  // Spread join dates so "Member since" and the admin sign-up chart look real.
+  const joined = { [sara.id]: 120, [bilal.id]: 45, [ahmad.id]: 400, [noor.id]: 210, [usman.id]: 620, [zainab.id]: 90,
+    [hamza.id]: 6, [ayesha.id]: 300, [farhan.id]: 2, [imran.id]: 250, [toolco.id]: 500, [buildpro.id]: 4, [admin.id]: 700 };
+  await Promise.all(Object.entries(joined).map(([id, days]) => User.collection.updateOne({ _id: new mongoose.Types.ObjectId(id) }, { $set: { createdAt: ago(days * DAY) } })));
+  console.log('Seeded 13 demo users (password: password123)');
 
   // ------------------------------------------------------------------ jobs
   const job = (o) => new Job(o);
@@ -216,7 +220,73 @@ async function run() {
   jobs.push(termite);
 
   for (const j of jobs) await j.save();
-  console.log(`Seeded ${jobs.length} jobs`);
+
+  // Past, reviewed jobs so each technician's rating/review count is backed
+  // by real reviews (the profile's star breakdown reads them).
+  const reviewers = await User.create(
+    ['Ali Hassan', 'Hina Javed', 'Omar Farooq', 'Mariam Shah', 'Kamran Butt'].map((name, i) =>
+      u({ name, email: `reviewer${i + 1}@demo.com`, role: 'client', city: ['Lahore', 'Karachi', 'Islamabad', 'Lahore', 'Rawalpindi'][i] })
+    )
+  );
+  await Promise.all(reviewers.map((r, i) => User.collection.updateOne({ _id: r._id }, { $set: { createdAt: ago((i + 1) * DAY) } })));
+  const PRAISE = {
+    5: ['Excellent work, very professional.', 'On time and left everything spotless.', 'Fixed it in no time. Highly recommended!', 'Fair price and great quality.', ''],
+    4: ['Good job overall, arrived a little late.', 'Solid work, would hire again.', 'Did the job well, slightly over the quote.', ''],
+    3: ['Got it done but communication could be better.', 'Okay work, took longer than expected.']
+  };
+  const TITLES = {
+    plumbing: ['Replace kitchen mixer tap', 'Unblock bathroom drain', 'Fix running toilet', 'Install water filter'],
+    electrical: ['Install ceiling fan', 'Replace burnt switchboard', 'Fix tripping breaker', 'Wire new sockets'],
+    carpentry: ['Repair wardrobe door', 'Fix squeaky bed frame', 'Install floating shelves'],
+    hvac: ['AC gas refill and service', 'Install split AC', 'Fix AC water leakage'],
+    appliance: ['Fix washing machine spin', 'Fridge not cooling'],
+    painting: ['Repaint bedroom walls', 'Paint main gate'],
+    masonry: ['Retile bathroom floor', 'Fix cracked plaster'],
+    cleaning: ['Deep clean 3-bed house', 'Sofa and carpet shampoo'],
+    pest_control: ['Cockroach treatment', 'Termite treatment'],
+    locksmith: ['Change front door lock', 'Install smart lock'],
+    general: ['Mount TV and shelves', 'Assemble furniture']
+  };
+  let historyCount = 0;
+  for (const tech of [ahmad, noor, usman, zainab, hamza, ayesha, imran]) {
+    const target = tech.rating;
+    const existing = await Job.countDocuments({ assignedTechnician: tech._id, rating: { $ne: null } });
+    const n = tech.ratingCount - existing;
+    const fives = Math.max(0, Math.min(n, Math.round(n * (target - 4))));
+    for (let i = 0; i < n; i++) {
+      const rating = target >= 4 ? (i < fives ? 5 : 4) : (i < Math.round(n * (target - 3)) ? 4 : 3);
+      const cat = tech.skills[i % tech.skills.length];
+      const titles = TITLES[cat] || TITLES.general;
+      const client = reviewers[i % reviewers.length];
+      const daysAgo = 20 + i * 9;
+      const price = 1500 + ((i * 937) % 6000);
+      const bid = { technician: tech._id, amount: price, etaDays: 1, status: 'accepted', createdAt: ago(daysAgo * DAY + HOUR) };
+      const job = new Job({
+        client: client._id, title: titles[i % titles.length], description: 'Completed through SureFix.', category: cat,
+        budget: price, city: client.city, status: 'completed', assignedTechnician: tech._id, agreedPrice: price,
+        completedAt: ago((daysAgo - 1) * DAY), createdAt: ago(daysAgo * DAY), bids: [bid],
+        rating, review: PRAISE[rating][i % PRAISE[rating].length]
+      });
+      job.acceptedBid = job.bids[0]._id;
+      job.history = [
+        { status: 'pending', note: 'Job posted', by: client._id, at: ago(daysAgo * DAY) },
+        { status: 'in_progress', note: `Hired ${tech.name} for ${price}`, by: client._id, at: ago(daysAgo * DAY - 2 * HOUR) },
+        { status: 'completed', note: '', by: tech._id, at: ago((daysAgo - 1) * DAY) },
+        { status: 'rated', note: `${rating}★`, by: client._id, at: ago((daysAgo - 1) * DAY) }
+      ];
+      await job.save();
+      historyCount += 1;
+    }
+    // Make the profile average exactly match the stored reviews.
+    const agg = await Job.aggregate([
+      { $match: { assignedTechnician: tech._id, rating: { $ne: null } } },
+      { $group: { _id: null, avg: { $avg: '$rating' }, n: { $sum: 1 } } }
+    ]);
+    if (agg[0]) {
+      await User.updateOne({ _id: tech._id }, { $set: { rating: Math.round(agg[0].avg * 100) / 100, ratingCount: agg[0].n } });
+    }
+  }
+  console.log(`Seeded ${jobs.length} jobs + ${historyCount} past reviewed jobs`);
 
   // ----------------------------------------------------------------- tools
   const t = (o) => ({ supplier: toolco._id, city: 'Lahore', condition: 'good', stock: 2, ...o });
