@@ -1,0 +1,25 @@
+name: fixit
+description: FixIt — home repair & tool rental marketplace
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+  flutter: '>=3.13.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.2
+  shared_preferences: ^2.2.2
+  intl: ^0.19.0
+  cupertino_icons: ^1.0.6
+  socket_io_client: ^2.0.3+1
+  image_picker: ^1.1.2
+
+
+dev_dependencies:
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
