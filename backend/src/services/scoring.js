@@ -49,6 +49,7 @@ const STOPWORDS = new Set(
 function stem(word) {
   let w = word;
   if (w.length > 4 && w.endsWith('ies')) w = `${w.slice(0, -3)}y`;
+  else if (w.length > 5 && w.endsWith('oes')) w = w.slice(0, -2);
   else if (w.length > 4 && /(ches|shes|sses|xes|zes)$/.test(w)) w = w.slice(0, -2);
   else if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) w = w.slice(0, -1);
 
@@ -189,6 +190,9 @@ function normSkill(s) {
   return SKILL_ALIASES[k] || k;
 }
 
+// "Plumbing" → "plumbing", but keep acronyms: "AC & heating".
+const sentenceCase = (label) => (label.length > 1 && label[1] === label[1].toUpperCase() && /[A-Z]/.test(label[1]) ? label : label.charAt(0).toLowerCase() + label.slice(1));
+
 const clamp01 = (x) => Math.max(0, Math.min(1, Number.isFinite(x) ? x : 0));
 
 function components(t, ctx, mode) {
@@ -268,7 +272,7 @@ function explain(t, c, w, ctx, mode) {
   const add = (key, text) => reasons.push({ weight: (w[key] || 0) * (c[key] || 0), text });
   const category = ctx.category ? normSkill(ctx.category) : '';
 
-  if (c.skill >= 0.99 && category && category !== 'general') add('skill', `Specialises in ${(CATEGORY_LABEL[category] || category).toLowerCase()}`);
+  if (c.skill >= 0.99 && category && category !== 'general') add('skill', `Specialises in ${sentenceCase(CATEGORY_LABEL[category] || category)}`);
   else if (c.skill >= 0.3 && (ctx.keywords || []).length) add('skill', 'Skills match your request');
 
   const n = Number(t.ratingCount) || 0;

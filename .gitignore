@@ -31,3 +31,7 @@ Thumbs.db
 .vscode/
 *.iml
 surefixing.rar
+
+# Python tests
+ai-service/.pytest_cache/
+.pytest_cache/
