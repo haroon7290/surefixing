@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/responsive.dart';
+
 import '../../models/job.dart';
 import '../../services/api_client.dart';
 import '../../services/navigation.dart';
@@ -111,12 +113,14 @@ class _MyJobsScreenState extends State<MyJobsScreen> {
                   _list(cancelled, const EmptyState(icon: Icons.cancel_outlined, title: 'No cancelled jobs')),
                 ],
               ),
-        floatingActionButton: FloatingActionButton.extended(
-          heroTag: 'myjobs-post',
-          onPressed: _post,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Post a job'),
-        ),
+        floatingActionButton: context.isWide
+            ? null // the site header has this button
+            : FloatingActionButton.extended(
+                heroTag: 'myjobs-post',
+                onPressed: _post,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Post a job'),
+              ),
       ),
     );
   }

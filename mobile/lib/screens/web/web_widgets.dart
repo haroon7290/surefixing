@@ -324,3 +324,47 @@ class FilterSwitch extends StatelessWidget {
         onChanged: onChanged,
       );
 }
+
+/// Gradient welcome banner at the top of website dashboards.
+class DashboardBanner extends StatelessWidget {
+  final Widget child;
+  const DashboardBanner({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(32, 28, 32, 28),
+        decoration: BoxDecoration(gradient: heroGradient, borderRadius: BorderRadius.circular(24)),
+        child: child,
+      );
+}
+
+/// Titled card used to group dashboard content on the website.
+class PanelCard extends StatelessWidget {
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final Widget child;
+  final EdgeInsets padding;
+  const PanelCard({
+    super.key,
+    required this.title,
+    required this.child,
+    this.actionLabel,
+    this.onAction,
+    this.padding = const EdgeInsets.fromLTRB(20, 8, 20, 20),
+  });
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 10, 6),
+            child: Row(children: [
+              Expanded(child: Text(title, style: context.text.titleMedium)),
+              if (actionLabel != null) TextButton(onPressed: onAction, child: Text(actionLabel!)),
+            ]),
+          ),
+          Padding(padding: padding, child: child),
+        ]),
+      );
+}

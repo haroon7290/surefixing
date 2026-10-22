@@ -69,7 +69,11 @@ The Android manifest includes the INTERNET permission and allows cleartext HTTP 
 `http://` backend works; remove `android:usesCleartextTraffic` once your API is on HTTPS.
 iOS includes camera/photo-library usage strings and allows local-network HTTP.
 
-**Web**: `flutter run -d chrome`, or `flutter build web --release` and serve `build/web`.
+**Web / website**: `flutter run -d chrome --web-port 8080` (Windows: `scripts\start-web.bat`). Wider
+than 1000 px the app shows the website layout (public pages for visitors, desktop dashboards for
+signed-in users). To host it, run `flutter build web --release --dart-define=API_BASE_URL=https://<your-api>`
+and serve `build/web` from any static host; set `CORS_ORIGINS` on the backend to the site's
+address. Sections use hash URLs (`/#/technicians`), so no server rewrite rules are needed.
 
 ## Tests
 

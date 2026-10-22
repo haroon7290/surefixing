@@ -86,7 +86,7 @@ class _LandingPageState extends State<LandingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Hero(topTech: _techs?.isNotEmpty == true ? _techs!.first : null, stats: _stats),
+            _Hero(topTech: _techs?.isNotEmpty == true ? _techs!.first : null, loading: _techs == null, stats: _stats),
             _StatsBand(stats: _stats),
             _section(KeyedSubtree(key: _anchors['services'], child: const _Services())),
             _section(KeyedSubtree(key: _anchors['how'], child: const _HowItWorks()), tinted: true),
@@ -113,8 +113,9 @@ class _LandingPageState extends State<LandingPage> {
 
 class _Hero extends StatefulWidget {
   final User? topTech;
+  final bool loading;
   final Map<String, dynamic>? stats;
-  const _Hero({required this.topTech, required this.stats});
+  const _Hero({required this.topTech, required this.loading, required this.stats});
 
   @override
   State<_Hero> createState() => _HeroState();
@@ -251,7 +252,13 @@ class _HeroState extends State<_Hero> {
                 ]),
               ),
               const SizedBox(width: 64),
-              Expanded(flex: 5, child: _HeroVisual(tech: widget.topTech, stats: widget.stats)),
+              Expanded(
+                flex: 5,
+                // Nothing to show if the API is unreachable or has no technicians yet.
+                child: !widget.loading && widget.topTech == null
+                    ? const SizedBox.shrink()
+                    : _HeroVisual(tech: widget.topTech, stats: widget.stats),
+              ),
             ]),
           ),
         ),
