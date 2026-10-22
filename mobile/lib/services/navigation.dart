@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/responsive.dart';
+
 /// Global keys so code outside the widget tree (realtime events, the API
 /// client's 401 handler) can navigate and show toasts.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -35,4 +37,6 @@ void toast(String message, {ToastKind kind = ToastKind.info, SnackBarAction? act
 
 void toastError(Object error) => toast(error.toString().replaceFirst('Exception: ', ''), kind: ToastKind.error);
 
-Future<T?> push<T>(BuildContext context, Widget page) => Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
+/// Opens a screen. On wide windows it is centred under the site header.
+Future<T?> push<T>(BuildContext context, Widget page) =>
+    Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => WebPage(child: page)));

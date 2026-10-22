@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/responsive.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/site_nav.dart';
+import 'auth_panel.dart';
 
 class _Role {
   final String key;
@@ -13,7 +16,9 @@ class _Role {
 }
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  /// Preselected role, e.g. from the website's "Become a technician" links.
+  final String? initialRole;
+  const RegisterScreen({super.key, this.initialRole});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -32,7 +37,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phone = TextEditingController();
   final _city = TextEditingController();
   final _password = TextEditingController();
-  String _role = 'client';
+  late String _role = _roles.any((r) => r.key == widget.initialRole) ? widget.initialRole! : 'client';
   bool _loading = false;
   bool _obscure = true;
   String? _error;
@@ -70,6 +75,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isWide) {
+      return AuthSplitLayout(
+        title: 'Create your free SureFix account',
+        subtitle: 'Hire technicians, find work, or rent out your tools — one account, set up in a minute.',
+        child: Form(
+          key: _form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Create an account', style: context.text.headlineSmall),
+              const SizedBox(height: 20),
+              ..._fields(context),
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Already have an account?', style: TextStyle(color: context.palette.muted)),
+                  TextButton(onPressed: () => SiteNav.go('login'), child: const Text('Log in')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Create account')),
       body: SafeArea(
@@ -80,93 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               key: _form,
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                children: [
-                  Text('How will you use SureFix?', style: context.text.titleMedium),
-                  const SizedBox(height: 12),
-                  for (final r in _roles) ...[
-                    _RoleCard(role: r, selected: _role == r.key, onTap: () => setState(() => _role = r.key)),
-                    const SizedBox(height: 10),
-                  ],
-                  const SizedBox(height: 14),
-                  Text('Your details', style: context.text.titleMedium),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: _role == 'supplier' ? 'Business or full name' : 'Full name',
-                      prefixIcon: const Icon(Icons.person_outline_rounded),
-                    ),
-                    validator: (v) => (v ?? '').trim().length < 2 ? 'Enter your name' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline_rounded)),
-                    validator: (v) => RegExp(r'^\S+@\S+\.\S+$').hasMatch((v ?? '').trim()) ? null : 'Enter a valid email',
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _phone,
-                          keyboardType: TextInputType.phone,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _city,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_outlined)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _password,
-                    obscureText: _obscure,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      helperText: 'At least 6 characters',
-                      prefixIcon: const Icon(Icons.lock_outline_rounded),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                      ),
-                    ),
-                    validator: (v) => (v ?? '').length < 6 ? 'Use at least 6 characters' : null,
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 14),
-                    Text(_error!, style: TextStyle(color: context.palette.danger, fontWeight: FontWeight.w600)),
-                  ],
-                  const SizedBox(height: 22),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                        : const Text('Create account'),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _role == 'client'
-                        ? 'You can start posting jobs right away.'
-                        : 'Tip: complete your profile and verify your ID to rank higher and earn trust.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: context.palette.muted, fontSize: 12.5),
-                  ),
-                ],
+                children: _fields(context),
               ),
             ),
           ),
@@ -174,6 +119,94 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
+
+  List<Widget> _fields(BuildContext context) => [
+        Text('How will you use SureFix?', style: context.text.titleMedium),
+        const SizedBox(height: 12),
+        for (final r in _roles) ...[
+          _RoleCard(role: r, selected: _role == r.key, onTap: () => setState(() => _role = r.key)),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 14),
+        Text('Your details', style: context.text.titleMedium),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _name,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: _role == 'supplier' ? 'Business or full name' : 'Full name',
+            prefixIcon: const Icon(Icons.person_outline_rounded),
+          ),
+          validator: (v) => (v ?? '').trim().length < 2 ? 'Enter your name' : null,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline_rounded)),
+          validator: (v) => RegExp(r'^\S+@\S+\.\S+$').hasMatch((v ?? '').trim()) ? null : 'Enter a valid email',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _city,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_outlined)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _password,
+          obscureText: _obscure,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _submit(),
+          decoration: InputDecoration(
+            labelText: 'Password',
+            helperText: 'At least 6 characters',
+            prefixIcon: const Icon(Icons.lock_outline_rounded),
+            suffixIcon: IconButton(
+              icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+              onPressed: () => setState(() => _obscure = !_obscure),
+            ),
+          ),
+          validator: (v) => (v ?? '').length < 6 ? 'Use at least 6 characters' : null,
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 14),
+          Text(_error!, style: TextStyle(color: context.palette.danger, fontWeight: FontWeight.w600)),
+        ],
+        const SizedBox(height: 22),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+              : const Text('Create account'),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _role == 'client'
+              ? 'You can start posting jobs right away.'
+              : 'Tip: complete your profile and verify your ID to rank higher and earn trust.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: context.palette.muted, fontSize: 12.5),
+        ),
+      ];
 }
 
 class _RoleCard extends StatelessWidget {

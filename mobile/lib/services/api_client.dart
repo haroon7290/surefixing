@@ -51,8 +51,10 @@ class ApiClient {
 
     final msg = body is Map && body['error'] != null ? body['error'].toString() : 'Something went wrong (HTTP ${res.statusCode})';
     final code = body is Map ? body['code']?.toString() : null;
-    if (res.statusCode == 401 || code == 'suspended') {
+    if ((res.statusCode == 401 && AuthService.instance.token != null) || code == 'suspended') {
       // Token expired/invalid or account suspended: drop the session.
+      // (A visitor without a session hitting a members-only route is not
+      // a session ending.)
       AuthService.instance.handleUnauthorized(code == 'suspended' ? msg : null);
     }
     throw ApiException(res.statusCode, msg, code: code);

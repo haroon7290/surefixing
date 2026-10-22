@@ -4,7 +4,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const User = require('../models/User');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, optionalAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const ai = require('../utils/ai');
 const realtime = require('../utils/realtime');
@@ -12,14 +12,16 @@ const { URGENCY_LEVELS, serviceCategoryKeys } = require('../config/catalog');
 
 const router = express.Router();
 
-router.get('/status', authRequired, async (_req, res) => {
-  res.json(await ai.status());
+router.get('/status', optionalAuth, async (req, res) => {
+  const s = await ai.status();
+  // Only admins see the service address and error details.
+  res.json(req.user?.role === 'admin' ? s : { online: s.online });
 });
 
 // Free-text problem → suggested category + urgency.
 router.post(
   '/analyze',
-  authRequired,
+  optionalAuth, // the website's "describe your problem" box works signed out
   [body('text').isString().trim().isLength({ min: 3, max: 3000 }).withMessage('Describe the problem in a few words')],
   validate,
   async (req, res) => {

@@ -3,7 +3,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Job = require('../models/Job');
-const { authRequired } = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 const { paginate, setTotal, notFound } = require('../utils/http');
 
 const router = express.Router();
@@ -13,7 +13,7 @@ function techId(req) {
   return new mongoose.Types.ObjectId(req.params.id);
 }
 
-router.get('/technician/:id', authRequired, async (req, res) => {
+router.get('/technician/:id', optionalAuth, async (req, res) => {
   const id = techId(req);
   const filter = { assignedTechnician: id, rating: { $ne: null } };
   const { limit, skip } = paginate(req, { defaultLimit: 50 });
@@ -41,7 +41,7 @@ router.get('/technician/:id', authRequired, async (req, res) => {
   );
 });
 
-router.get('/technician/:id/summary', authRequired, async (req, res) => {
+router.get('/technician/:id/summary', optionalAuth, async (req, res) => {
   const id = techId(req);
   const rows = await Job.aggregate([
     { $match: { assignedTechnician: id, rating: { $ne: null } } },

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../core/catalog.dart';
 import '../../core/format.dart';
+import '../../core/responsive.dart';
 import '../../core/theme.dart';
 import '../../models/tool.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/navigation.dart';
+import '../../services/site_nav.dart';
 import '../../widgets/app_avatar.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/media.dart';
@@ -50,7 +52,16 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     }
   }
 
+  /// Visitors on the website are sent to log in before renting.
+  bool _requireLogin() {
+    if (AuthService.instance.loggedIn) return true;
+    toast('Log in or create a free account to rent tools');
+    SiteNav.go('login');
+    return false;
+  }
+
   Future<void> _rent() async {
+    if (!_requireLogin()) return;
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -66,6 +77,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   }
 
   Future<void> _buy() async {
+    if (!_requireLogin()) return;
     final t = _tool!;
     final ok = await confirmDialog(
       context,
@@ -93,6 +105,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     }
     final cat = Catalog.tool(t.category);
     final mine = t.supplierId == AuthService.instance.user?.id;
+    if (context.isWide) return _wide(context, t, mine);
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -100,7 +113,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             pinned: true,
             expandedHeight: 300,
             actions: [
-              if (!mine)
+              if (!mine && AuthService.instance.loggedIn)
                 IconButton(
                   tooltip: 'Report',
                   icon: const Icon(Icons.flag_outlined),
@@ -248,6 +261,168 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 ]),
               ),
             ),
+    );
+  }
+
+  /// Website layout: gallery beside the price/booking panel, details below.
+  Widget _wide(BuildContext context, Tool t, bool mine) {
+    final cat = Catalog.tool(t.category);
+    final p = context.palette;
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 48),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          WebPageTitle(t.name,
+              subtitle: '${cat.label} · ${Catalog.toolConditions[t.condition] ?? t.condition}',
+              padding: const EdgeInsets.fromLTRB(0, 28, 0, 20)),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              flex: 6,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AspectRatio(
+                    aspectRatio: 4 / 3,
+                    child: GestureDetector(
+                      onTap: t.images.isEmpty ? null : () => PhotoViewer.open(context, t.images, _photo),
+                      child: NetImage(t.images.isEmpty ? '' : t.images[_photo.clamp(0, t.images.length - 1)], placeholder: cat),
+                    ),
+                  ),
+                ),
+                if (t.images.length > 1) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    for (var i = 0; i < t.images.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => _photo = i),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: i == _photo ? context.colors.primary : p.border, width: i == _photo ? 2 : 1),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(11),
+                              child: NetImage(t.images[i], width: 84, height: 64, placeholder: cat),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ]),
+                ],
+                if (t.description.isNotEmpty) ...[
+                  const SectionHeader('Description', padding: EdgeInsets.fromLTRB(4, 28, 0, 8)),
+                  Text(t.description, style: context.text.bodyLarge),
+                ],
+                SectionHeader('Reviews (${t.reviews.length})', padding: const EdgeInsets.fromLTRB(4, 28, 0, 10)),
+                if (t.reviews.isEmpty)
+                  Text('No reviews yet — be the first to rent it.', style: TextStyle(color: p.muted))
+                else
+                  for (final r in t.reviews)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              AppAvatar(name: r.renterName, url: r.renterAvatar, size: 30),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(r.renterName, style: const TextStyle(fontWeight: FontWeight.w700))),
+                              RatingStars(value: r.rating, size: 14),
+                            ]),
+                            if (r.review.isNotEmpty) ...[const SizedBox(height: 8), Text(r.review)],
+                          ]),
+                        ),
+                      ),
+                    ),
+              ]),
+            ),
+            const SizedBox(width: 28),
+            Expanded(
+              flex: 4,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Wrap(spacing: 6, runSpacing: 6, children: [
+                        Pill(cat.label, color: cat.color, icon: cat.icon),
+                        if (!t.inStock) Pill(t.available ? 'All rented out' : 'Unlisted', color: p.danger),
+                        if (t.inStock) Pill('${t.stock} available', color: p.success),
+                      ]),
+                      const SizedBox(height: 14),
+                      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(Fmt.money(t.rentPricePerDay),
+                            style: context.text.headlineMedium?.copyWith(color: context.colors.primary, fontWeight: FontWeight.w800)),
+                        Padding(padding: const EdgeInsets.only(bottom: 5), child: Text(' / day', style: TextStyle(color: p.muted))),
+                      ]),
+                      const SizedBox(height: 6),
+                      Row(children: [
+                        RatingLabel(rating: t.rating, count: t.ratingCount),
+                        if (t.rentalsCount > 0) ...[
+                          const SizedBox(width: 12),
+                          Text('Rented ${Fmt.plural(t.rentalsCount, 'time')}', style: TextStyle(color: p.muted, fontSize: 13)),
+                        ],
+                      ]),
+                      const Divider(height: 28),
+                      if (t.deposit > 0) InfoRow(icon: Icons.shield_outlined, label: 'Refundable deposit', value: Fmt.money(t.deposit)),
+                      if (t.purchasePrice > 0) InfoRow(icon: Icons.sell_outlined, label: 'Buy price', value: Fmt.money(t.purchasePrice)),
+                      if (t.hasInstallments)
+                        InfoRow(
+                            icon: Icons.payments_outlined,
+                            label: 'Installments',
+                            value: '${t.installmentMonths} × ${Fmt.money(t.installmentMonthly)}'),
+                      if (t.city.isNotEmpty) InfoRow(icon: Icons.place_outlined, label: 'Pickup city', value: t.city),
+                      if (!mine) ...[
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed: t.inStock ? _rent : null,
+                          icon: const Icon(Icons.event_available_rounded),
+                          label: Text(!t.inStock
+                              ? 'Unavailable right now'
+                              : AuthService.instance.loggedIn
+                                  ? 'Rent this tool'
+                                  : 'Log in to rent'),
+                        ),
+                        if (t.hasInstallments) ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: t.inStock ? _buy : null,
+                            icon: const Icon(Icons.payments_outlined),
+                            label: const Text('Buy on installments'),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Text('You won\'t be charged until the supplier approves.',
+                            textAlign: TextAlign.center, style: TextStyle(color: p.muted, fontSize: 12.5)),
+                      ],
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: AppAvatar(name: t.supplier.name, url: t.supplier.avatar, size: 46, verified: t.supplier.isVerified),
+                    title: Text(t.supplier.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text(t.supplier.city.isEmpty ? 'Tool supplier' : 'Tool supplier · ${t.supplier.city}'),
+                    trailing: !mine && AuthService.instance.loggedIn
+                        ? IconButton(
+                            tooltip: 'Report this listing',
+                            icon: const Icon(Icons.flag_outlined),
+                            onPressed: () => showReportSheet(context, targetType: 'tool', targetId: t.id, targetName: t.name),
+                          )
+                        : null,
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ]),
+      ),
     );
   }
 }
