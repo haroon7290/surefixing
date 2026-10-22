@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/catalog.dart';
 import '../../core/format.dart';
+import '../../core/responsive.dart';
 import '../../core/theme.dart';
 import '../../models/message.dart';
 import '../../services/api_client.dart';
@@ -25,14 +26,92 @@ class _InboxScreenState extends State<InboxScreen> {
   final _list = GlobalKey<AsyncListState<Conversation>>();
   final _updates = RealtimeService.instance.on({'message:new', 'message:read'});
 
+  /// Conversation open in the right-hand pane (website layout).
+  Conversation? _selected;
+
   Future<List<Conversation>> _load() async {
     final res = await ApiClient.getList('/api/messages');
     BadgeService.instance.refresh();
-    return res.map(Conversation.fromJson).toList();
+    final list = res.map(Conversation.fromJson).toList();
+    if (mounted && context.isWide && _selected == null && list.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _select(list.first));
+    }
+    return list;
+  }
+
+  bool _isSelected(Conversation c) => _selected != null && _selected!.jobId == c.jobId && _selected!.other.id == c.other.id;
+
+  void _select(Conversation c) {
+    if (!mounted) return;
+    setState(() => _selected = c);
+    // Opening the chat marks it read; refresh the unread counts shortly after.
+    Future.delayed(const Duration(milliseconds: 900), () => _list.currentState?.reload());
+  }
+
+  Widget _empty(BuildContext context) {
+    final me = AuthService.instance.user!;
+    return EmptyState(
+      icon: Icons.forum_outlined,
+      title: 'No conversations yet',
+      message: me.isTechnician
+          ? 'Clients can message you once you quote on their job.'
+          : 'Chat with technicians about a job once they quote or you hire them.',
+    );
+  }
+
+  /// Website layout: conversation list beside the open chat.
+  Widget _wide(BuildContext context) {
+    final me = AuthService.instance.user!;
+    final p = context.palette;
+    final c = _selected;
+    return Scaffold(
+      body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const WebPageTitle('Messages', subtitle: 'Chat with clients and technicians about your jobs'),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 28),
+            child: Card(
+              clipBehavior: Clip.antiAlias,
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                SizedBox(
+                  width: 360,
+                  child: AsyncList<Conversation>(
+                    key: _list,
+                    load: _load,
+                    reloadOn: _updates,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    spacing: 0,
+                    empty: _empty(context),
+                    itemBuilder: (context, conv, _) => ColoredBox(
+                      color: _isSelected(conv) ? context.colors.primary.withValues(alpha: 0.08) : Colors.transparent,
+                      child: _ConversationTile(c: conv, meId: me.id, onTap: () => _select(conv)),
+                    ),
+                  ),
+                ),
+                VerticalDivider(width: 1, color: p.border),
+                Expanded(
+                  child: c == null
+                      ? const EmptyState(icon: Icons.chat_bubble_outline_rounded, title: 'Select a conversation')
+                      : ChatScreen(
+                          key: ValueKey('${c.jobId}:${c.other.id}'),
+                          jobId: c.jobId,
+                          otherId: c.other.id,
+                          otherName: c.other.name,
+                          otherAvatar: c.other.avatar,
+                          jobTitle: c.jobTitle,
+                        ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (context.isWide) return _wide(context);
     final me = AuthService.instance.user!;
     return Scaffold(
       appBar: AppBar(title: const Text('Messages')),
@@ -42,13 +121,7 @@ class _InboxScreenState extends State<InboxScreen> {
         reloadOn: _updates,
         padding: const EdgeInsets.symmetric(vertical: 8),
         spacing: 0,
-        empty: EmptyState(
-          icon: Icons.forum_outlined,
-          title: 'No conversations yet',
-          message: me.isTechnician
-              ? 'Clients can message you once you quote on their job.'
-              : 'Chat with technicians about a job once they quote or you hire them.',
-        ),
+        empty: _empty(context),
         itemBuilder: (context, c, _) => _ConversationTile(
           c: c,
           meId: me.id,

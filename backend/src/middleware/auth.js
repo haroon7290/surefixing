@@ -21,6 +21,13 @@ async function authRequired(req, res, next) {
   next();
 }
 
+// Public pages (the website's technician directory, tool catalogue…) work
+// signed out; a token, when sent, must still be valid.
+function optionalAuth(req, res, next) {
+  if (!req.headers.authorization) return next();
+  return authRequired(req, res, next);
+}
+
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -31,4 +38,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authRequired, requireRole };
+module.exports = { authRequired, optionalAuth, requireRole };

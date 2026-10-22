@@ -3,11 +3,12 @@
 ```bash
 flutter pub get
 flutter run                     # pick a device
-flutter run -d chrome           # web
+flutter run -d chrome --web-port 8080   # the website (window > 1000 px wide)
 flutter test && flutter analyze
 ```
 
-Requires Flutter 3.35+ (Dart 3.9). Runs on Android, iOS, web and desktop.
+Requires Flutter 3.35+ (Dart 3.9). Runs on Android, iOS, web and desktop. Windows wider than
+1000 px get the website layout (see `lib/screens/web/` and `lib/core/responsive.dart`).
 
 ## Build-time options
 
@@ -30,6 +31,7 @@ lib/
     ├── shells.dart       bottom navigation per role
     ├── routes.dart       notification deep links
     ├── auth/  client/  technician/  supplier/  admin/  shared/
+    └── web/              website frame + header, public site, landing, about, web widgets
 ```
 
 Design system: brand blue `#2F54EB` + tool orange `#FF8A00`, Plus Jakarta Sans (bundled, OFL —

@@ -2,17 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'core/responsive.dart';
 import 'core/theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/routes.dart';
 import 'screens/shared/chat_screen.dart';
 import 'screens/shells.dart';
+import 'screens/web/public_site.dart';
+import 'screens/web/web_frame.dart';
 import 'services/auth_service.dart';
 import 'services/badge_service.dart';
 import 'services/navigation.dart';
 import 'services/realtime_service.dart';
 import 'services/settings_service.dart';
+import 'services/site_nav.dart';
 
 class SureFixApp extends StatefulWidget {
   const SureFixApp({super.key});
@@ -21,7 +25,7 @@ class SureFixApp extends StatefulWidget {
   State<SureFixApp> createState() => _SureFixAppState();
 }
 
-class _SureFixAppState extends State<SureFixApp> {
+class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
   StreamSubscription<RealtimeEvent>? _sub;
   bool _wasLoggedIn = AuthService.instance.loggedIn;
 
@@ -30,13 +34,25 @@ class _SureFixAppState extends State<SureFixApp> {
     super.initState();
     _sub = RealtimeService.instance.events.listen(_onRealtime);
     AuthService.instance.addListener(_onAuthChanged);
+    // Registered before MaterialApp's own observer, so address-bar changes
+    // (…/#/tools) switch sections instead of pushing unknown named routes.
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => SiteNav.syncUrl());
   }
 
   @override
   void dispose() {
     _sub?.cancel();
     AuthService.instance.removeListener(_onAuthChanged);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) async {
+    final key = routeInformation.uri.path.replaceAll('/', '').trim();
+    SiteNav.go(key.isEmpty ? 'home' : key);
+    return true;
   }
 
   void _onAuthChanged() {
@@ -45,6 +61,7 @@ class _SureFixAppState extends State<SureFixApp> {
     _wasLoggedIn = now;
     // Back to the root gate (login or the new user's home) on any session change.
     navigatorKey.currentState?.popUntil((r) => r.isFirst);
+    SiteNav.select('home');
     if (now) {
       BadgeService.instance.start();
     } else {
@@ -117,13 +134,18 @@ class _SureFixAppState extends State<SureFixApp> {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: settings.themeMode,
-        home: const RootGate(),
+        // One root page (RootGate) whatever the address bar says on load;
+        // SiteNav reads the address to pick the section instead.
+        onGenerateInitialRoutes: (_) => [MaterialPageRoute(builder: (_) => const RootGate())],
+        onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const RootGate()),
+        builder: (context, child) => WebFrame(child: child!),
       ),
     );
   }
 }
 
-/// Chooses the first screen: onboarding → login → the role's home.
+/// Chooses the first screen. Signed out: the public website on wide
+/// windows; onboarding → login on phones. Signed in: the role's home.
 class RootGate extends StatelessWidget {
   const RootGate({super.key});
 
@@ -133,8 +155,11 @@ class RootGate extends StatelessWidget {
       listenable: Listenable.merge([AuthService.instance, SettingsService.instance]),
       builder: (_, __) {
         final auth = AuthService.instance;
-        if (!SettingsService.instance.onboardingSeen && !auth.loggedIn) return const OnboardingScreen();
-        if (!auth.loggedIn) return const LoginScreen();
+        if (!auth.loggedIn) {
+          if (context.isWide) return const PublicSite();
+          if (!SettingsService.instance.onboardingSeen) return const OnboardingScreen();
+          return const LoginScreen();
+        }
         return HomeShell(key: ValueKey('${auth.user!.id}-${auth.user!.role}'), role: auth.user!.role);
       },
     );

@@ -55,6 +55,12 @@ flowchart LR
 - **AI is optional at runtime**: `utils/ai.js` calls the Python service with a timeout and falls
   back to `services/scoring.js`, a port of the same scorer (kept identical by a parity test in
   `ai-service/tests/test_scoring.py`). Every AI response carries `engine: "ai-service" | "fallback"`.
+- **One Flutter codebase, two layouts**: below 1000 px wide the app uses the phone layout
+  (bottom navigation, stacked screens). On wider windows — a browser, the Windows desktop app,
+  a tablet in landscape — `screens/web/web_frame.dart` puts a persistent website header above
+  the navigator, signed-out visitors get the public site (`screens/web/public_site.dart`), and
+  pages switch to multi-column layouts. The current section lives in `SiteNav` and is mirrored
+  in the address bar (`#/technicians`, `#/tools`, `#/my-jobs` …).
 - **Express 5** forwards async errors to one error handler (`middleware/error.js`), which turns
   Mongoose cast/validation errors, multer errors and bad JSON into clean `400`s.
 
@@ -122,7 +128,8 @@ approvals can never oversell the last unit; it is released on return.
 
 ## REST API
 
-All paths start with `/api`. 🔒 = needs a JWT. Lists accept `?page=&limit=` and return a plain
+All paths start with `/api`. 🔒 = needs a JWT. 🌐 = also works signed out (the public website);
+a token, when sent, must still be valid. Lists accept `?page=&limit=` and return a plain
 array with the total in the `X-Total-Count` header. Errors are `{ error, errors? }`.
 
 ### Auth & users
@@ -136,9 +143,10 @@ array with the total in the `X-Total-Count` header. Errors are `{ error, errors?
 | POST | `/users/me/avatar` 🔒 | multipart `avatar` |
 | GET | `/users/me/summary` 🔒 | Dashboard numbers for the caller's role |
 | GET | `/users/me/notifications` 🔒 | `?unread=1` · also `/unread-count`, `POST /read-all`, `POST /:id/read` |
-| GET | `/users/technicians` 🔒 | `?q=&category=&city=&minRating=&available=1&verified=1&sort=rating\|jobs\|price\|newest` |
-| GET | `/users/:id` 🔒 | Public profile (email/phone only for self/admin) + `online` |
-| GET | `/meta` | Categories, tool categories, urgency levels, report reasons (public) |
+| GET | `/users/technicians` 🌐 | `?q=&category=&city=&minRating=&available=1&verified=1&sort=rating\|jobs\|price\|newest` |
+| GET | `/users/:id` 🌐 | Public profile (email/phone only for self/admin) + `online`. Visitors only see technicians and suppliers |
+| GET | `/meta` 🌐 | Categories, tool categories, urgency levels, report reasons |
+| GET | `/meta/stats` 🌐 | Landing-page numbers: technicians, verified, jobs completed, tools, cities, average rating (cached 60 s) |
 
 ### Jobs
 
@@ -155,14 +163,14 @@ array with the total in the `X-Total-Count` header. Errors are `{ error, errors?
 | PATCH | `/jobs/:id/status` 🔒 | `{status: completed\|cancelled, note?}` per the state machine |
 | POST | `/jobs/:id/rate` 🔒 client | `{rating 1–5, review?}` once, after completion |
 | GET | `/jobs/:id/ranked-bids` 🔒 owner/admin | Quotes ranked by the AI: `score`, `matchPercent`, `reasons[]`, `notes[]`, `breakdown`, `engine` |
-| GET | `/reviews/technician/:id` 🔒 | Reviews · `/summary` → `{count, average, distribution}` |
+| GET | `/reviews/technician/:id` 🌐 | Reviews · `/summary` → `{count, average, distribution}` |
 
 ### Tools & rentals
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/tools` 🔒 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&installment=1&sort=newest\|price_asc\|price_desc\|rating\|popular`; supplier `?mine=1` |
-| GET | `/tools/:id` 🔒 | Detail + recent reviews |
+| GET | `/tools` 🌐 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&installment=1&sort=newest\|price_asc\|price_desc\|rating\|popular`; supplier `?mine=1` |
+| GET | `/tools/:id` 🌐 | Detail + recent reviews |
 | POST / PATCH | `/tools` · `/tools/:id` 🔒 supplier | multipart; field whitelist; `images` (≤ 4) appended, `removeImages` JSON list |
 | DELETE | `/tools/:id` 🔒 supplier/admin | Refused while rentals are active; pending requests cancelled |
 | POST | `/tools/:id/rent` 🔒 | `{startDate, endDate}` or `{days}`, `fulfillment`, `note` → rental `requested` |
@@ -182,8 +190,8 @@ array with the total in the `X-Total-Count` header. Errors are `{ error, errors?
 | POST | `/messages/:jobId/read` 🔒 | Mark read |
 | GET / POST | `/kyc/me` · `/kyc` 🔒 | Multipart `idFront`, `idBack`, `selfie` (front + selfie required); approved KYC is locked |
 | POST | `/reports` 🔒 | `{targetType, targetId, reason, details?}`; duplicates refused |
-| GET | `/ai/status` 🔒 | Is the Python service reachable? |
-| POST | `/ai/analyze` 🔒 | `{text}` → `{category, confidence, categories[], urgency, urgencyTerms[], keywords[], engine}` |
+| GET | `/ai/status` 🌐 | Is the Python service reachable? (`{online}` only, except for admins) |
+| POST | `/ai/analyze` 🌐 | `{text}` → `{category, confidence, categories[], urgency, urgencyTerms[], keywords[], engine}` |
 | POST | `/ai/recommend` 🔒 | `{description, category?, city?, budget?, urgency?, limit?}` → `{analysis, category, urgency, ranked[], engine}` |
 | GET | `/admin/stats` 🔒 admin | Counts, breakdowns by role/status/category, job & rental value, 7-day series |
 | GET | `/admin/users` 🔒 admin | `?q=&role=&status=` · `PATCH /admin/users/:id/status` · `DELETE /admin/users/:id` |
@@ -262,9 +270,10 @@ ai-service/app/            main.py · classifier.py · training_data.py · urgen
 
 mobile/lib/
 ├── main.dart / app.dart   bootstrap · theme · root gate · global realtime toasts
-├── core/                  theme.dart (design system) · catalog.dart · format.dart
-├── services/              api_client · auth · realtime · badges · settings · navigation
+├── core/                  theme.dart (design system) · catalog.dart · format.dart · responsive.dart (breakpoint, WebContent, WebPage)
+├── services/              api_client · auth · realtime · badges · settings · navigation · site_nav (sections + address bar)
 ├── models/                user job tool rental message app_notification recommendation
 ├── widgets/               cards · match_card · pills · states · media · visuals · dialogs · async_list …
 └── screens/               shells.dart · routes.dart · auth/ client/ technician/ supplier/ admin/ shared/
+    └── web/               web_frame · site_header · public_site · landing_page · about_page · web_widgets
 ```

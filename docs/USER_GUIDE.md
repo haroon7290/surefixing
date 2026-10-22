@@ -8,6 +8,12 @@ The first launch shows a short onboarding. After login each role gets its own bo
 navigation; **Account** is always the last tab (profile, verification, notifications,
 theme, password, logout).
 
+**On a computer** (any window wider than 1000 px) SureFix is a website instead: a top
+navigation bar replaces the bottom tabs, the **account menu** (your name, top right) holds
+Account & settings, rentals, dark mode and Log out, and dashboards use several columns.
+Visitors who aren't logged in can browse the landing page, technicians, tools and About;
+renting or requesting a technician asks them to log in first.
+
 > **Demo data:** run `scripts\reset-demo-data.bat` (wipes the database!). Every demo
 > account uses the password `password123`; debug builds show one-tap demo buttons on the
 > login screen.

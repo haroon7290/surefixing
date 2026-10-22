@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/catalog.dart';
+import '../../core/responsive.dart';
 import '../../models/tool.dart';
 import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../services/navigation.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/states.dart';
+import '../web/web_widgets.dart';
 import 'my_rentals_screen.dart';
 import 'tool_detail_screen.dart';
 
@@ -67,18 +70,154 @@ class _ToolsMarketScreenState extends State<ToolsMarketScreen> {
     _load();
   }
 
+  static const _sorts = {
+    'popular': 'Most rented',
+    'price_asc': 'Price: low to high',
+    'price_desc': 'Price: high to low',
+    'rating': 'Top rated',
+    'newest': 'Newest',
+  };
+
+  Future<void> _openTool(Tool t) async {
+    await push(context, ToolDetailScreen(toolId: t.id));
+    _load();
+  }
+
+  /// Website layout: filter sidebar + product grid.
+  Widget _wide(BuildContext context) {
+    final items = _items;
+    final cat = _category == null ? null : Catalog.tool(_category);
+    return Scaffold(
+      body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        WebPageTitle(
+          cat == null ? 'Rent tools' : cat.label,
+          subtitle: items == null
+              ? 'Loading tools…'
+              : '${items.length} ${items.length == 1 ? 'tool' : 'tools'} from local suppliers · pay by the day',
+          trailing: AuthService.instance.loggedIn
+              ? OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                  onPressed: () => push(context, const MyRentalsScreen()),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('My rentals'),
+                )
+              : null,
+        ),
+        Expanded(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              width: 280,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 32),
+                child: FilterPanel(children: [
+                  TextField(
+                    controller: _search,
+                    onChanged: (_) {
+                      _debounce?.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 350), _load);
+                    },
+                    decoration:
+                        const InputDecoration(hintText: 'Drill, ladder, washer…', prefixIcon: Icon(Icons.search_rounded), isDense: true),
+                  ),
+                  const FilterLabel('Sort by'),
+                  DropdownButtonFormField<String>(
+                    initialValue: _sort,
+                    isDense: true,
+                    items: [for (final e in _sorts.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      _sort = v;
+                      _changed();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FilterSwitch(
+                    label: 'In stock now',
+                    value: _inStock,
+                    onChanged: (v) {
+                      _inStock = v;
+                      _changed();
+                    },
+                  ),
+                  FilterSwitch(
+                    label: 'Installment plans',
+                    value: _installments,
+                    onChanged: (v) {
+                      _installments = v;
+                      _changed();
+                    },
+                  ),
+                  const FilterLabel('Category'),
+                  FilterOption(
+                    label: 'All tools',
+                    icon: Icons.apps_rounded,
+                    selected: _category == null,
+                    onTap: () {
+                      _category = null;
+                      _changed();
+                    },
+                  ),
+                  for (final c in Catalog.tools)
+                    FilterOption(
+                      label: c.label,
+                      icon: c.icon,
+                      color: c.color,
+                      selected: _category == c.key,
+                      onTap: () {
+                        _category = c.key;
+                        _changed();
+                      },
+                    ),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 28),
+            Expanded(
+              child: items == null
+                  ? (_error != null
+                      ? ErrorView(message: _error.toString(), onRetry: _load)
+                      : GridView.count(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 20,
+                          crossAxisSpacing: 20,
+                          childAspectRatio: 0.9,
+                          children: List.generate(6, (_) => const Skeleton(radius: 16, height: 280)),
+                        ))
+                  : items.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.handyman_outlined, title: 'No tools match', message: 'Try another category or search term.')
+                      : GridView.builder(
+                          padding: const EdgeInsets.only(bottom: 40),
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 290,
+                            mainAxisExtent: 300,
+                            mainAxisSpacing: 20,
+                            crossAxisSpacing: 20,
+                          ),
+                          itemCount: items.length,
+                          itemBuilder: (_, i) => ToolCard(tool: items[i], onTap: () => _openTool(items[i])),
+                        ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (context.isWide) return _wide(context);
     final items = _items;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rent tools'),
         actions: [
-          IconButton(
-            tooltip: 'My rentals',
-            onPressed: () => push(context, const MyRentalsScreen()),
-            icon: const Icon(Icons.receipt_long_outlined),
-          ),
+          if (AuthService.instance.loggedIn)
+            IconButton(
+              tooltip: 'My rentals',
+              onPressed: () => push(context, const MyRentalsScreen()),
+              icon: const Icon(Icons.receipt_long_outlined),
+            ),
           PopupMenuButton<String>(
             tooltip: 'Sort',
             icon: const Icon(Icons.sort_rounded),
@@ -172,13 +311,7 @@ class _ToolsMarketScreenState extends State<ToolsMarketScreen> {
                                 childAspectRatio: 0.78,
                               ),
                               itemCount: items.length,
-                              itemBuilder: (_, i) => ToolCard(
-                                tool: items[i],
-                                onTap: () async {
-                                  await push(context, ToolDetailScreen(toolId: items[i].id));
-                                  _load();
-                                },
-                              ),
+                              itemBuilder: (_, i) => ToolCard(tool: items[i], onTap: () => _openTool(items[i])),
                             ),
                           ),
                   ),

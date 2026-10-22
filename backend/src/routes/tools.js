@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const { body } = require('express-validator');
 const Tool = require('../models/Tool');
 const Rental = require('../models/Rental');
-const { authRequired, requireRole } = require('../middleware/auth');
+const { authRequired, optionalAuth, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const upload = require('../middleware/upload');
 const { notify } = require('../utils/notify');
@@ -61,10 +61,10 @@ async function loadTool(id) {
 
 // ?q= ?category= ?city= ?minPrice= ?maxPrice= ?available=1 ?installment=1
 // ?sort=newest|price_asc|price_desc|rating|popular ?mine=1 (supplier)
-router.get('/', authRequired, async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   const { mine, q: text, category, city, minPrice, maxPrice, available, installment, sort } = req.query;
   const q = {};
-  if (req.user.role === 'supplier' && mine === '1') q.supplier = req.user._id;
+  if (req.user?.role === 'supplier' && mine === '1') q.supplier = req.user._id;
   else q.available = true;
   if (text) {
     const rx = new RegExp(escapeRegex(String(text).trim()), 'i');
@@ -108,7 +108,7 @@ router.get('/me/incoming', authRequired, requireRole('supplier'), async (req, re
   res.json(items);
 });
 
-router.get('/:id', authRequired, async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Tool not found');
   const tool = await Tool.findById(req.params.id).populate('supplier', 'name avatar city rating createdAt kycStatus');
   if (!tool) throw notFound('Tool not found');

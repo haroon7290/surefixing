@@ -1,7 +1,7 @@
 # SureFix — The Marketplace for Home Repairs and Tool Rentals
 
 SureFix connects **clients**, **technicians** and **tool suppliers** in one
-mobile app. Clients describe a problem in their own words, an **AI engine
+mobile app **and website**. Clients describe a problem in their own words, an **AI engine
 understands it and ranks the best technicians — explaining why** — and the
 job is quoted, hired, tracked, chatted about and reviewed in one place.
 Anything a job needs can be rented from local suppliers instead of bought.
@@ -13,9 +13,20 @@ Anything a job needs can be rented from local suppliers instead of bought.
   <img src="docs/screenshots/chat.jpg" width="200" alt="Chat">
 </p>
 
+On a computer the same app becomes a **website** — public landing page, technician
+directory and tool catalogue for visitors, and desktop dashboards for every role:
+
+<p align="center">
+  <img src="docs/screenshots/web-landing.jpg" width="820" alt="SureFix website — landing page">
+</p>
+<p align="center">
+  <img src="docs/screenshots/web-client-dashboard.jpg" width="405" alt="Client dashboard on the web">
+  <img src="docs/screenshots/web-messages.jpg" width="405" alt="Messages on the web">
+</p>
+
 | Layer | Tech |
 |---|---|
-| Mobile app | Flutter 3.35 (Android, iOS, web, desktop) · Material 3 · light & dark themes |
+| App + website | Flutter 3.35 (Android, iOS, web, desktop) · phone layout + website layout · Material 3 · light & dark themes |
 | Backend | Node.js 18+ · Express 5 · MongoDB (Mongoose) · JWT auth · Socket.IO realtime |
 | AI service | Python · FastAPI · Naive Bayes text classifier + explainable ranking |
 | Ops | Docker Compose · GitHub Actions CI · 100+ automated tests |
@@ -63,7 +74,8 @@ setup.bat                      :: once (and again after pulling new code)
 scripts\start-mongo.bat        :: skip if MongoDB runs as a Windows service
 scripts\start-backend.bat      :: http://localhost:4000
 scripts\start-ai.bat           :: http://localhost:5001  (docs at /docs)
-scripts\start-mobile.bat       :: add "chrome" or a device id as an argument
+scripts\start-mobile.bat       :: phone/emulator (add a device id as an argument)
+scripts\start-web.bat          :: the website in Chrome, http://localhost:8080
 ```
 
 Want the demo data (13 accounts, jobs in every state, quotes, reviews, tools, rentals,

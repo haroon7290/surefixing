@@ -11,6 +11,7 @@ import 'package:surefix/models/tool.dart';
 import 'package:surefix/models/user.dart';
 import 'package:surefix/services/auth_service.dart';
 import 'package:surefix/services/settings_service.dart';
+import 'package:surefix/services/site_nav.dart';
 import 'package:surefix/widgets/match_card.dart';
 import 'package:surefix/widgets/pills.dart';
 import 'package:surefix/widgets/rating_stars.dart';
@@ -200,6 +201,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Enter a valid email'), findsOneWidget);
       expect(find.text('Enter your password'), findsOneWidget);
+    });
+  });
+
+  group('website layout', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Future<void> pumpWide(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await SettingsService.instance.load();
+      await AuthService.instance.load();
+      SiteNav.section.value = 'home';
+      await tester.pumpWidget(const SureFixApp());
+      // Not pumpAndSettle: loading skeletons animate until data arrives.
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    testWidgets('visitors get the public site with a header, not the app onboarding', (tester) async {
+      await pumpWide(tester);
+      expect(find.text('Trusted pros for every repair'), findsNothing);
+      expect(find.text('Get started'), findsOneWidget);
+      expect(find.text('Find a technician'), findsWidgets);
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('header links switch pages and keep the header', (tester) async {
+      await pumpWide(tester);
+      await tester.tap(find.text('Log in').first);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(SiteNav.section.value, 'login');
+      await tester.tap(find.text('Get started'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Create an account'), findsOneWidget);
+      expect(find.text('Get started'), findsOneWidget); // header still there
     });
   });
 }

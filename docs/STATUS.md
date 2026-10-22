@@ -34,7 +34,14 @@ cross-party event; online presence.
 **Admin** — analytics dashboard with charts, user management, KYC queue, reports queue,
 job/tool oversight, AI engine status.
 
-**Engineering** — 54 backend tests (real MongoDB), 34 AI tests, 13 Flutter tests, GitHub
+**Website** — on windows wider than 1000 px the Flutter app becomes a website: persistent
+top navigation, public landing page (AI problem box, live platform stats, services, how it
+works, Smart Match factors, top technicians, popular tools, join-as-a-pro, footer), public
+technician directory and tool catalogue with filter sidebars, public profiles and tool pages
+(actions ask visitors to log in), split-screen login/sign-up, About page, desktop dashboards
+for all four roles, two-pane messages, product-style tool pages, address-bar sections.
+
+**Engineering** — 61 backend tests (real MongoDB), 34 AI tests, 15 Flutter tests, GitHub
 Actions CI, Dockerfiles + docker-compose, Windows scripts that keep dependencies in sync,
 rich demo seed, analyzer-clean Flutter code, light/dark design system.
 
@@ -62,6 +69,9 @@ rich demo seed, analyzer-clean Flutter code, light/dark design system.
 - Chat messages no longer create notification entries (they have their own unread badge).
 
 ## Changelog
+
+- **v2.1** — Website layout for wide screens (public site + desktop dashboards); signed-out
+  read access to technicians, tools, reviews and problem analysis; `/api/meta/stats`.
 
 - **v2.0** — SureFix rebrand and redesign; AI Smart Match and explainable ranking; direct
   requests; rental request workflow; chat threads with read receipts/typing/photos; reports;

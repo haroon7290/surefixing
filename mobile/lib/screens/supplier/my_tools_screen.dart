@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/responsive.dart';
+
 import '../../core/theme.dart';
 import '../../models/tool.dart';
 import '../../services/api_client.dart';
@@ -84,12 +86,14 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
                       ),
                     ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add-tool',
-        onPressed: () => _edit(),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add tool'),
-      ),
+      floatingActionButton: context.isWide
+          ? null // the site header has this button
+          : FloatingActionButton.extended(
+              heroTag: 'add-tool',
+              onPressed: () => _edit(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add tool'),
+            ),
     );
   }
 }

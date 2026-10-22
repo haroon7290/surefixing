@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../../core/responsive.dart';
 import '../../core/theme.dart';
 import '../../models/rental.dart';
 import '../../services/api_client.dart';
@@ -18,6 +19,7 @@ import '../../widgets/visuals.dart';
 import '../shared/kyc_screen.dart';
 import '../shared/notifications_screen.dart';
 import '../shells.dart';
+import '../web/web_widgets.dart';
 import 'rental_actions.dart';
 import 'tool_form_screen.dart';
 
@@ -77,6 +79,7 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
     final s = _summary;
     final rentals = (s?['rentals'] as Map?) ?? {};
     final p = context.palette;
+    if (context.isWide) return _wide(context);
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _load,
@@ -199,6 +202,138 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
                 ),
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addTool() async {
+    await push(context, const ToolFormScreen());
+    _load();
+  }
+
+  Widget _rentalList(List<Rental>? items, Widget empty) {
+    if (items == null) return const SkeletonCard();
+    if (items.isEmpty) return Card(child: empty);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final r in items) ...[
+        RentalCard(rental: r, perspective: 'supplier', actions: rentalActions(context, r, _load)),
+        const SizedBox(height: 12),
+      ],
+    ]);
+  }
+
+  /// Website layout: revenue banner, stats, then pending requests beside
+  /// overdue returns.
+  Widget _wide(BuildContext context) {
+    final me = AuthService.instance.user!;
+    final s = _summary;
+    final rentals = (s?['rentals'] as Map?) ?? {};
+    final p = context.palette;
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 28, bottom: 56),
+          child: WebContent(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              DashboardBanner(
+                child: Row(children: [
+                  AppAvatar(name: me.name, url: me.avatar, size: 64, verified: me.isVerified),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(me.name, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+                      Text('Supplier dashboard', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 15)),
+                    ]),
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text('Rental revenue', style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontWeight: FontWeight.w600)),
+                    Text(s == null ? '—' : Fmt.money(s['revenue'] ?? 0),
+                        style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800, letterSpacing: -0.8)),
+                  ]),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              ColumnsGrid(columns: 4, rowHeight: 130, children: [
+                StatTile(
+                    icon: Icons.handyman_rounded,
+                    value: '${s?['tools'] ?? '—'}',
+                    label: 'Tools listed',
+                    onTap: () => HomeShell.goTo(context, 1)),
+                StatTile(
+                    icon: Icons.mark_email_unread_rounded,
+                    value: '${rentals['requested'] ?? 0}',
+                    label: 'Requests waiting',
+                    color: Brand.accent,
+                    onTap: () => HomeShell.goTo(context, 2)),
+                StatTile(
+                    icon: Icons.timelapse_rounded,
+                    value: '${rentals['active'] ?? 0}',
+                    label: 'On rent now',
+                    color: p.success,
+                    onTap: () => HomeShell.goTo(context, 2)),
+                StatTile(
+                    icon: Icons.warning_amber_rounded,
+                    value: _overdue == null ? '—' : '${_overdue!.length}',
+                    label: 'Overdue returns',
+                    color: p.danger),
+              ]),
+              if (!me.isVerified) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                    leading: Icon(Icons.verified_user_rounded, color: p.info),
+                    title: Text(me.kycStatus == 'pending' ? 'Verification in review' : 'Verify your business',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('Verified suppliers get a badge customers trust.'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => push(context, const KycScreen()),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 28),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    SectionHeader('Requests waiting for you',
+                        padding: const EdgeInsets.fromLTRB(4, 0, 0, 10),
+                        actionLabel: 'All requests',
+                        onAction: () => HomeShell.goTo(context, 2)),
+                    _rentalList(
+                      _pending,
+                      EmptyState(
+                        compact: true,
+                        icon: Icons.inbox_outlined,
+                        title: 'No pending requests',
+                        message: 'List more tools to get more rentals.',
+                        actionLabel: 'Add a tool',
+                        onAction: _addTool,
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(width: 28),
+                Expanded(
+                  flex: 2,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    const SectionHeader('Overdue returns', padding: EdgeInsets.fromLTRB(4, 0, 0, 10)),
+                    _rentalList(
+                      _overdue,
+                      const EmptyState(
+                          compact: true,
+                          icon: Icons.event_available_rounded,
+                          title: 'Nothing overdue',
+                          message: 'Every rental is on time.'),
+                    ),
+                  ]),
+                ),
+              ]),
+            ]),
+          ),
         ),
       ),
     );

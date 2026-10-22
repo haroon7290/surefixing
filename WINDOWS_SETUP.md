@@ -56,13 +56,28 @@ One command per window:
 scripts\start-mongo.bat        (skip if MongoDB is a Windows service)
 scripts\start-backend.bat
 scripts\start-ai.bat
-scripts\start-mobile.bat       (or: scripts\start-mobile.bat chrome)
+scripts\start-mobile.bat       (phone or emulator)
+scripts\start-web.bat          (the website in Chrome)
 ```
 
 On a brand-new empty database the backend seeds demo data automatically. Check it's alive:
 <http://localhost:4000/api/health> · AI docs: <http://localhost:5001/docs>.
 
-## 4. Real Android phone over USB
+## 4. The website
+
+`scripts\start-web.bat` opens SureFix in Chrome at <http://localhost:8080> (`start-web.bat edge`
+for Edge). It is the same Flutter app: in a window **wider than 1000 px** it shows the website
+layout — public landing page, technician directory and tool catalogue for visitors, and desktop
+dashboards after logging in. Make the window narrow and it turns back into the phone layout.
+
+To publish it, build static files and upload `mobile\build\web` to any web host:
+```
+cd mobile
+flutter build web --release --dart-define=API_BASE_URL=https://your-api.example.com
+```
+The backend must be reachable from the visitor's browser at that address.
+
+## 5. Real Android phone over USB
 
 ```
 adb reverse tcp:4000 tcp:4000
@@ -77,7 +92,7 @@ cd mobile
 flutter build apk --release --dart-define=API_BASE_URL=http://192.168.x.x:4000
 ```
 
-## 5. Demo logins
+## 6. Demo logins
 
 Password `password123` for all (debug builds also show one-tap demo buttons):
 
@@ -90,7 +105,7 @@ Password `password123` for all (debug builds also show one-tap demo buttons):
 
 More accounts are listed in [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
-## 6. Run all tests
+## 7. Run all tests
 
 ```
 scripts\test-all.bat

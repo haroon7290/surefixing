@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/catalog.dart';
 import '../../core/format.dart';
+import '../../core/responsive.dart';
 import '../../core/theme.dart';
 import '../../models/recommendation.dart';
 import '../../models/user.dart';
@@ -149,7 +150,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               : 'Job posted — quotes will arrive soon',
           kind: ToastKind.success);
       final id = (res['_id'] ?? '').toString();
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => JobDetailClient(jobId: id)), result: true);
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => WebPage(child: JobDetailClient(jobId: id))), result: true);
     } catch (e) {
       toastError(e);
     } finally {
@@ -350,7 +351,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   const TextSpan(text: 'AI suggests '),
                   TextSpan(text: cat.label, style: const TextStyle(fontWeight: FontWeight.w800)),
                   if (s.urgency != 'normal') TextSpan(text: ' · ${u.label}', style: TextStyle(fontWeight: FontWeight.w700, color: u.color)),
-                  TextSpan(text: '  ${((s.confidence * 100).round().clamp(1, 99))}% sure', style: TextStyle(color: context.palette.muted, fontSize: 12)),
+                  TextSpan(
+                      text: '  ${((s.confidence * 100).round().clamp(1, 99))}% sure',
+                      style: TextStyle(color: context.palette.muted, fontSize: 12)),
                 ]),
                 style: const TextStyle(fontSize: 13.5),
               ),

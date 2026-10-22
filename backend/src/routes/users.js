@@ -7,7 +7,7 @@ const Tool = require('../models/Tool');
 const Rental = require('../models/Rental');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, optionalAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const upload = require('../middleware/upload');
 const realtime = require('../utils/realtime');
@@ -146,7 +146,7 @@ router.post('/me/notifications/:id/read', authRequired, async (req, res) => {
 //   ?city=     exact city (case-insensitive)
 //   ?minRating=4  ?available=1  ?verified=1
 //   ?sort=rating|jobs|price|newest   ?page= ?limit=
-router.get('/technicians', authRequired, async (req, res) => {
+router.get('/technicians', optionalAuth, async (req, res) => {
   const q = { role: 'technician', status: { $ne: 'suspended' } };
   const { q: text, category, city, minRating, available, verified, sort } = req.query;
   if (text) {
@@ -174,12 +174,14 @@ router.get('/technicians', authRequired, async (req, res) => {
   res.json(techs.map((t) => withPresence(t.toProfileJSON())));
 });
 
-router.get('/:id', authRequired, async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw notFound();
   const user = await User.findById(req.params.id);
   if (!user) throw notFound();
-  const self = String(user._id) === String(req.user._id);
-  const json = self || req.user.role === 'admin' ? user.toPublicJSON() : user.toProfileJSON();
+  // Visitors only see the marketplace's public faces: technicians and suppliers.
+  if (!req.user && !['technician', 'supplier'].includes(user.role)) throw notFound();
+  const self = req.user && String(user._id) === String(req.user._id);
+  const json = self || req.user?.role === 'admin' ? user.toPublicJSON() : user.toProfileJSON();
   res.json(withPresence(json));
 });
 
