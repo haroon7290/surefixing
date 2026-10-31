@@ -72,6 +72,8 @@ class HomeShell extends StatefulWidget {
               fullWidth: true),
           ShellTab('my-tools', 'My tools', Icons.handyman_outlined, Icons.handyman_rounded, () => const MyToolsScreen()),
           ShellTab('requests', 'Requests', Icons.inbox_outlined, Icons.inbox_rounded, () => const RentalRequestsScreen()),
+          ShellTab('messages', 'Messages', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, () => const InboxScreen(),
+              badge: msgs),
           ShellTab('account', 'Account', Icons.person_outline_rounded, Icons.person_rounded, () => const AccountScreen()),
         ];
       case 'admin':

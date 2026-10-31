@@ -242,4 +242,35 @@ void main() {
       expect(find.text('Get started'), findsOneWidget); // header still there
     });
   });
+
+  group('rental handover', () {
+    test('pickup address stays hidden until approval; delivery shows the address', () {
+      final pending = Rental.fromJson({
+        '_id': 'r1',
+        'tool': {'_id': 't1', 'name': 'Drill'},
+        'type': 'rent',
+        'status': 'requested',
+        'fulfillment': 'pickup',
+        'handover': {'method': 'pickup', 'address': '', 'city': 'Lahore', 'revealed': false},
+      });
+      expect(pending.isApproved, isFalse);
+      expect(pending.handover.revealed, isFalse);
+      expect(pending.handover.city, 'Lahore');
+
+      final delivery = Rental.fromJson({
+        '_id': 'r2',
+        'tool': 't1',
+        'type': 'installment',
+        'status': 'active',
+        'fulfillment': 'delivery',
+        'deliveryAddress': 'House 5, Gulberg',
+        'supplier': {'_id': 's1', 'name': 'ToolCo', 'phone': '042-111', 'address': 'Shop 12'},
+      });
+      // Older servers send no handover object: fall back to the rental fields.
+      expect(delivery.handover.isDelivery, isTrue);
+      expect(delivery.handover.address, 'House 5, Gulberg');
+      expect(delivery.isApproved, isTrue);
+      expect(delivery.supplier!.phone, '042-111');
+    });
+  });
 }

@@ -22,12 +22,13 @@ responsiveness measured from real quote times, Bayesian rating smoothing, in-pro
 fallback with a parity test.
 
 **Tools & rentals** — listings with photos, deposit, condition, stock, installments; search,
-filters, sorting; rental requests with date ranges and pickup/delivery; supplier approve
+filters, sorting; rental requests with date ranges and pickup/delivery (delivery address,
+supplier shop address and both phone numbers revealed on approval); supplier approve
 (atomic stock reservation) / decline / mark returned / complete; renter cancel; overdue
 detection; tool reviews; safe deletion.
 
 **Communication** — job chat threads between a client and each technician (before and after
-hiring), inbox with unread counts, read receipts, typing indicator, photo messages; in-app
+hiring), tool chat threads between a customer and the supplier (before and after renting), inbox with unread counts, read receipts, typing indicator, photo messages; in-app
 notifications with deep links, unread badge and mark-all-read; realtime updates for every
 cross-party event; online presence.
 
@@ -41,7 +42,7 @@ technician directory and tool catalogue with filter sidebars, public profiles an
 (actions ask visitors to log in), split-screen login/sign-up, About page, desktop dashboards
 for all four roles, two-pane messages, product-style tool pages, address-bar sections.
 
-**Engineering** — 61 backend tests (real MongoDB), 34 AI tests, 15 Flutter tests, GitHub
+**Engineering** — 67 backend tests (real MongoDB), 34 AI tests, 16 Flutter tests, GitHub
 Actions CI, Dockerfiles + docker-compose, Windows scripts that keep dependencies in sync,
 rich demo seed, analyzer-clean Flutter code, light/dark design system.
 
@@ -69,6 +70,11 @@ rich demo seed, analyzer-clean Flutter code, light/dark design system.
 - Chat messages no longer create notification entries (they have their own unread badge).
 
 ## Changelog
+
+- **v2.2** — Tool handover made clear: supplier shop/pickup address and customer delivery
+  address, both phone numbers shared once a request is approved, pickup or delivery for
+  installment purchases too; customer ↔ supplier chat per tool (before and after renting);
+  Messages tab for suppliers.
 
 - **v2.1** — Website layout for wide screens (public site + desktop dashboards); signed-out
   read access to technicians, tools, reviews and problem analysis; `/api/meta/stats`.

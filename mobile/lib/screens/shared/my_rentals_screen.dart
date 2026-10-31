@@ -8,6 +8,7 @@ import '../../widgets/async_list.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/states.dart';
+import '../supplier/rental_actions.dart';
 import 'tool_detail_screen.dart';
 
 /// Rentals and installment plans the signed-in user has requested.
@@ -62,6 +63,13 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         perspective: 'renter',
         onTap: r.tool.id.isEmpty ? null : () => push(context, ToolDetailScreen(toolId: r.tool.id)),
         actions: [
+          if (r.status != 'cancelled')
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+              onPressed: () => openRentalChat(context, r, asSupplier: false),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+              label: const Text('Message'),
+            ),
           if (r.status == 'requested')
             OutlinedButton(
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),

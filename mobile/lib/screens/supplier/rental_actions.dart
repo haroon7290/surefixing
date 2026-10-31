@@ -4,9 +4,30 @@ import '../../models/rental.dart';
 import '../../services/api_client.dart';
 import '../../services/navigation.dart';
 import '../../widgets/dialogs.dart';
+import '../shared/chat_screen.dart';
+
+/// Opens the customer ↔ supplier chat about this rental's tool.
+void openRentalChat(BuildContext context, Rental r, {required bool asSupplier}) {
+  final other = asSupplier ? r.renter : r.supplier;
+  final otherId = other?.id.isNotEmpty == true ? other!.id : (asSupplier ? '' : r.tool.supplierId);
+  if (otherId.isEmpty || r.tool.id.isEmpty) return;
+  push(
+      context,
+      ChatScreen(
+          toolId: r.tool.id, otherId: otherId, otherName: other?.name ?? '', otherAvatar: other?.avatar ?? '', jobTitle: r.tool.name));
+}
 
 /// Supplier action buttons for a rental, based on its status.
 List<Widget> rentalActions(BuildContext context, Rental r, VoidCallback onDone) {
+  final chat = IconButton.outlined(
+    tooltip: 'Message customer',
+    onPressed: () => openRentalChat(context, r, asSupplier: true),
+    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+  );
+  return [if (r.status != 'cancelled') chat, ..._statusActions(context, r, onDone)];
+}
+
+List<Widget> _statusActions(BuildContext context, Rental r, VoidCallback onDone) {
   Future<void> call(String path, String success, [Map<String, dynamic>? body]) async {
     try {
       await ApiClient.post('/api/rentals/${r.id}/$path', body);

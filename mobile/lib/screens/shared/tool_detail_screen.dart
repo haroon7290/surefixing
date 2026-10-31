@@ -10,12 +10,12 @@ import '../../services/auth_service.dart';
 import '../../services/navigation.dart';
 import '../../services/site_nav.dart';
 import '../../widgets/app_avatar.dart';
-import '../../widgets/dialogs.dart';
 import '../../widgets/media.dart';
 import '../../widgets/pills.dart';
 import '../../widgets/rating_stars.dart';
 import '../../widgets/states.dart';
 import '../../widgets/visuals.dart';
+import 'chat_screen.dart';
 import 'my_rentals_screen.dart';
 import 'report_sheet.dart';
 
@@ -78,22 +78,77 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
 
   Future<void> _buy() async {
     if (!_requireLogin()) return;
-    final t = _tool!;
-    final ok = await confirmDialog(
-      context,
-      title: 'Buy on installments',
-      message:
-          '${t.installmentMonths} monthly payments of ${Fmt.money(t.installmentMonthly)}\nTotal ${Fmt.money(t.purchasePrice)}.\n\nThe supplier will confirm your plan.',
-      confirm: 'Request plan',
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PurchaseSheet(tool: _tool!),
     );
-    if (!ok) return;
-    try {
-      await ApiClient.post('/api/tools/${t.id}/purchase');
-      toast('Installment request sent', kind: ToastKind.success);
+    if (ok == true) {
       _load();
-    } catch (e) {
-      toastError(e);
+      toast('Installment request sent — the supplier will confirm your plan',
+          kind: ToastKind.success, action: SnackBarAction(label: 'My rentals', onPressed: () => push(context, const MyRentalsScreen())));
     }
+  }
+
+  void _messageSupplier(Tool t) {
+    if (!_requireLogin()) return;
+    push(
+      context,
+      ChatScreen(toolId: t.id, otherId: t.supplierId, otherName: t.supplier.name, otherAvatar: t.supplier.avatar, jobTitle: t.name),
+    );
+  }
+
+  /// Who rents it out, how the customer gets the tool, and a way to ask.
+  Widget _supplierCard(BuildContext context, Tool t, bool mine) {
+    final p = context.palette;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            AppAvatar(name: t.supplier.name, url: t.supplier.avatar, size: 46, verified: t.supplier.isVerified),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(t.supplier.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(t.supplier.city.isEmpty ? 'Tool supplier' : 'Tool supplier · ${t.supplier.city}',
+                    style: TextStyle(color: p.muted, fontSize: 13)),
+              ]),
+            ),
+            if (!mine && AuthService.instance.loggedIn)
+              IconButton(
+                tooltip: 'Report this listing',
+                icon: const Icon(Icons.flag_outlined),
+                onPressed: () => showReportSheet(context, targetType: 'tool', targetId: t.id, targetName: t.name),
+              ),
+          ]),
+          const SizedBox(height: 12),
+          InfoRow(
+            icon: Icons.storefront_outlined,
+            label: 'Pickup',
+            value: t.city.isEmpty && t.supplier.city.isEmpty
+                ? 'From the supplier\'s shop'
+                : 'From their shop in ${t.city.isNotEmpty ? t.city : t.supplier.city}',
+          ),
+          const InfoRow(icon: Icons.local_shipping_outlined, label: 'Delivery', value: 'To your address, if you choose it'),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'The exact pickup address and phone number are shared as soon as the supplier approves your request.',
+              style: TextStyle(color: p.muted, fontSize: 12.5, height: 1.4),
+            ),
+          ),
+          if (!mine) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _messageSupplier(t),
+              icon: const Icon(Icons.chat_bubble_outline_rounded),
+              label: Text('Message ${t.supplier.name.isEmpty ? 'supplier' : t.supplier.name}'),
+            ),
+          ],
+        ]),
+      ),
+    );
   }
 
   @override
@@ -203,15 +258,8 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 const SectionHeader('Description', padding: EdgeInsets.fromLTRB(4, 20, 0, 8)),
                 Text(t.description, style: context.text.bodyMedium),
               ],
-              const SectionHeader('Supplier', padding: EdgeInsets.fromLTRB(4, 20, 0, 8)),
-              Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  leading: AppAvatar(name: t.supplier.name, url: t.supplier.avatar, size: 44, verified: t.supplier.isVerified),
-                  title: Text(t.supplier.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(t.supplier.city.isEmpty ? 'Tool supplier' : 'Tool supplier · ${t.supplier.city}'),
-                ),
-              ),
+              const SectionHeader('Supplier & pickup', padding: EdgeInsets.fromLTRB(4, 20, 0, 8)),
+              _supplierCard(context, t, mine),
               SectionHeader('Reviews (${t.reviews.length})', padding: const EdgeInsets.fromLTRB(4, 20, 0, 8)),
               if (t.reviews.isEmpty)
                 Text('No reviews yet — be the first to rent it.', style: TextStyle(color: context.palette.muted))
@@ -403,21 +451,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: AppAvatar(name: t.supplier.name, url: t.supplier.avatar, size: 46, verified: t.supplier.isVerified),
-                    title: Text(t.supplier.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text(t.supplier.city.isEmpty ? 'Tool supplier' : 'Tool supplier · ${t.supplier.city}'),
-                    trailing: !mine && AuthService.instance.loggedIn
-                        ? IconButton(
-                            tooltip: 'Report this listing',
-                            icon: const Icon(Icons.flag_outlined),
-                            onPressed: () => showReportSheet(context, targetType: 'tool', targetId: t.id, targetName: t.name),
-                          )
-                        : null,
-                  ),
-                ),
+                _supplierCard(context, t, mine),
               ]),
             ),
           ]),
@@ -439,6 +473,7 @@ class _RentSheetState extends State<_RentSheet> {
   late DateTimeRange _range;
   String _fulfillment = 'pickup';
   final _note = TextEditingController();
+  final _address = TextEditingController(text: AuthService.instance.user?.address ?? '');
   bool _sending = false;
 
   @override
@@ -466,12 +501,17 @@ class _RentSheetState extends State<_RentSheet> {
   }
 
   Future<void> _submit() async {
+    if (_fulfillment == 'delivery' && _address.text.trim().isEmpty) {
+      toast('Enter the address to deliver to', kind: ToastKind.error);
+      return;
+    }
     setState(() => _sending = true);
     try {
       await ApiClient.post('/api/tools/${widget.tool.id}/rent', {
         'startDate': _range.start.toIso8601String(),
         'endDate': _range.end.toIso8601String(),
         'fulfillment': _fulfillment,
+        if (_fulfillment == 'delivery') 'deliveryAddress': _address.text.trim(),
         if (_note.text.trim().isNotEmpty) 'note': _note.text.trim(),
       });
       if (mounted) Navigator.pop(context, true);
@@ -511,6 +551,8 @@ class _RentSheetState extends State<_RentSheet> {
             selected: {_fulfillment},
             onSelectionChanged: (s) => setState(() => _fulfillment = s.first),
           ),
+          const SizedBox(height: 10),
+          HandoverFields(tool: t, fulfillment: _fulfillment, address: _address),
           const SizedBox(height: 14),
           TextField(controller: _note, decoration: const InputDecoration(hintText: 'Note for the supplier (optional)')),
           const SizedBox(height: 16),
@@ -548,4 +590,126 @@ class _RentSheetState extends State<_RentSheet> {
           Text(r, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600)),
         ]),
       );
+}
+
+/// Explains the chosen handover: pickup (exact address after approval) or
+/// delivery (address field, prefilled from the profile).
+class HandoverFields extends StatelessWidget {
+  final Tool tool;
+  final String fulfillment;
+  final TextEditingController address;
+  const HandoverFields({super.key, required this.tool, required this.fulfillment, required this.address});
+
+  @override
+  Widget build(BuildContext context) {
+    if (fulfillment == 'delivery') {
+      return TextField(
+        controller: address,
+        minLines: 1,
+        maxLines: 3,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Delivery address',
+          hintText: 'House, street, area, city',
+          prefixIcon: Icon(Icons.home_outlined),
+        ),
+      );
+    }
+    final city = tool.city.isNotEmpty ? tool.city : tool.supplier.city;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: context.palette.fill, borderRadius: BorderRadius.circular(12)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.storefront_outlined, size: 20, color: context.colors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'You collect it from ${tool.supplier.name.isEmpty ? 'the supplier' : tool.supplier.name}${city.isEmpty ? '' : ' in $city'}. '
+            'Their exact address and phone number appear in My rentals as soon as they approve.',
+            style: TextStyle(color: context.palette.muted, fontSize: 13, height: 1.4),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _PurchaseSheet extends StatefulWidget {
+  final Tool tool;
+  const _PurchaseSheet({required this.tool});
+
+  @override
+  State<_PurchaseSheet> createState() => _PurchaseSheetState();
+}
+
+class _PurchaseSheetState extends State<_PurchaseSheet> {
+  String _fulfillment = 'pickup';
+  final _address = TextEditingController(text: AuthService.instance.user?.address ?? '');
+  bool _sending = false;
+
+  Future<void> _submit() async {
+    if (_fulfillment == 'delivery' && _address.text.trim().isEmpty) {
+      toast('Enter the address to deliver to', kind: ToastKind.error);
+      return;
+    }
+    setState(() => _sending = true);
+    try {
+      await ApiClient.post('/api/tools/${widget.tool.id}/purchase', {
+        'fulfillment': _fulfillment,
+        if (_fulfillment == 'delivery') 'deliveryAddress': _address.text.trim(),
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      toastError(e);
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.tool;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Buy ${t.name} on installments', style: context.text.titleLarge),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: context.palette.fill, borderRadius: BorderRadius.circular(14)),
+            child: Column(children: [
+              InfoRow(
+                  icon: Icons.payments_outlined, label: 'Monthly', value: '${t.installmentMonths} × ${Fmt.money(t.installmentMonthly)}'),
+              InfoRow(icon: Icons.sell_outlined, label: 'Total price', value: Fmt.money(t.purchasePrice)),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          Text('How do you want to get it?', style: context.text.titleSmall),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'pickup', icon: Icon(Icons.storefront_outlined), label: Text('Pickup')),
+              ButtonSegment(value: 'delivery', icon: Icon(Icons.local_shipping_outlined), label: Text('Delivery')),
+            ],
+            selected: {_fulfillment},
+            onSelectionChanged: (s) => setState(() => _fulfillment = s.first),
+          ),
+          const SizedBox(height: 10),
+          HandoverFields(tool: t, fulfillment: _fulfillment, address: _address),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _sending ? null : _submit,
+            child: _sending
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white))
+                : const Text('Request installment plan'),
+          ),
+          const SizedBox(height: 6),
+          Text('The supplier confirms the plan and arranges the handover with you.',
+              textAlign: TextAlign.center, style: TextStyle(color: context.palette.muted, fontSize: 12.5)),
+        ],
+      ),
+    );
+  }
 }

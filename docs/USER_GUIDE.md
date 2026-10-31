@@ -71,11 +71,17 @@ breakdown and every review, with **Request** at the bottom.
 
 ### Rent or buy tools
 - **Tools** tab: search, filter by category / in stock / installments, sort by price or rating.
-- **Rent**: choose dates, pickup or delivery, add a note — the sheet shows days × price,
-  deposit and the total. The supplier approves before anything is reserved.
-- **Installments**: request a monthly plan where offered.
-- **My rentals** (receipt icon on the Tools tab, or Account): cancel pending requests, see
-  days left / overdue, and review a tool once it's returned.
+- **Rent**: choose dates, **pickup or delivery** (delivery asks for an address — your saved
+  address is filled in), add a note — the sheet shows days × price, deposit and the total.
+  The supplier approves before anything is reserved.
+- **Installments**: request a monthly plan where offered, also with pickup or delivery.
+- **Message the supplier** from any tool page (bottom of the *Supplier & pickup* card) to ask
+  questions before renting; the chat stays in **Messages**.
+- **My rentals** (receipt icon on the Tools tab, or Account): each rental shows how you get the
+  tool. For a pickup you see the supplier's city until they approve, then their **exact shop
+  address and phone number**. For a delivery you see the address it goes to. **Message** opens
+  the chat with the supplier; you can also cancel pending requests, see days left / overdue,
+  and review a tool once it's returned.
 
 ---
 
@@ -110,6 +116,14 @@ you usually quote, experience, distance, availability and verification (plus pri
   rental is active).
 - **Requests**: Pending (approve reserves one unit of stock; decline with a reason) · Active
   (**Mark returned** puts it back in stock; installment plans → **Mark fully paid**) · History.
+  Each request shows whether the customer **picks up** from your shop or wants **delivery**, and
+  the delivery address. After you approve, you see their phone number and they see yours and
+  your shop address. The chat icon messages the customer.
+- **Shop / pickup address** (Account → Edit profile): where customers collect tools, e.g.
+  "Shop 12, Hall Road Tool Market, Lahore (open 10am–8pm)". It's only shown to a customer
+  after you approve them, and you need it before you can approve pickup requests — the
+  dashboard reminds you if it's missing.
+- **Messages**: customers who asked about your tools or rented them.
 
 ---
 

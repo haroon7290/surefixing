@@ -14,7 +14,7 @@ describe('tools & rental requests', () => {
   let tool;
 
   beforeAll(async () => {
-    supplier = await makeUser('supplier', { register: { city: 'Lahore' } });
+    supplier = await makeUser('supplier', { register: { city: 'Lahore' }, profile: { address: 'Shop 1, Hall Road, Lahore' } });
     otherSupplier = await makeUser('supplier');
     renter = await makeUser('client');
     renter2 = await makeUser('technician');
@@ -72,7 +72,7 @@ describe('tools & rental requests', () => {
 
     const start = tomorrow();
     const end = new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString();
-    const req1 = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ startDate: start, endDate: end, fulfillment: 'delivery' });
+    const req1 = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ startDate: start, endDate: end, fulfillment: 'delivery', deliveryAddress: 'House 9, Model Town' });
     expect(req1.status).toBe(201);
     expect(req1.body).toMatchObject({ status: 'requested', days: 3, totalCost: 2400, deposit: 5000, fulfillment: 'delivery' });
     const req2 = await renter2.api('post', `/api/tools/${tool._id}/rent`).send({ days: 1 });

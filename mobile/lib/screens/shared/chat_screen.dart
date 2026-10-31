@@ -16,28 +16,35 @@ import '../../widgets/media.dart';
 import '../../widgets/states.dart';
 import '../client/job_detail_client.dart';
 import '../technician/tech_job_detail.dart';
+import 'tool_detail_screen.dart';
 
-/// One conversation about a job between the client and one technician.
+/// A conversation about a job (client ↔ technician, pass [jobId]) or about
+/// a tool (customer ↔ supplier, pass [toolId]).
 class ChatScreen extends StatefulWidget {
   final String jobId;
+  final String toolId;
   final String otherId;
   final String otherName;
   final String otherAvatar;
+
+  /// What the chat is about: the job title or the tool name.
   final String jobTitle;
 
   const ChatScreen({
     super.key,
-    required this.jobId,
+    this.jobId = '',
+    this.toolId = '',
     required this.otherId,
     required this.otherName,
     this.otherAvatar = '',
     this.jobTitle = '',
-  });
+  }) : assert(jobId != '' || toolId != '', 'A chat is about a job or a tool');
 
   static String? _active;
 
   /// Used by the global toast handler to stay quiet for the open chat.
-  static bool isOpen(String jobId, String otherId) => _active == '$jobId:$otherId';
+  /// [thread] is a job id or 'tool:<toolId>'.
+  static bool isOpen(String thread, String otherId) => _active == '$thread:$otherId';
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -57,10 +64,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String get _me => AuthService.instance.user!.id;
 
+  bool get _isTool => widget.toolId.isNotEmpty;
+  String get _thread => _isTool ? 'tool:${widget.toolId}' : widget.jobId;
+  String get _base => _isTool ? '/api/messages/tool/${widget.toolId}' : '/api/messages/${widget.jobId}';
+
   @override
   void initState() {
     super.initState();
-    ChatScreen._active = '${widget.jobId}:${widget.otherId}';
+    ChatScreen._active = '$_thread:${widget.otherId}';
     _load();
     _poll = Timer.periodic(const Duration(seconds: 20), (_) => _load(silent: true));
     _sub = RealtimeService.instance.events.listen(_onEvent);
@@ -68,7 +79,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
-    if (ChatScreen._active == '${widget.jobId}:${widget.otherId}') ChatScreen._active = null;
+    if (ChatScreen._active == '$_thread:${widget.otherId}') ChatScreen._active = null;
     _sub?.cancel();
     _poll?.cancel();
     _typingTimer?.cancel();
@@ -80,18 +91,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onEvent(RealtimeEvent e) {
     if (!mounted) return;
-    if (e.name == 'message:new' && e.jobId == widget.jobId) {
+    final thread = (e.data['thread'] ?? e.jobId).toString();
+    if (e.name == 'message:new' && thread == _thread) {
       final m = ChatMessage.fromJson(e.data);
       final inThread = (m.senderId == widget.otherId && m.recipientId == _me) || (m.senderId == _me && m.recipientId == widget.otherId);
       if (!inThread) return;
       _append(m);
       if (m.senderId == widget.otherId) {
         setState(() => _otherTyping = false);
-        ApiClient.post('/api/messages/${widget.jobId}/read?with=${widget.otherId}').catchError((_) => null);
+        ApiClient.post('$_base/read?with=${widget.otherId}').catchError((_) => null);
       }
-    } else if (e.name == 'message:read' && e.data['jobId'] == widget.jobId && e.data['by'] == widget.otherId) {
+    } else if (e.name == 'message:read' && thread == _thread && e.data['by'] == widget.otherId) {
       setState(() => _messages = _messages?.map((m) => m.senderId == _me ? m.markRead() : m).toList());
-    } else if (e.name == 'typing' && e.data['jobId'] == widget.jobId && e.data['from'] == widget.otherId) {
+    } else if (e.name == 'typing' && e.data['jobId'] == _thread && e.data['from'] == widget.otherId) {
       _typingTimer?.cancel();
       setState(() => _otherTyping = e.data['typing'] != false);
       _typingTimer = Timer(const Duration(seconds: 4), () {
@@ -108,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _load({bool silent = false}) async {
     try {
-      final res = await ApiClient.getList('/api/messages/${widget.jobId}', query: {'with': widget.otherId});
+      final res = await ApiClient.getList(_base, query: {'with': widget.otherId});
       if (!mounted) return;
       setState(() {
         _messages = res.map(ChatMessage.fromJson).toList();
@@ -123,7 +135,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final now = DateTime.now();
     if (now.difference(_lastTypingEmit) < const Duration(seconds: 2)) return;
     _lastTypingEmit = now;
-    RealtimeService.instance.emit('typing', {'to': widget.otherId, 'jobId': widget.jobId, 'typing': true});
+    RealtimeService.instance.emit('typing', {'to': widget.otherId, 'jobId': _thread, 'typing': true});
   }
 
   Future<void> _send({XFile? image}) async {
@@ -132,8 +144,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _sending = true);
     try {
       final dynamic res = image == null
-          ? await ApiClient.post('/api/messages/${widget.jobId}', {'text': text, 'to': widget.otherId})
-          : await ApiClient.multipart('/api/messages/${widget.jobId}', {'text': text, 'to': widget.otherId}, files: {'image': image});
+          ? await ApiClient.post(_base, {'text': text, 'to': widget.otherId})
+          : await ApiClient.multipart(_base, {'text': text, 'to': widget.otherId}, files: {'image': image});
       _text.clear();
       _append(ChatMessage.fromJson(Map<String, dynamic>.from(res)));
       if (_scroll.hasClients) _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
@@ -149,7 +161,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (file != null) await _send(image: file);
   }
 
-  void _openJob() {
+  void _openSubject() {
+    if (_isTool) {
+      push(context, ToolDetailScreen(toolId: widget.toolId));
+      return;
+    }
     final role = AuthService.instance.user!.role;
     push(context, role == 'technician' ? TechJobDetail(jobId: widget.jobId) : JobDetailClient(jobId: widget.jobId));
   }
@@ -183,7 +199,13 @@ class _ChatScreenState extends State<ChatScreen> {
             ]),
           ),
         ]),
-        actions: [IconButton(tooltip: 'View job', onPressed: _openJob, icon: const Icon(Icons.work_outline_rounded))],
+        actions: [
+          IconButton(
+            tooltip: _isTool ? 'View tool' : 'View job',
+            onPressed: _openSubject,
+            icon: Icon(_isTool ? Icons.handyman_outlined : Icons.work_outline_rounded),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -196,7 +218,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     ? EmptyState(
                         icon: Icons.waving_hand_rounded,
                         title: 'Say hello to ${widget.otherName.split(' ').first}',
-                        message: 'Ask about availability, materials or anything else about the job.',
+                        message: _isTool
+                            ? 'Ask about the tool, pickup times, delivery or the return.'
+                            : 'Ask about availability, materials or anything else about the job.',
                       )
                     : ListView.builder(
                         controller: _scroll,

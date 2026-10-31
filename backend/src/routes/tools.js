@@ -191,6 +191,21 @@ router.delete('/:id', authRequired, requireRole('supplier', 'admin'), async (req
 
 // ------------------------------------------------------ rent / purchase
 
+const handoverValidators = [
+  body('fulfillment').optional().isIn(['pickup', 'delivery']).withMessage('Choose pickup or delivery'),
+  body('deliveryAddress').optional().isString().trim().isLength({ max: 300 }).withMessage('Address is too long (max 300 characters)')
+];
+
+// Pickup (from the supplier) or delivery (to an address the customer gives;
+// their saved profile address is the default).
+function handover(req) {
+  const fulfillment = req.body?.fulfillment === 'delivery' ? 'delivery' : 'pickup';
+  if (fulfillment === 'pickup') return { fulfillment, deliveryAddress: '' };
+  const deliveryAddress = String(req.body?.deliveryAddress || req.user.address || '').trim();
+  if (!deliveryAddress) throw badRequest('Enter the address to deliver to');
+  return { fulfillment, deliveryAddress };
+}
+
 router.post(
   '/:id/rent',
   authRequired,
@@ -198,7 +213,7 @@ router.post(
     body('days').optional().isInt({ min: 1, max: 90 }).withMessage('Rental length must be 1–90 days').toInt(),
     body('startDate').optional().isISO8601().withMessage('Invalid start date'),
     body('endDate').optional().isISO8601().withMessage('Invalid end date'),
-    body('fulfillment').optional().isIn(['pickup', 'delivery']),
+    ...handoverValidators,
     body('note').optional().isString().isLength({ max: 500 })
   ],
   validate,
@@ -219,6 +234,7 @@ router.post(
       if (days > 90) throw badRequest('Rentals can be at most 90 days');
     }
     if (!days) throw badRequest('Choose how many days you need the tool');
+    const how = handover(req);
 
     const rental = await Rental.create({
       tool: tool._id,
@@ -230,7 +246,7 @@ router.post(
       endDate: new Date(start.getTime() + days * DAY_MS),
       totalCost: Math.round(days * tool.rentPricePerDay * 100) / 100,
       deposit: tool.deposit || 0,
-      fulfillment: req.body.fulfillment || 'pickup',
+      ...how,
       note: req.body.note || '',
       status: 'requested'
     });
@@ -251,11 +267,12 @@ router.post(
   }
 );
 
-router.post('/:id/purchase', authRequired, async (req, res) => {
+router.post('/:id/purchase', authRequired, [...handoverValidators, body('note').optional().isString().isLength({ max: 500 })], validate, async (req, res) => {
   const tool = await loadTool(req.params.id);
   if (!tool.available || tool.stock <= 0) throw badRequest('This tool is currently unavailable');
   if (sameId(tool.supplier, req.user._id)) throw badRequest("You can't buy your own tool");
   if (!tool.installmentMonths) throw badRequest('This tool is not offered on installments');
+  const how = handover(req);
 
   const rental = await Rental.create({
     tool: tool._id,
@@ -265,6 +282,7 @@ router.post('/:id/purchase', authRequired, async (req, res) => {
     totalCost: tool.purchasePrice,
     monthsRemaining: tool.installmentMonths,
     startDate: new Date(),
+    ...how,
     note: String(req.body?.note || '').slice(0, 500),
     status: 'requested'
   });

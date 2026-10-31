@@ -21,6 +21,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _name = TextEditingController(text: _user.name);
   late final _phone = TextEditingController(text: _user.phone ?? '');
   late final _city = TextEditingController(text: _user.city);
+  late final _address = TextEditingController(text: _user.address);
   late final _bio = TextEditingController(text: _user.bio);
   late final _headline = TextEditingController(text: _user.headline);
   late final _rate = TextEditingController(text: _user.hourlyRate > 0 ? _user.hourlyRate.toStringAsFixed(0) : '');
@@ -32,7 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _city, _bio, _headline, _rate, _years, _customSkill]) {
+    for (final c in [_name, _phone, _city, _address, _bio, _headline, _rate, _years, _customSkill]) {
       c.dispose();
     }
     super.dispose();
@@ -46,6 +47,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'name': _name.text.trim(),
         'phone': _phone.text.trim(),
         'city': _city.text.trim(),
+        'address': _address.text.trim(),
         'bio': _bio.text.trim(),
         if (_user.isTechnician || _user.isSupplier) 'headline': _headline.text.trim(),
         if (_user.isTechnician) ...{
@@ -116,6 +118,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_outlined)))),
             ]),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _address,
+              minLines: 1,
+              maxLines: 3,
+              maxLength: 300,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: u.isSupplier ? 'Shop / pickup address' : 'Address',
+                hintText: u.isSupplier ? 'e.g. Shop 12, Hall Road Tool Market, Lahore (open 10am–8pm)' : 'House, street, area',
+                helperText: u.isSupplier
+                    ? 'Where customers collect tools. Shown to a customer only after you approve their request.'
+                    : 'Used as your default delivery address for tool rentals. Never shown on your profile.',
+                helperMaxLines: 2,
+                prefixIcon: Icon(u.isSupplier ? Icons.storefront_outlined : Icons.home_outlined),
+              ),
+              validator: (v) => u.isSupplier && (v ?? '').trim().isEmpty ? 'Customers need this to collect tools' : null,
+            ),
             if (u.isTechnician || u.isSupplier) ...[
               const SizedBox(height: 12),
               TextFormField(

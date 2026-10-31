@@ -39,7 +39,17 @@ class _InboxScreenState extends State<InboxScreen> {
     return list;
   }
 
-  bool _isSelected(Conversation c) => _selected != null && _selected!.jobId == c.jobId && _selected!.other.id == c.other.id;
+  bool _isSelected(Conversation c) => _selected != null && _selected!.thread == c.thread && _selected!.other.id == c.other.id;
+
+  ChatScreen _chat(Conversation c, {Key? key}) => ChatScreen(
+        key: key,
+        jobId: c.isTool ? '' : c.jobId,
+        toolId: c.toolId,
+        otherId: c.other.id,
+        otherName: c.other.name,
+        otherAvatar: c.other.avatar,
+        jobTitle: c.subject,
+      );
 
   void _select(Conversation c) {
     if (!mounted) return;
@@ -55,7 +65,9 @@ class _InboxScreenState extends State<InboxScreen> {
       title: 'No conversations yet',
       message: me.isTechnician
           ? 'Clients can message you once you quote on their job.'
-          : 'Chat with technicians about a job once they quote or you hire them.',
+          : me.isSupplier
+              ? 'Customers who ask about your tools or rent them appear here.'
+              : 'Chat with technicians about a job, or message a supplier from any tool page.',
     );
   }
 
@@ -66,7 +78,12 @@ class _InboxScreenState extends State<InboxScreen> {
     final c = _selected;
     return Scaffold(
       body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const WebPageTitle('Messages', subtitle: 'Chat with clients and technicians about your jobs'),
+        WebPageTitle('Messages',
+            subtitle: me.isSupplier
+                ? 'Chat with customers about your tools, pickups and deliveries'
+                : me.isTechnician
+                    ? 'Chat with clients about their jobs'
+                    : 'Chat with technicians about jobs and with suppliers about tools'),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 28),
@@ -92,14 +109,7 @@ class _InboxScreenState extends State<InboxScreen> {
                 Expanded(
                   child: c == null
                       ? const EmptyState(icon: Icons.chat_bubble_outline_rounded, title: 'Select a conversation')
-                      : ChatScreen(
-                          key: ValueKey('${c.jobId}:${c.other.id}'),
-                          jobId: c.jobId,
-                          otherId: c.other.id,
-                          otherName: c.other.name,
-                          otherAvatar: c.other.avatar,
-                          jobTitle: c.jobTitle,
-                        ),
+                      : _chat(c, key: ValueKey('${c.thread}:${c.other.id}')),
                 ),
               ]),
             ),
@@ -126,10 +136,7 @@ class _InboxScreenState extends State<InboxScreen> {
           c: c,
           meId: me.id,
           onTap: () async {
-            await push(
-              context,
-              ChatScreen(jobId: c.jobId, otherId: c.other.id, otherName: c.other.name, otherAvatar: c.other.avatar, jobTitle: c.jobTitle),
-            );
+            await push(context, _chat(c));
             _list.currentState?.reload();
           },
         ),
@@ -150,7 +157,7 @@ class _ConversationTile extends StatelessWidget {
     final last = c.lastMessage;
     final unread = c.unread > 0;
     final preview = last.text.isNotEmpty ? last.text : (last.image.isNotEmpty ? '📷 Photo' : '');
-    final cat = Catalog.service(c.jobCategory);
+    final cat = c.isTool ? Catalog.tool(c.toolCategory) : Catalog.service(c.jobCategory);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -181,8 +188,8 @@ class _ConversationTile extends StatelessWidget {
                     Icon(cat.icon, size: 13, color: cat.color),
                     const SizedBox(width: 4),
                     Expanded(
-                        child:
-                            Text(c.jobTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: p.muted))),
+                        child: Text(c.isTool ? 'Tool · ${c.toolName}' : c.jobTitle,
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: p.muted))),
                   ]),
                   const SizedBox(height: 3),
                   Row(children: [

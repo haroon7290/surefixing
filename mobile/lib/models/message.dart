@@ -5,6 +5,9 @@ DateTime? _date(dynamic v) => v == null ? null : DateTime.tryParse(v.toString())
 class ChatMessage {
   final String id;
   final String jobId;
+
+  /// 'tool:<id>' for customer ↔ supplier chats, otherwise the job id.
+  final String thread;
   final String senderId;
   final String recipientId;
   final String text;
@@ -19,6 +22,7 @@ class ChatMessage {
     required this.recipientId,
     required this.text,
     required this.createdAt,
+    this.thread = '',
     this.image = '',
     this.readAt,
   });
@@ -26,6 +30,7 @@ class ChatMessage {
   ChatMessage markRead() => ChatMessage(
         id: id,
         jobId: jobId,
+        thread: thread,
         senderId: senderId,
         recipientId: recipientId,
         text: text,
@@ -37,6 +42,7 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
         id: (json['_id'] ?? json['id'] ?? '').toString(),
         jobId: (json['job'] ?? '').toString(),
+        thread: (json['thread'] ?? json['job'] ?? '').toString(),
         senderId: (json['sender'] ?? '').toString(),
         recipientId: (json['recipient'] ?? '').toString(),
         text: (json['text'] ?? '').toString(),
@@ -46,8 +52,13 @@ class ChatMessage {
       );
 }
 
-/// One row in the inbox.
+/// One row in the inbox: a job chat (client ↔ technician) or a tool chat
+/// (customer ↔ supplier).
 class Conversation {
+  final String kind; // job | tool
+  final String toolId;
+  final String toolName;
+  final String toolCategory;
   final String jobId;
   final String jobTitle;
   final String jobStatus;
@@ -57,6 +68,10 @@ class Conversation {
   final int unread;
 
   Conversation({
+    this.kind = 'job',
+    this.toolId = '',
+    this.toolName = '',
+    this.toolCategory = 'general',
     required this.jobId,
     required this.jobTitle,
     required this.jobStatus,
@@ -66,7 +81,19 @@ class Conversation {
     required this.unread,
   });
 
+  bool get isTool => kind == 'tool';
+
+  /// What the chat is about (job title or tool name).
+  String get subject => isTool ? toolName : jobTitle;
+
+  /// Same key as [ChatMessage.thread].
+  String get thread => isTool ? 'tool:$toolId' : jobId;
+
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
+        kind: (json['kind'] ?? 'job').toString(),
+        toolId: (json['toolId'] ?? '').toString(),
+        toolName: (json['toolName'] ?? '').toString(),
+        toolCategory: (json['toolCategory'] ?? 'general').toString(),
         jobId: (json['jobId'] ?? '').toString(),
         jobTitle: (json['jobTitle'] ?? '').toString(),
         jobStatus: (json['jobStatus'] ?? '').toString(),

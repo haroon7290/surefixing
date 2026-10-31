@@ -16,6 +16,7 @@ import '../../widgets/brand.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/states.dart';
 import '../../widgets/visuals.dart';
+import '../shared/edit_profile_screen.dart';
 import '../shared/kyc_screen.dart';
 import '../shared/notifications_screen.dart';
 import '../shells.dart';
@@ -166,6 +167,7 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
                   ),
                 ),
               ),
+            if (me.address.isEmpty) Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _addressPrompt(context)),
             if ((_overdue ?? []).isNotEmpty) ...[
               SectionHeader('Overdue returns (${_overdue!.length})'),
               for (final r in _overdue!)
@@ -294,6 +296,7 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
                   ),
                 ),
               ],
+              if (me.address.isEmpty) ...[const SizedBox(height: 12), _addressPrompt(context)],
               const SizedBox(height: 28),
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
@@ -338,4 +341,21 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
       ),
     );
   }
+
+  /// Without a pickup address customers can't collect tools (and pickup
+  /// requests can't be approved).
+  Widget _addressPrompt(BuildContext context) => Card(
+        color: Brand.accent.withValues(alpha: 0.08),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          leading: const Icon(Icons.storefront_rounded, color: Brand.accent),
+          title: const Text('Add your shop / pickup address', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: const Text('Customers need it to collect tools. You can\'t approve pickup requests until it\'s set.'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () async {
+            await push(context, const EditProfileScreen());
+            if (mounted) setState(() {});
+          },
+        ),
+      );
 }

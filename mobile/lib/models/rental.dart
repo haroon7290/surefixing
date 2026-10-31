@@ -37,6 +37,25 @@ class RentalTool {
   }
 }
 
+/// Where the tool changes hands. For pickups the supplier's address is only
+/// [revealed] once they approve; until then just the [city] is known.
+class Handover {
+  final String method; // pickup | delivery
+  final String address;
+  final String city;
+  final bool revealed;
+  const Handover({this.method = 'pickup', this.address = '', this.city = '', this.revealed = false});
+
+  bool get isDelivery => method == 'delivery';
+
+  factory Handover.fromJson(Map<String, dynamic> j, {String fallbackMethod = 'pickup', String fallbackAddress = ''}) => Handover(
+        method: (j['method'] ?? fallbackMethod).toString(),
+        address: (j['address'] ?? fallbackAddress).toString(),
+        city: (j['city'] ?? '').toString(),
+        revealed: j['revealed'] == true,
+      );
+}
+
 class Rental {
   final String id;
   final RentalTool tool;
@@ -50,6 +69,8 @@ class Rental {
   final double deposit;
   final int monthsRemaining;
   final String fulfillment;
+  final String deliveryAddress;
+  final Handover handover;
   final String note;
   final String status;
   final String rejectionReason;
@@ -73,6 +94,8 @@ class Rental {
     this.deposit = 0,
     this.monthsRemaining = 0,
     this.fulfillment = 'pickup',
+    this.deliveryAddress = '',
+    this.handover = const Handover(),
     this.note = '',
     this.rejectionReason = '',
     this.rating,
@@ -85,6 +108,9 @@ class Rental {
   bool get isInstallment => type == 'installment';
   bool get isOpen => status == 'requested' || status == 'active';
   bool get canReview => (status == 'returned' || status == 'completed') && rating == null;
+
+  /// Approved: phone numbers and the pickup address are shared.
+  bool get isApproved => status == 'active' || status == 'returned' || status == 'completed';
 
   factory Rental.fromJson(Map<String, dynamic> json) => Rental(
         id: (json['_id'] ?? json['id'] ?? '').toString(),
@@ -99,6 +125,12 @@ class Rental {
         deposit: _d(json['deposit']),
         monthsRemaining: _i(json['monthsRemaining']),
         fulfillment: (json['fulfillment'] ?? 'pickup').toString(),
+        deliveryAddress: (json['deliveryAddress'] ?? '').toString(),
+        handover: Handover.fromJson(
+          json['handover'] is Map ? Map<String, dynamic>.from(json['handover']) : const {},
+          fallbackMethod: (json['fulfillment'] ?? 'pickup').toString(),
+          fallbackAddress: (json['deliveryAddress'] ?? '').toString(),
+        ),
         note: (json['note'] ?? '').toString(),
         status: (json['status'] ?? 'requested').toString(),
         rejectionReason: (json['rejectionReason'] ?? '').toString(),

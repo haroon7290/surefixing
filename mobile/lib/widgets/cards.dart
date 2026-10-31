@@ -353,9 +353,6 @@ class RentalCard extends StatelessWidget {
                   if (r.overdue) Pill('Overdue', color: p.danger, icon: Icons.warning_amber_rounded, solid: true),
                   if (!r.overdue && r.daysLeft != null && r.status == 'active')
                     Pill(r.daysLeft! <= 0 ? 'Due today' : '${Fmt.plural(r.daysLeft!, 'day')} left', color: p.warning),
-                  if (!r.isInstallment)
-                    Pill(r.fulfillment == 'delivery' ? 'Delivery' : 'Pickup',
-                        color: p.muted, icon: r.fulfillment == 'delivery' ? Icons.local_shipping_outlined : Icons.storefront_outlined),
                 ],
               ),
               if (other != null && other.name.isNotEmpty) ...[
@@ -364,12 +361,14 @@ class RentalCard extends StatelessWidget {
                   AppAvatar(name: other.name, url: other.avatar, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      '${perspective == 'supplier' ? 'Requested by' : 'From'} ${other.name}${(other.phone ?? '').isNotEmpty && r.status == 'active' ? ' · ${other.phone}' : ''}',
-                      style: TextStyle(fontSize: 13, color: p.muted),
-                    ),
+                    child: Text('${perspective == 'supplier' ? 'Requested by' : 'From'} ${other.name}',
+                        style: TextStyle(fontSize: 13, color: p.muted)),
                   ),
                 ]),
+              ],
+              if (r.status != 'rejected' && r.status != 'cancelled') ...[
+                const SizedBox(height: 10),
+                HandoverBox(rental: r, perspective: perspective),
               ],
               if (r.note.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -401,6 +400,64 @@ class RentalCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// How the tool changes hands: pickup address or delivery address, and the
+/// other person's phone once the supplier has approved.
+class HandoverBox extends StatelessWidget {
+  final Rental rental;
+  final String perspective; // renter | supplier
+  const HandoverBox({super.key, required this.rental, required this.perspective});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final r = rental;
+    final h = r.handover;
+    final supplierView = perspective == 'supplier';
+    final other = supplierView ? r.renter : r.supplier;
+    final phone = r.isApproved ? (other?.phone ?? '') : '';
+
+    final String title;
+    final String body;
+    if (h.isDelivery) {
+      title = supplierView ? 'Deliver to the customer' : 'Delivery to your address';
+      body = h.address.isEmpty ? 'No address given — ask in chat' : h.address;
+    } else if (supplierView) {
+      title = 'Customer collects from your shop';
+      body = h.revealed && h.address.isNotEmpty ? h.address : 'Your pickup address is shared with them when you approve.';
+    } else {
+      title = 'Pick up from ${r.supplier?.name.isNotEmpty == true ? r.supplier!.name : 'the supplier'}';
+      body = h.revealed && h.address.isNotEmpty
+          ? h.address
+          : '${h.city.isEmpty ? '' : '${h.city} · '}exact address and phone are shared once the supplier approves.';
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: p.fill, borderRadius: BorderRadius.circular(12)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(h.isDelivery ? Icons.local_shipping_outlined : Icons.storefront_outlined, size: 20, color: context.colors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+            const SizedBox(height: 2),
+            SelectableText(body, style: TextStyle(color: (h.revealed || h.isDelivery) ? null : p.muted, fontSize: 13, height: 1.35)),
+            if (phone.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.phone_outlined, size: 15, color: p.muted),
+                const SizedBox(width: 4),
+                SelectableText('${supplierView ? 'Customer' : 'Supplier'}: $phone',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ]),
+            ],
+          ]),
+        ),
+      ]),
     );
   }
 }

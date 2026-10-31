@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const { body } = require('express-validator');
 const Rental = require('../models/Rental');
 const Tool = require('../models/Tool');
+const User = require('../models/User');
 const { authRequired } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const { notify } = require('../utils/notify');
@@ -65,6 +66,12 @@ router.post('/:id/approve', authRequired, async (req, res) => {
   assertSupplier(rental, req.user);
   if (rental.status !== 'requested') throw badRequest(`This request is already ${rental.status}`);
 
+  // A pickup needs somewhere to pick up from: the customer gets this address.
+  const supplierUser = await User.findById(supplierOf(rental)).select('address');
+  if (rental.fulfillment === 'pickup' && !supplierUser?.address) {
+    throw badRequest('Add your shop / pickup address in Edit profile first, so the customer knows where to collect the tool');
+  }
+
   // Reserve one unit atomically so two approvals can't oversell the last one.
   const tool = await Tool.findOneAndUpdate(
     { _id: rental.tool._id, stock: { $gt: 0 } },
@@ -83,7 +90,13 @@ router.post('/:id/approve', authRequired, async (req, res) => {
   }
   await rental.save();
   const what = rental.type === 'installment' ? 'purchase' : 'rental';
-  await pushUpdate(rental, `Your ${what} was approved`, `"${tool.name}" is ready${rental.fulfillment === 'delivery' ? ' for delivery' : ' for pickup'}`);
+  await pushUpdate(
+    rental,
+    `Your ${what} was approved`,
+    rental.fulfillment === 'delivery'
+      ? `"${tool.name}" will be delivered to ${rental.deliveryAddress}`
+      : `Collect "${tool.name}" from ${supplierUser.address}`
+  );
   await respond(res, rental);
 });
 

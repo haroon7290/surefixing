@@ -42,8 +42,8 @@ async function run() {
   const [
     sara, bilal, ahmad, noor, usman, zainab, hamza, ayesha, farhan, imran, toolco, buildpro, admin
   ] = await User.create([
-    u({ name: 'Sara Khan', email: 'client@demo.com', role: 'client', phone: '0300-1234501', city: 'Lahore' }),
-    u({ name: 'Bilal Ahmed', email: 'client2@demo.com', role: 'client', phone: '0300-1234502', city: 'Karachi' }),
+    u({ name: 'Sara Khan', email: 'client@demo.com', role: 'client', phone: '0300-1234501', city: 'Lahore', address: 'House 14, Street 7, DHA Phase 4, Lahore' }),
+    u({ name: 'Bilal Ahmed', email: 'client2@demo.com', role: 'client', phone: '0300-1234502', city: 'Karachi', address: 'Flat 302, Block B, Gulshan-e-Iqbal, Karachi' }),
     u({
       name: 'Ahmad Raza', email: 'tech@demo.com', role: 'technician', phone: '0300-1234503', city: 'Lahore',
       headline: 'Licensed electrician & plumber', skills: ['plumbing', 'electrical'],
@@ -99,8 +99,10 @@ async function run() {
       experienceYears: 7, hourlyRate: 1400, kycStatus: 'approved', isAvailable: false
     }),
     u({ name: 'ToolCo Rentals', email: 'supplier@demo.com', role: 'supplier', phone: '042-1234567', city: 'Lahore', kycStatus: 'approved',
+      address: 'Shop 12, Hall Road Tool Market, Lahore (open 10am–8pm, closed Sunday)',
       bio: 'Professional-grade tools for rent since 2015.' }),
-    u({ name: 'BuildPro Equipment', email: 'supplier2@demo.com', role: 'supplier', phone: '021-7654321', city: 'Karachi' }),
+    u({ name: 'BuildPro Equipment', email: 'supplier2@demo.com', role: 'supplier', phone: '021-7654321', city: 'Karachi',
+      address: 'Plot 45, Sector 7-A, Korangi Industrial Area, Karachi' }),
     u({ name: 'Admin', email: 'admin@demo.com', role: 'admin', city: 'Lahore' })
   ]);
   // Spread join dates so "Member since" and the admin sign-up chart look real.
@@ -321,7 +323,8 @@ async function run() {
     { tool: drill._id, renter: sara._id, supplier: toolco._id, type: 'rent', days: 5, startDate: ago(2 * DAY), endDate: ahead(3 * DAY),
       totalCost: 4000, deposit: 5000, status: 'active', approvedAt: ago(2 * DAY), fulfillment: 'pickup', createdAt: ago(2 * DAY + HOUR) },
     { tool: washer._id, renter: bilal._id, supplier: toolco._id, type: 'rent', days: 2, startDate: ahead(DAY), endDate: ahead(3 * DAY),
-      totalCost: 3000, deposit: 8000, status: 'requested', fulfillment: 'delivery', note: 'Please deliver before 10am.', createdAt: ago(2 * HOUR) },
+      totalCost: 3000, deposit: 8000, status: 'requested', fulfillment: 'delivery', deliveryAddress: 'Flat 302, Block B, Gulshan-e-Iqbal, Karachi',
+      note: 'Please deliver before 10am.', createdAt: ago(2 * HOUR) },
     { tool: ladder._id, renter: sara._id, supplier: toolco._id, type: 'rent', days: 1, startDate: ago(15 * DAY), endDate: ago(14 * DAY),
       totalCost: 500, deposit: 2500, status: 'returned', approvedAt: ago(15 * DAY), returnedAt: ago(14 * DAY), rating: 5,
       review: 'Sturdy and clean. Easy pickup.', createdAt: ago(15 * DAY) },
@@ -346,7 +349,15 @@ async function run() {
     m(sink, sara, ahmad, 'Do you have the fittings for a 1/2" pipe?', ago(4 * HOUR)),
     m(sink, ahmad, sara, 'Yes, I carry standard 1/2" and 3/4" fittings in the van.', ago(3.8 * HOUR), false)
   ]);
-  console.log('Seeded 7 chat messages');
+  // Customer ↔ supplier chat about a tool (arranging pickup).
+  const tm = (tool, from, to, text, at, read = true) => ({ tool: tool._id, sender: from._id, recipient: to._id, text, createdAt: at, readAt: read ? at : null });
+  await Message.create([
+    tm(drill, sara, toolco, 'Hi, does the drill come with masonry bits?', ago(2 * DAY + 2 * HOUR)),
+    tm(drill, toolco, sara, 'Yes — a 5-piece masonry set and two batteries are included.', ago(2 * DAY + 1.5 * HOUR)),
+    tm(drill, sara, toolco, 'Great, I will pick it up around 6pm today.', ago(2 * DAY + HOUR)),
+    tm(drill, toolco, sara, 'Perfect. Ask for Kamran at the counter, Shop 12.', ago(2 * DAY + 0.5 * HOUR), false)
+  ]);
+  console.log('Seeded 11 chat messages');
 
   await Notification.create([
     { user: sara._id, type: 'bid', title: 'New quote on your job', body: 'Noor Fatima quoted 3200 for "Fix leaking kitchen sink"', data: { jobId: sink._id }, createdAt: ago(2 * HOUR) },

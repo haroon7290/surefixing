@@ -21,6 +21,8 @@ const rentalSchema = new mongoose.Schema(
     deposit: { type: Number, default: 0 },
     monthsRemaining: { type: Number, default: 0 },
     fulfillment: { type: String, enum: ['pickup', 'delivery'], default: 'pickup' },
+    // Where to deliver (fulfillment = delivery). Pickups use the supplier's address.
+    deliveryAddress: { type: String, default: '', trim: true, maxlength: 300 },
     note: { type: String, default: '' },
     status: { type: String, enum: STATUSES, default: 'requested' },
     rejectionReason: { type: String, default: '' },

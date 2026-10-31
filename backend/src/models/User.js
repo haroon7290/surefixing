@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '' },
     bio: { type: String, default: '' },
     city: { type: String, default: '', trim: true },
+    // Street address. Suppliers: where customers collect tools (shared with a
+    // renter once a request is approved). Others: default delivery address.
+    // Never shown on public profiles.
+    address: { type: String, default: '', trim: true, maxlength: 300 },
 
     // Technician professional profile.
     headline: { type: String, default: '', trim: true },
@@ -87,6 +91,7 @@ userSchema.methods.toPublicJSON = function () {
     ...profileFields(this),
     email: this.email,
     phone: this.phone,
+    address: this.address,
     status: this.status
   };
 };

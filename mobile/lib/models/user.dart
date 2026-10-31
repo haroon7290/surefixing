@@ -16,6 +16,10 @@ class User {
   final String avatar;
   final String bio;
   final String city;
+
+  /// Street address (private). Suppliers: where customers collect tools.
+  /// Others: default delivery address for tool rentals.
+  final String address;
   final String headline;
   final List<String> skills;
   final double hourlyRate;
@@ -41,6 +45,7 @@ class User {
     this.avatar = '',
     this.bio = '',
     this.city = '',
+    this.address = '',
     this.headline = '',
     this.skills = const [],
     this.hourlyRate = 0,
@@ -105,6 +110,7 @@ class User {
         avatar: (json['avatar'] ?? '').toString(),
         bio: (json['bio'] ?? '').toString(),
         city: (json['city'] ?? '').toString(),
+        address: (json['address'] ?? '').toString(),
         headline: (json['headline'] ?? '').toString(),
         skills: (json['skills'] as List? ?? const []).map((e) => e.toString()).toList(),
         hourlyRate: _d(json['hourlyRate']),
@@ -131,6 +137,7 @@ class User {
         'avatar': avatar,
         'bio': bio,
         'city': city,
+        'address': address,
         'headline': headline,
         'skills': skills,
         'hourlyRate': hourlyRate,
@@ -157,6 +164,7 @@ class UserLite {
   final String kycStatus;
   final String? phone;
   final String? email;
+  final String? address;
   final String role;
   final bool online;
 
@@ -170,6 +178,7 @@ class UserLite {
     this.kycStatus = 'none',
     this.phone,
     this.email,
+    this.address,
     this.role = '',
     this.online = false,
   });
@@ -190,6 +199,7 @@ class UserLite {
         kycStatus: (m['kycStatus'] ?? 'none').toString(),
         phone: m['phone']?.toString(),
         email: m['email']?.toString(),
+        address: m['address']?.toString(),
         role: (m['role'] ?? '').toString(),
         online: m['online'] == true,
       );

@@ -29,6 +29,7 @@ router.patch(
     body('phone').optional().trim().isLength({ max: 30 }),
     body('bio').optional().isString().isLength({ max: 1000 }).withMessage('Bio is too long (max 1000 characters)'),
     body('city').optional().trim().isLength({ max: 60 }),
+    body('address').optional().trim().isLength({ max: 300 }).withMessage('Address is too long (max 300 characters)'),
     body('headline').optional().trim().isLength({ max: 100 }),
     body('skills').optional().isArray({ max: 20 }).withMessage('Skills must be a list (max 20)'),
     body('skills.*').optional().isString().trim().isLength({ min: 1, max: 40 }),
@@ -38,7 +39,7 @@ router.patch(
   ],
   validate,
   async (req, res) => {
-    const allowed = ['name', 'phone', 'bio', 'city', 'headline', 'skills', 'hourlyRate', 'experienceYears', 'isAvailable'];
+    const allowed = ['name', 'phone', 'bio', 'city', 'address', 'headline', 'skills', 'hourlyRate', 'experienceYears', 'isAvailable'];
     for (const key of allowed) {
       if (req.body[key] !== undefined) req.user[key] = req.body[key];
     }

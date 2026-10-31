@@ -83,11 +83,11 @@ erDiagram
 
 | Model | Notable fields |
 |---|---|
-| **User** | role (client/technician/supplier/admin), status (active/suspended), kycStatus, avatar, city, bio · technician profile: headline, skills[], hourlyRate, experienceYears, isAvailable · stats: rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes (+ responseSamples), lastSeenAt |
+| **User** | role (client/technician/supplier/admin), status (active/suspended), kycStatus, avatar, city, address (private: supplier pickup address / default delivery address), bio · technician profile: headline, skills[], hourlyRate, experienceYears, isAvailable · stats: rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes (+ responseSamples), lastSeenAt |
 | **Job** | client, title, description, category, budget, city, location, urgency (low/normal/high/emergency), preferredDate, images[], status (pending/in_progress/completed/cancelled), requestedTechnician + requestDeclined (direct requests), assignedTechnician, acceptedBid, agreedPrice, bids[] {technician, amount, etaDays, message, status}, history[] {status, note, by, at}, cancelReason, rating, review |
 | **Tool** | supplier, name, description, category, condition, city, images[] (+ legacy image), rentPricePerDay, deposit, purchasePrice, installmentMonths/Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
-| **Rental** | tool, renter, supplier, type (rent/installment), startDate, endDate, days, totalCost, deposit, fulfillment (pickup/delivery), note, status (requested/active/returned/completed/rejected/cancelled), rejectionReason, approvedAt, returnedAt, rating, review · computed in responses: overdue, daysLeft |
-| **Message** | job, sender, recipient, text, image, readAt — a thread is (job, client, technician) |
+| **Rental** | tool, renter, supplier, type (rent/installment), startDate, endDate, days, totalCost, deposit, fulfillment (pickup/delivery), deliveryAddress, note, status (requested/active/returned/completed/rejected/cancelled), rejectionReason, approvedAt, returnedAt, rating, review · computed in responses: overdue, daysLeft, handover `{method, address, city, revealed}` · phone numbers and the supplier's pickup address are hidden until the request is approved |
+| **Message** | job *or* tool, sender, recipient, text, image, readAt — a thread is (job, client, technician) or (tool, customer, supplier) |
 | **Notification** | user, type, title, body, data {jobId / toolId / rentalId … for deep links}, readAt |
 | **Kyc** | user, fullName, idType, idNumber, idFrontImage, idBackImage, selfieImage, status, rejectionReason |
 | **Report** | reporter, targetType (user/job/tool), targetId, targetLabel, reason, details, status (open/resolved/dismissed), resolutionNote, resolvedBy |
@@ -139,7 +139,7 @@ array with the total in the `X-Total-Count` header. Errors are `{ error, errors?
 | POST | `/auth/register` | `{name, email, password, role, phone?, city?}` (admin can't self-register) → `{token, user}` |
 | POST | `/auth/login` | → `{token, user}`; `403 {code:"suspended"}` for suspended accounts |
 | POST | `/auth/change-password` 🔒 | `{currentPassword, newPassword}` |
-| GET / PATCH | `/users/me` 🔒 | Profile; PATCH whitelists name, phone, bio, city, headline, skills[], hourlyRate, experienceYears, isAvailable |
+| GET / PATCH | `/users/me` 🔒 | Profile; PATCH whitelists name, phone, bio, city, address, headline, skills[], hourlyRate, experienceYears, isAvailable |
 | POST | `/users/me/avatar` 🔒 | multipart `avatar` |
 | GET | `/users/me/summary` 🔒 | Dashboard numbers for the caller's role |
 | GET | `/users/me/notifications` 🔒 | `?unread=1` · also `/unread-count`, `POST /read-all`, `POST /:id/read` |
@@ -173,21 +173,22 @@ array with the total in the `X-Total-Count` header. Errors are `{ error, errors?
 | GET | `/tools/:id` 🌐 | Detail + recent reviews |
 | POST / PATCH | `/tools` · `/tools/:id` 🔒 supplier | multipart; field whitelist; `images` (≤ 4) appended, `removeImages` JSON list |
 | DELETE | `/tools/:id` 🔒 supplier/admin | Refused while rentals are active; pending requests cancelled |
-| POST | `/tools/:id/rent` 🔒 | `{startDate, endDate}` or `{days}`, `fulfillment`, `note` → rental `requested` |
-| POST | `/tools/:id/purchase` 🔒 | Installment request |
+| POST | `/tools/:id/rent` 🔒 | `{startDate, endDate}` or `{days}`, `fulfillment`, `deliveryAddress` (required for delivery; defaults to the profile address), `note` → rental `requested` |
+| POST | `/tools/:id/purchase` 🔒 | Installment request · `fulfillment`, `deliveryAddress` as above |
 | GET | `/rentals` 🔒 | `?as=renter\|supplier&status=a,b` |
 | GET | `/rentals/:id` 🔒 | Renter, supplier or admin |
-| POST | `/rentals/:id/approve` · `/reject` · `/return` · `/complete` 🔒 supplier | Lifecycle (see above) |
+| POST | `/rentals/:id/approve` · `/reject` · `/return` · `/complete` 🔒 supplier | Lifecycle (see above). Approving a pickup needs the supplier's address on their profile |
 | POST | `/rentals/:id/cancel` · `/review` 🔒 renter | Cancel a request · review after it ends |
 
 ### Messages, KYC, reports, AI, admin
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/messages` 🔒 | Inbox: one row per (job, other person) with last message + unread |
+| GET | `/messages` 🔒 | Inbox: one row per (job or tool, other person) with last message + unread; `kind: job\|tool` |
 | GET | `/messages/unread-count` 🔒 | |
 | GET / POST | `/messages/:jobId` 🔒 | Thread (`?with=<technicianId>` for clients); POST JSON `{text, to?}` or multipart `image`. Reading marks as read |
 | POST | `/messages/:jobId/read` 🔒 | Mark read |
+| GET / POST | `/messages/tool/:toolId` 🔒 | Customer ↔ supplier thread about a tool. Customers always talk to the supplier; the supplier passes `?with=` / `to` and may only message people who rented or asked about that tool. `/read` marks read |
 | GET / POST | `/kyc/me` · `/kyc` 🔒 | Multipart `idFront`, `idBack`, `selfie` (front + selfie required); approved KYC is locked |
 | POST | `/reports` 🔒 | `{targetType, targetId, reason, details?}`; duplicates refused |
 | GET | `/ai/status` 🌐 | Is the Python service reachable? (`{online}` only, except for admins) |
@@ -216,8 +217,8 @@ green "online" dots; `lastSeenAt` is updated on connect/disconnect.
 | `job:rated` | technician | `{jobId, rating, review}` | Review left |
 | `rental:new` | supplier | `{rentalId, toolName, renterName, …}` | Rental or installment requested |
 | `rental:update` | renter + supplier | `{rentalId, status}` | Any rental status change |
-| `message:new` | sender + recipient | message + `senderName`, `jobTitle` | Chat message |
-| `message:read` | sender | `{jobId, by}` | Recipient read the thread (✓✓) |
+| `message:new` | sender + recipient | message (with `thread`: job id or `tool:<id>`) + `senderName`, `jobTitle` / `toolName` | Chat message |
+| `message:read` | sender | `{jobId, thread, by}` | Recipient read the thread (✓✓) |
 | `typing` | client → server → other party | `{jobId, to/from, typing}` | Typing indicator |
 | `kyc:new`, `report:new` | role:admin | ids | New KYC submission / report |
 

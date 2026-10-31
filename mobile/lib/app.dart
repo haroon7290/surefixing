@@ -102,7 +102,9 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
         final sender = (e.data['sender'] ?? '').toString();
         if (sender == me.id) return;
         final jobId = (e.data['job'] ?? '').toString();
-        if (ChatScreen.isOpen(jobId, sender)) return;
+        final toolId = (e.data['tool'] ?? '').toString();
+        final isTool = toolId.isNotEmpty && toolId != 'null';
+        if (ChatScreen.isOpen(isTool ? 'tool:$toolId' : jobId, sender)) return;
         final text = (e.data['text'] ?? '').toString();
         toast(
           '${e.data['senderName'] ?? 'New message'}: ${text.isEmpty ? '📷 Photo' : text}',
@@ -111,10 +113,11 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
             onPressed: () => push(
               navigatorKey.currentContext!,
               ChatScreen(
-                  jobId: jobId,
+                  jobId: isTool ? '' : jobId,
+                  toolId: isTool ? toolId : '',
                   otherId: sender,
                   otherName: (e.data['senderName'] ?? '').toString(),
-                  jobTitle: (e.data['jobTitle'] ?? '').toString()),
+                  jobTitle: (e.data[isTool ? 'toolName' : 'jobTitle'] ?? '').toString()),
             ),
           ),
         );
