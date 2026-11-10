@@ -57,8 +57,3 @@ def test_rank_v1_payload_still_works():
     ranked = client.post("/rank", json=body).json()["ranked"]
     assert [t["name"] for t in ranked] == ["A", "B"]
     assert 0 <= ranked[0]["score"] <= 5
-
-
-def test_score_endpoint():
-    r = client.post("/score?jobCategory=plumbing", json={"skills": ["plumbing"], "rating": 4.5, "ratingCount": 10}).json()
-    assert 0 < r["score"] <= 5

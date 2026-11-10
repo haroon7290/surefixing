@@ -122,7 +122,7 @@ describe('tools & rental requests', () => {
 
     const b = await renter.api('post', `/api/tools/${tool._id}/purchase`);
     expect(b.status).toBe(201);
-    expect(b.body).toMatchObject({ type: 'installment', monthsRemaining: 6, status: 'requested' });
+    expect(b.body).toMatchObject({ type: 'installment', monthsTotal: 6, monthsRemaining: 6, monthlyAmount: 5500, status: 'requested' });
     const rejected = await supplier.api('post', `/api/rentals/${b.body._id}/reject`).send({ reason: 'Sold out' });
     expect(rejected.body).toMatchObject({ status: 'rejected', rejectionReason: 'Sold out' });
   });

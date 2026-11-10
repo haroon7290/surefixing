@@ -22,8 +22,7 @@ function init(httpServer) {
   });
 
   io.use((socket, next) => {
-    // Token comes via auth handshake (preferred) or query param fallback.
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Missing token'));
     try {
       const payload = jwt.verify(token, config.jwtSecret);

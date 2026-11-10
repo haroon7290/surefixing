@@ -1,5 +1,6 @@
-// Rental request lifecycle. Suppliers approve/reject/return; renters cancel
-// pending requests and review finished rentals. See models/Rental.js.
+// Rental and installment-purchase lifecycle. Suppliers approve, decline and
+// take tools back; renters cancel pending requests, pay installments and
+// review finished rentals. See models/Rental.js for the states.
 const express = require('express');
 const mongoose = require('mongoose');
 const { body } = require('express-validator');
@@ -10,7 +11,8 @@ const { authRequired } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const { notify } = require('../utils/notify');
 const realtime = require('../utils/realtime');
-const { serializeRental, supplierRentalQuery, populateRental, listRentals, DAY_MS } = require('../services/rentals');
+const wallet = require('../services/wallet');
+const { serializeRental, populateRental, listRentals, lateDaysAt, DAY_MS } = require('../services/rentals');
 const { paginate, setTotal, sameId, badRequest, forbidden, notFound, conflict } = require('../utils/http');
 
 const router = express.Router();
@@ -22,20 +24,20 @@ async function loadRental(id) {
   return rental;
 }
 
-function supplierOf(rental) {
-  return rental.supplier || rental.tool?.supplier || null;
-}
-
 function assertSupplier(rental, user) {
-  if (user.role === 'admin') return;
-  if (!sameId(supplierOf(rental), user._id)) throw forbidden('Only the tool owner can do this');
+  if (user.role !== 'admin' && !sameId(rental.supplier, user._id)) throw forbidden('Only the tool owner can do this');
 }
 
-async function pushUpdate(rental, title, body) {
-  await notify(rental.renter, 'rental', title, body, { rentalId: rental._id, toolId: rental.tool?._id || rental.tool });
-  realtime.emit(rental.renter, 'rental:update', { rentalId: rental._id, status: rental.status });
-  const supplier = supplierOf(rental);
-  if (supplier) realtime.emit(supplier, 'rental:update', { rentalId: rental._id, status: rental.status });
+function assertRenter(rental, user) {
+  if (!sameId(rental.renter, user._id)) throw forbidden('Not your rental');
+}
+
+const toolName = (rental) => rental.tool?.name || 'the tool';
+
+function push(rental) {
+  for (const id of [rental.renter, rental.supplier]) {
+    realtime.emit(id, 'rental:update', { rentalId: rental._id, status: rental.status });
+  }
 }
 
 async function respond(res, rental) {
@@ -45,7 +47,7 @@ async function respond(res, rental) {
 
 // ?as=renter (default) | supplier   ?status=requested,active
 router.get('/', authRequired, async (req, res) => {
-  const filter = req.query.as === 'supplier' ? await supplierRentalQuery(req.user._id) : { renter: req.user._id };
+  const filter = req.query.as === 'supplier' ? { supplier: req.user._id } : { renter: req.user._id };
   if (req.query.status) filter.status = { $in: String(req.query.status).split(',') };
   const { limit, skip } = paginate(req, { defaultLimit: 50 });
   const { items, total } = await listRentals(filter, { skip, limit });
@@ -55,8 +57,7 @@ router.get('/', authRequired, async (req, res) => {
 
 router.get('/:id', authRequired, async (req, res) => {
   const rental = await loadRental(req.params.id);
-  const allowed =
-    sameId(rental.renter, req.user._id) || sameId(supplierOf(rental), req.user._id) || req.user.role === 'admin';
+  const allowed = sameId(rental.renter, req.user._id) || sameId(rental.supplier, req.user._id) || req.user.role === 'admin';
   if (!allowed) throw forbidden('Not your rental');
   await respond(res, rental);
 });
@@ -67,91 +68,139 @@ router.post('/:id/approve', authRequired, async (req, res) => {
   if (rental.status !== 'requested') throw badRequest(`This request is already ${rental.status}`);
 
   // A pickup needs somewhere to pick up from: the customer gets this address.
-  const supplierUser = await User.findById(supplierOf(rental)).select('address');
-  if (rental.fulfillment === 'pickup' && !supplierUser?.address) {
+  const supplier = await User.findById(rental.supplier).select('address');
+  if (rental.fulfillment === 'pickup' && !supplier?.address) {
     throw badRequest('Add your shop / pickup address in Edit profile first, so the customer knows where to collect the tool');
   }
 
   // Reserve one unit atomically so two approvals can't oversell the last one.
-  const tool = await Tool.findOneAndUpdate(
-    { _id: rental.tool._id, stock: { $gt: 0 } },
-    { $inc: { stock: -1, rentalsCount: 1 } },
-    { new: true }
-  );
+  const tool = await Tool.findOneAndUpdate({ _id: rental.tool._id, stock: { $gt: 0 } }, { $inc: { stock: -1, rentalsCount: 1 } }, { new: true });
   if (!tool) throw conflict('Out of stock — mark another rental returned or increase stock first');
 
   rental.status = 'active';
   rental.approvedAt = new Date();
-  if (!rental.supplier) rental.supplier = tool.supplier;
   if (rental.type === 'rent' && rental.startDate < new Date()) {
     // Approved after the requested start: the rental period starts now.
     rental.startDate = new Date();
     rental.endDate = new Date(Date.now() + rental.days * DAY_MS);
   }
   await rental.save();
-  const what = rental.type === 'installment' ? 'purchase' : 'rental';
-  await pushUpdate(
-    rental,
-    `Your ${what} was approved`,
+
+  await notify(
+    rental.renter,
+    'rental',
+    `Your ${rental.type === 'installment' ? 'purchase' : 'rental'} was approved`,
     rental.fulfillment === 'delivery'
       ? `"${tool.name}" will be delivered to ${rental.deliveryAddress}`
-      : `Collect "${tool.name}" from ${supplierUser.address}`
+      : `Collect "${tool.name}" from ${supplier.address}`,
+    { rentalId: rental._id, toolId: tool._id }
   );
+  push(rental);
   await respond(res, rental);
 });
 
-router.post(
-  '/:id/reject',
-  authRequired,
-  [body('reason').optional().isString().isLength({ max: 300 })],
-  validate,
-  async (req, res) => {
-    const rental = await loadRental(req.params.id);
-    assertSupplier(rental, req.user);
-    if (rental.status !== 'requested') throw badRequest(`This request is already ${rental.status}`);
-    rental.status = 'rejected';
-    rental.rejectionReason = req.body.reason || '';
-    await rental.save();
-    await pushUpdate(rental, 'Rental request declined', rental.rejectionReason || `"${rental.tool.name}" request was declined`);
-    await respond(res, rental);
-  }
-);
+router.post('/:id/reject', authRequired, [body('reason').optional().isString().isLength({ max: 300 })], validate, async (req, res) => {
+  const rental = await loadRental(req.params.id);
+  assertSupplier(rental, req.user);
+  if (rental.status !== 'requested') throw badRequest(`This request is already ${rental.status}`);
+  await wallet.refundRental(rental, toolName(rental));
+  rental.status = 'rejected';
+  rental.rejectionReason = req.body.reason || '';
+  await rental.save();
+  const refunded = rental.payment.status === 'refunded' ? ' Your payment was refunded.' : '';
+  await notify(rental.renter, 'rental', 'Rental request declined', `${rental.rejectionReason || `"${toolName(rental)}" isn't available`}.${refunded}`, {
+    rentalId: rental._id
+  });
+  push(rental);
+  await respond(res, rental);
+});
 
 router.post('/:id/cancel', authRequired, async (req, res) => {
   const rental = await loadRental(req.params.id);
-  if (!sameId(rental.renter, req.user._id)) throw forbidden('Not your rental');
+  assertRenter(rental, req.user);
   if (rental.status !== 'requested') throw badRequest('Only pending requests can be cancelled');
+  await wallet.refundRental(rental, toolName(rental));
   rental.status = 'cancelled';
   await rental.save();
-  const supplier = supplierOf(rental);
-  await notify(supplier, 'rental', 'Request cancelled', `${req.user.name} cancelled their request for "${rental.tool.name}"`, {
+  await notify(rental.supplier, 'rental', 'Request cancelled', `${req.user.name} cancelled their request for "${toolName(rental)}"`, {
     rentalId: rental._id
   });
-  realtime.emit(supplier, 'rental:update', { rentalId: rental._id, status: rental.status });
+  push(rental);
   await respond(res, rental);
 });
 
+// The tool is back. A late return costs one day's rate per day, taken from
+// the deposit; the supplier is paid and the rest of the deposit refunded.
 router.post('/:id/return', authRequired, async (req, res) => {
   const rental = await loadRental(req.params.id);
   assertSupplier(rental, req.user);
   if (rental.status !== 'active' || rental.type !== 'rent') throw badRequest('Only active rentals can be marked returned');
-  rental.status = 'returned';
+
   rental.returnedAt = new Date();
+  rental.lateDays = lateDaysAt(rental, rental.returnedAt);
+  rental.lateFee = Math.min(rental.lateDays * rental.dailyRate, rental.deposit);
+  await wallet.settleRental(rental, toolName(rental));
+  rental.status = 'returned';
   await rental.save();
   await Tool.updateOne({ _id: rental.tool._id }, { $inc: { stock: 1 } });
-  await pushUpdate(rental, 'Rental returned', `Thanks for renting "${rental.tool.name}". Leave a review?`);
+
+  const late = rental.lateFee > 0 ? ` A late fee of ${rental.lateFee} (${rental.lateDays} day${rental.lateDays === 1 ? '' : 's'}) was taken from your deposit.` : '';
+  await notify(rental.renter, 'rental', 'Rental returned', `Thanks for renting "${toolName(rental)}".${late} Leave a review?`, {
+    rentalId: rental._id,
+    toolId: rental.tool._id
+  });
+  push(rental);
   await respond(res, rental);
 });
 
-// Installment purchase fully paid / handed over.
-router.post('/:id/complete', authRequired, async (req, res) => {
+async function installmentPaid(rental) {
+  rental.monthsPaid += 1;
+  if (rental.monthsPaid >= rental.monthsTotal) {
+    rental.status = 'completed';
+    rental.payment.status = rental.payment.method === 'wallet' ? 'released' : 'cash_paid';
+    rental.payment.settledAt = new Date();
+  }
+  await rental.save();
+  push(rental);
+}
+
+function assertActivePlan(rental) {
+  if (rental.type !== 'installment' || rental.status !== 'active') throw badRequest('This is not an active installment plan');
+}
+
+// Buyer pays this month's installment from their wallet.
+router.post('/:id/pay-installment', authRequired, async (req, res) => {
+  const rental = await loadRental(req.params.id);
+  assertRenter(rental, req.user);
+  assertActivePlan(rental);
+  await wallet.payInstallment(rental, toolName(rental));
+  rental.payment.method = 'wallet';
+  await installmentPaid(rental);
+  await notify(
+    rental.supplier,
+    'rental',
+    'Installment received',
+    `${req.user.name} paid month ${rental.monthsPaid} of ${rental.monthsTotal} for "${toolName(rental)}"`,
+    { rentalId: rental._id }
+  );
+  await respond(res, rental);
+});
+
+// Supplier records a month paid in cash. `all: true` settles the whole plan.
+router.post('/:id/record-installment', authRequired, [body('all').optional().isBoolean().toBoolean()], validate, async (req, res) => {
   const rental = await loadRental(req.params.id);
   assertSupplier(rental, req.user);
-  if (rental.status !== 'active' || rental.type !== 'installment') throw badRequest('Only active installment plans can be completed');
-  rental.status = 'completed';
-  rental.monthsRemaining = 0;
-  await rental.save();
-  await pushUpdate(rental, 'Purchase completed', `"${rental.tool.name}" is fully paid. Enjoy!`);
+  assertActivePlan(rental);
+  if (req.body.all) rental.monthsPaid = rental.monthsTotal - 1;
+  await installmentPaid(rental);
+  const done = rental.status === 'completed';
+  await notify(
+    rental.renter,
+    'rental',
+    done ? 'Purchase completed' : 'Installment recorded',
+    done ? `"${toolName(rental)}" is fully paid. Enjoy!` : `Month ${rental.monthsPaid} of ${rental.monthsTotal} for "${toolName(rental)}" was recorded as paid.`,
+    { rentalId: rental._id }
+  );
   await respond(res, rental);
 });
 
@@ -165,7 +214,7 @@ router.post(
   validate,
   async (req, res) => {
     const rental = await loadRental(req.params.id);
-    if (!sameId(rental.renter, req.user._id)) throw forbidden('Not your rental');
+    assertRenter(rental, req.user);
     if (!['returned', 'completed'].includes(rental.status)) throw badRequest('You can review a tool after the rental ends');
     if (rental.rating) throw conflict('You already reviewed this rental');
     rental.rating = req.body.rating;

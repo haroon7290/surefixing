@@ -1,20 +1,21 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const mongoose = require('mongoose');
 const { body } = require('express-validator');
 const Tool = require('../models/Tool');
 const Rental = require('../models/Rental');
 const { authRequired, optionalAuth, requireRole } = require('../middleware/auth');
-const { validate } = require('../middleware/validate');
+const { validate, discardUploads } = require('../middleware/validate');
 const upload = require('../middleware/upload');
 const { notify } = require('../utils/notify');
 const realtime = require('../utils/realtime');
-const { toolCategoryKeys, TOOL_CONDITIONS } = require('../config/catalog');
-const { serializeRental, supplierRentalQuery, listRentals, DAY_MS } = require('../services/rentals');
+const { removeUpload } = require('../utils/files');
+const wallet = require('../services/wallet');
+const { toolCategoryKeys, TOOL_CONDITIONS, PAYMENT_METHODS } = require('../config/catalog');
+const { serializeRental, DAY_MS } = require('../services/rentals');
 const { escapeRegex, paginate, setTotal, sameId, badRequest, forbidden, notFound } = require('../utils/http');
 
 const router = express.Router();
+const MAX_IMAGES = 6;
 
 const toolValidators = (optional) => {
   const f = (name) => (optional ? body(name).optional() : body(name));
@@ -43,11 +44,6 @@ function pick(src) {
     out[key] = v;
   }
   return out;
-}
-
-function removeFile(name) {
-  if (!name) return;
-  fs.unlink(path.join(upload.uploadDir, path.basename(name)), () => {});
 }
 
 async function loadTool(id) {
@@ -85,27 +81,15 @@ router.get('/', optionalAuth, async (req, res) => {
     price_asc: { rentPricePerDay: 1 },
     price_desc: { rentPricePerDay: -1 },
     rating: { rating: -1, ratingCount: -1 },
-    popular: { rentalsCount: -1 }
+    popular: { rentalsCount: -1, rating: -1 }
   };
   const { limit, skip } = paginate(req, { defaultLimit: 50 });
   const [tools, total] = await Promise.all([
-    Tool.find(q).populate('supplier', 'name avatar city').sort(sorts[sort] || sorts.newest).skip(skip).limit(limit),
+    Tool.find(q).populate('supplier', 'name avatar city kycStatus').sort(sorts[sort] || sorts.newest).skip(skip).limit(limit),
     Tool.countDocuments(q)
   ]);
   setTotal(res, total);
   res.json(tools);
-});
-
-// What I've rented/bought (kept here for older app versions; see /api/rentals).
-router.get('/me/rentals', authRequired, async (req, res) => {
-  const { items } = await listRentals({ renter: req.user._id }, { limit: 200 });
-  res.json(items);
-});
-
-// Suppliers: rentals/purchases of the tools they own.
-router.get('/me/incoming', authRequired, requireRole('supplier'), async (req, res) => {
-  const { items } = await listRentals(await supplierRentalQuery(req.user._id), { limit: 200 });
-  res.json(items);
 });
 
 router.get('/:id', optionalAuth, async (req, res) => {
@@ -132,12 +116,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // --------------------------------------------------------- supplier CRUD
 
 router.post('/', authRequired, requireRole('supplier'), upload.array('images', 4), toolValidators(false), validate, async (req, res) => {
-  const images = (req.files || []).map((f) => f.filename);
   const tool = await Tool.create({
     ...pick(req.body),
     city: req.body.city || req.user.city || '',
-    images,
-    image: images[0] || '',
+    images: (req.files || []).map((f) => f.filename),
     supplier: req.user._id
   });
   res.status(201).json(tool);
@@ -147,8 +129,10 @@ router.post('/', authRequired, requireRole('supplier'), upload.array('images', 4
 // (JSON array or comma list of filenames) deletes existing ones.
 router.patch('/:id', authRequired, requireRole('supplier'), upload.array('images', 4), toolValidators(true), validate, async (req, res) => {
   const tool = await loadTool(req.params.id);
-  if (!sameId(tool.supplier, req.user._id)) throw forbidden('Not your tool');
-
+  if (!sameId(tool.supplier, req.user._id)) {
+    discardUploads(req);
+    throw forbidden('Not your tool');
+  }
   Object.assign(tool, pick(req.body));
 
   let remove = req.body.removeImages || [];
@@ -160,12 +144,11 @@ router.patch('/:id', authRequired, requireRole('supplier'), upload.array('images
     }
   }
   const removeSet = new Set((Array.isArray(remove) ? remove : []).map((s) => String(s).trim()));
-  const current = tool.images.length ? tool.images : tool.image ? [tool.image] : [];
-  const kept = current.filter((img) => !removeSet.has(img));
-  current.filter((img) => removeSet.has(img)).forEach(removeFile);
+  tool.images.filter((img) => removeSet.has(img)).forEach(removeUpload);
+  const kept = tool.images.filter((img) => !removeSet.has(img));
   const added = (req.files || []).map((f) => f.filename);
-  tool.images = [...kept, ...added].slice(0, 6);
-  tool.image = tool.images[0] || '';
+  added.slice(Math.max(0, MAX_IMAGES - kept.length)).forEach(removeUpload);
+  tool.images = [...kept, ...added].slice(0, MAX_IMAGES);
 
   await tool.save();
   res.json(tool);
@@ -175,25 +158,27 @@ router.delete('/:id', authRequired, requireRole('supplier', 'admin'), async (req
   const tool = await loadTool(req.params.id);
   if (req.user.role !== 'admin' && !sameId(tool.supplier, req.user._id)) throw forbidden('Not your tool');
   const active = await Rental.countDocuments({ tool: tool._id, status: 'active' });
-  if (active) throw badRequest('This tool has active rentals. Mark them returned first, or unlist the tool instead.');
+  if (active) throw badRequest('This tool is out with a customer. Mark it returned first, or unlist the tool instead.');
 
   const pending = await Rental.find({ tool: tool._id, status: 'requested' });
   for (const r of pending) {
+    await wallet.refundRental(r, tool.name);
     r.status = 'cancelled';
-    r.rejectionReason = 'Tool was removed by the supplier';
+    r.rejectionReason = 'The supplier removed this tool';
     await r.save();
-    await notify(r.renter, 'rental', 'Rental request cancelled', `"${tool.name}" is no longer available`, { rentalId: r._id });
+    await notify(r.renter, 'rental', 'Rental request cancelled', `"${tool.name}" is no longer available.`, { rentalId: r._id });
   }
-  (tool.images || []).forEach(removeFile);
+  tool.images.forEach(removeUpload);
   await tool.deleteOne();
   res.json({ ok: true });
 });
 
 // ------------------------------------------------------ rent / purchase
 
-const handoverValidators = [
+const requestValidators = [
   body('fulfillment').optional().isIn(['pickup', 'delivery']).withMessage('Choose pickup or delivery'),
-  body('deliveryAddress').optional().isString().trim().isLength({ max: 300 }).withMessage('Address is too long (max 300 characters)')
+  body('deliveryAddress').optional().isString().trim().isLength({ max: 300 }).withMessage('Address is too long (max 300 characters)'),
+  body('note').optional().isString().isLength({ max: 500 })
 ];
 
 // Pickup (from the supplier) or delivery (to an address the customer gives;
@@ -206,6 +191,20 @@ function handover(req) {
   return { fulfillment, deliveryAddress };
 }
 
+async function loadRentable(req, verb) {
+  const tool = await loadTool(req.params.id);
+  if (!tool.available || tool.stock <= 0) throw badRequest('This tool is currently unavailable');
+  if (sameId(tool.supplier, req.user._id)) throw badRequest(`You can't ${verb} your own tool`);
+  return tool;
+}
+
+function announce(tool, rental, user, title, text) {
+  realtime.emit(tool.supplier, 'rental:new', { rentalId: rental._id, toolId: tool._id, toolName: tool.name, renterName: user.name });
+  return notify(tool.supplier, 'rental', title, text, { toolId: tool._id, rentalId: rental._id });
+}
+
+// Rent for a date range. Paying by wallet holds the rental cost and the
+// deposit until the tool is returned (or refunds them if declined).
 router.post(
   '/:id/rent',
   authRequired,
@@ -213,14 +212,12 @@ router.post(
     body('days').optional().isInt({ min: 1, max: 90 }).withMessage('Rental length must be 1–90 days').toInt(),
     body('startDate').optional().isISO8601().withMessage('Invalid start date'),
     body('endDate').optional().isISO8601().withMessage('Invalid end date'),
-    ...handoverValidators,
-    body('note').optional().isString().isLength({ max: 500 })
+    body('paymentMethod').optional().isIn(PAYMENT_METHODS).withMessage('Choose wallet or cash'),
+    ...requestValidators
   ],
   validate,
   async (req, res) => {
-    const tool = await loadTool(req.params.id);
-    if (!tool.available || tool.stock <= 0) throw badRequest('This tool is currently unavailable');
-    if (sameId(tool.supplier, req.user._id)) throw badRequest("You can't rent your own tool");
+    const tool = await loadRentable(req, 'rent');
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -228,15 +225,13 @@ router.post(
     if (start.getTime() < today.getTime()) throw badRequest('Start date cannot be in the past');
     let days = req.body.days;
     if (req.body.endDate) {
-      const end = new Date(req.body.endDate);
-      days = Math.ceil((end.getTime() - start.getTime()) / DAY_MS);
+      days = Math.ceil((new Date(req.body.endDate).getTime() - start.getTime()) / DAY_MS);
       if (days < 1) throw badRequest('End date must be after the start date');
       if (days > 90) throw badRequest('Rentals can be at most 90 days');
     }
     if (!days) throw badRequest('Choose how many days you need the tool');
-    const how = handover(req);
 
-    const rental = await Rental.create({
+    const rental = new Rental({
       tool: tool._id,
       renter: req.user._id,
       supplier: tool.supplier,
@@ -244,35 +239,26 @@ router.post(
       days,
       startDate: start,
       endDate: new Date(start.getTime() + days * DAY_MS),
+      dailyRate: tool.rentPricePerDay,
       totalCost: Math.round(days * tool.rentPricePerDay * 100) / 100,
       deposit: tool.deposit || 0,
-      ...how,
+      ...handover(req),
       note: req.body.note || '',
       status: 'requested'
     });
+    await wallet.holdForRental(rental, req.body.paymentMethod || 'cash', tool.name); // 402 if the wallet is short
+    await rental.save();
 
-    await notify(tool.supplier, 'rental', 'New rental request', `${req.user.name} wants "${tool.name}" for ${days} day${days === 1 ? '' : 's'}`, {
-      toolId: tool._id,
-      rentalId: rental._id
-    });
-    realtime.emit(tool.supplier, 'rental:new', {
-      rentalId: rental._id,
-      toolId: tool._id,
-      toolName: tool.name,
-      renterName: req.user.name,
-      days,
-      totalCost: rental.totalCost
-    });
+    await announce(tool, rental, req.user, 'New rental request', `${req.user.name} wants "${tool.name}" for ${days} day${days === 1 ? '' : 's'}`);
     res.status(201).json(serializeRental(rental));
   }
 );
 
-router.post('/:id/purchase', authRequired, [...handoverValidators, body('note').optional().isString().isLength({ max: 500 })], validate, async (req, res) => {
-  const tool = await loadTool(req.params.id);
-  if (!tool.available || tool.stock <= 0) throw badRequest('This tool is currently unavailable');
-  if (sameId(tool.supplier, req.user._id)) throw badRequest("You can't buy your own tool");
+// Buy on a monthly installment plan. Each month is paid from the wallet or
+// recorded by the supplier when paid in cash.
+router.post('/:id/purchase', authRequired, requestValidators, validate, async (req, res) => {
+  const tool = await loadRentable(req, 'buy');
   if (!tool.installmentMonths) throw badRequest('This tool is not offered on installments');
-  const how = handover(req);
 
   const rental = await Rental.create({
     tool: tool._id,
@@ -280,25 +266,16 @@ router.post('/:id/purchase', authRequired, [...handoverValidators, body('note').
     supplier: tool.supplier,
     type: 'installment',
     totalCost: tool.purchasePrice,
-    monthsRemaining: tool.installmentMonths,
+    monthsTotal: tool.installmentMonths,
+    monthsPaid: 0,
+    monthlyAmount: tool.installmentMonthly || Math.ceil(tool.purchasePrice / tool.installmentMonths),
+    payment: { method: 'cash', status: 'none', amount: tool.purchasePrice, net: tool.purchasePrice },
     startDate: new Date(),
-    ...how,
-    note: String(req.body?.note || '').slice(0, 500),
+    ...handover(req),
+    note: req.body.note || '',
     status: 'requested'
   });
-
-  await notify(tool.supplier, 'rental', 'New purchase request', `${req.user.name} wants to buy "${tool.name}" on installments`, {
-    toolId: tool._id,
-    rentalId: rental._id
-  });
-  realtime.emit(tool.supplier, 'rental:new', {
-    rentalId: rental._id,
-    toolId: tool._id,
-    toolName: tool.name,
-    renterName: req.user.name,
-    totalCost: rental.totalCost,
-    months: tool.installmentMonths
-  });
+  await announce(tool, rental, req.user, 'New purchase request', `${req.user.name} wants to buy "${tool.name}" on installments`);
   res.status(201).json(serializeRental(rental));
 });
 

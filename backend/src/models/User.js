@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const ROLES = ['client', 'technician', 'supplier', 'admin'];
+const PORTFOLIO_MAX = 8;
 
 const userSchema = new mongoose.Schema(
   {
@@ -26,6 +27,7 @@ const userSchema = new mongoose.Schema(
     hourlyRate: { type: Number, default: 0, min: 0 },
     experienceYears: { type: Number, default: 0, min: 0 },
     isAvailable: { type: Boolean, default: true },
+    portfolio: { type: [String], default: [] }, // photos of past work
 
     // Technician stats used by the AI ranker.
     rating: { type: Number, default: 0 }, // 0-5 running average
@@ -34,6 +36,17 @@ const userSchema = new mongoose.Schema(
     jobsAssigned: { type: Number, default: 0 },
     avgResponseMinutes: { type: Number, default: 60 },
     responseSamples: { type: Number, default: 0 },
+
+    // Sandbox wallet balance; every change has a Transaction row.
+    walletBalance: { type: Number, default: 0, min: 0 },
+
+    favoriteTechnicians: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    favoriteTools: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tool' }],
+
+    // Password reset: bcrypt hash of a 6-digit code, valid for a few minutes.
+    resetCodeHash: { type: String, default: '' },
+    resetCodeExpires: { type: Date, default: null },
+    resetAttempts: { type: Number, default: 0 },
 
     lastSeenAt: { type: Date, default: null }
   },
@@ -75,6 +88,7 @@ function profileFields(u) {
     hourlyRate: u.hourlyRate,
     experienceYears: u.experienceYears,
     isAvailable: u.isAvailable,
+    portfolio: u.portfolio,
     rating: u.rating,
     ratingCount: u.ratingCount,
     jobsCompleted: u.jobsCompleted,
@@ -85,21 +99,25 @@ function profileFields(u) {
   };
 }
 
-// Full projection — for the account owner and admins.
-userSchema.methods.toPublicJSON = function () {
+// Everything about an account — for its owner and admins.
+userSchema.methods.toPrivateJSON = function () {
   return {
     ...profileFields(this),
     email: this.email,
     phone: this.phone,
     address: this.address,
-    status: this.status
+    status: this.status,
+    walletBalance: this.walletBalance,
+    favoriteTechnicians: this.favoriteTechnicians,
+    favoriteTools: this.favoriteTools
   };
 };
 
-// What other marketplace users may see: no email/phone.
+// What other marketplace users (and website visitors) may see.
 userSchema.methods.toProfileJSON = function () {
   return profileFields(this);
 };
 
 module.exports = mongoose.model('User', userSchema);
 module.exports.ROLES = ROLES;
+module.exports.PORTFOLIO_MAX = PORTFOLIO_MAX;

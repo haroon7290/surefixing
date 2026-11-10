@@ -9,12 +9,11 @@ const toolSchema = new mongoose.Schema(
     category: { type: String, default: 'general' },
     condition: { type: String, enum: TOOL_CONDITIONS, default: 'good' },
     city: { type: String, default: '', trim: true },
-    image: { type: String, default: '' }, // cover image (kept for older clients)
     images: { type: [String], default: [] },
     rentPricePerDay: { type: Number, default: 0, min: 0 },
     deposit: { type: Number, default: 0, min: 0 },
     purchasePrice: { type: Number, default: 0, min: 0 },
-    installmentMonths: { type: Number, default: 0, min: 0 }, // 0 = not available on installment
+    installmentMonths: { type: Number, default: 0, min: 0 }, // 0 = not sold on installments
     installmentMonthly: { type: Number, default: 0, min: 0 },
     // Supplier-controlled "listed" switch. Stock is tracked separately.
     available: { type: Boolean, default: true },

@@ -7,19 +7,23 @@ const Tool = require('../models/Tool');
 const Rental = require('../models/Rental');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
-const { authRequired, optionalAuth } = require('../middleware/auth');
-const { validate } = require('../middleware/validate');
+const { authRequired, optionalAuth, requireRole } = require('../middleware/auth');
+const { validate, discardUploads } = require('../middleware/validate');
 const upload = require('../middleware/upload');
 const realtime = require('../utils/realtime');
+const { removeUpload } = require('../utils/files');
 const { escapeRegex, paginate, setTotal, notFound, badRequest } = require('../utils/http');
 
 const router = express.Router();
 
 const withPresence = (json) => ({ ...json, online: realtime.isOnline(json.id) });
+const me = (req) => withPresence(req.user.toPrivateJSON());
 
-router.get('/me', authRequired, (req, res) => {
-  res.json(withPresence(req.user.toPublicJSON()));
-});
+// --------------------------------------------------------------- account
+
+router.get('/me', authRequired, (req, res) => res.json(me(req)));
+
+const EDITABLE = ['name', 'phone', 'bio', 'city', 'address', 'headline', 'skills', 'hourlyRate', 'experienceYears', 'isAvailable'];
 
 router.patch(
   '/me',
@@ -39,72 +43,155 @@ router.patch(
   ],
   validate,
   async (req, res) => {
-    const allowed = ['name', 'phone', 'bio', 'city', 'address', 'headline', 'skills', 'hourlyRate', 'experienceYears', 'isAvailable'];
-    for (const key of allowed) {
+    for (const key of EDITABLE) {
       if (req.body[key] !== undefined) req.user[key] = req.body[key];
     }
     if (Array.isArray(req.body.skills)) {
       req.user.skills = [...new Set(req.body.skills.map((s) => String(s).trim().toLowerCase()).filter(Boolean))];
     }
     await req.user.save();
-    res.json(withPresence(req.user.toPublicJSON()));
+    res.json(me(req));
   }
 );
 
 router.post('/me/avatar', authRequired, upload.single('avatar'), async (req, res) => {
   if (!req.file) throw badRequest('Attach an image in the "avatar" field');
+  removeUpload(req.user.avatar);
   req.user.avatar = req.file.filename;
   await req.user.save();
-  res.json(withPresence(req.user.toPublicJSON()));
+  res.json(me(req));
 });
+
+// Technician portfolio: photos of past work shown on the public profile.
+router.post('/me/portfolio', authRequired, requireRole('technician'), upload.array('images', User.PORTFOLIO_MAX), async (req, res) => {
+  const added = (req.files || []).map((f) => f.filename);
+  if (!added.length) throw badRequest('Attach at least one photo in the "images" field');
+  const room = User.PORTFOLIO_MAX - req.user.portfolio.length;
+  if (added.length > room) {
+    discardUploads(req);
+    throw badRequest(`A portfolio holds up to ${User.PORTFOLIO_MAX} photos. Remove one first.`);
+  }
+  req.user.portfolio.push(...added);
+  await req.user.save();
+  res.status(201).json(me(req));
+});
+
+router.delete('/me/portfolio/:file', authRequired, requireRole('technician'), async (req, res) => {
+  if (!req.user.portfolio.includes(req.params.file)) throw notFound('Photo not found');
+  req.user.portfolio = req.user.portfolio.filter((f) => f !== req.params.file);
+  await req.user.save();
+  removeUpload(req.params.file);
+  res.json(me(req));
+});
+
+// ------------------------------------------------------------- favourites
+
+router.get('/me/favorites', authRequired, async (req, res) => {
+  const [technicians, tools] = await Promise.all([
+    User.find({ _id: { $in: req.user.favoriteTechnicians }, role: 'technician', status: { $ne: 'suspended' } }),
+    Tool.find({ _id: { $in: req.user.favoriteTools } }).populate('supplier', 'name avatar city kycStatus')
+  ]);
+  res.json({ technicians: technicians.map((t) => withPresence(t.toProfileJSON())), tools });
+});
+
+// Saves or un-saves a technician or tool. Body: { type, id, saved? } —
+// without `saved` it toggles.
+router.post(
+  '/me/favorites',
+  authRequired,
+  [
+    body('type').isIn(['technician', 'tool']).withMessage('type must be technician or tool'),
+    body('id').isMongoId().withMessage('Invalid id'),
+    body('saved').optional().isBoolean().toBoolean()
+  ],
+  validate,
+  async (req, res) => {
+    const { type, id } = req.body;
+    const field = type === 'tool' ? 'favoriteTools' : 'favoriteTechnicians';
+    const exists =
+      type === 'tool' ? await Tool.exists({ _id: id }) : await User.exists({ _id: id, role: 'technician' });
+    if (!exists) throw notFound(`That ${type} no longer exists`);
+
+    const has = req.user[field].some((x) => String(x) === String(id));
+    const saved = req.body.saved ?? !has;
+    await User.updateOne({ _id: req.user._id }, saved ? { $addToSet: { [field]: id } } : { $pull: { [field]: id } });
+    res.json({ type, id, saved });
+  }
+);
+
+// --------------------------------------------------------------- summary
 
 // One call that powers each role's dashboard.
 router.get('/me/summary', authRequired, async (req, res) => {
-  const me = req.user._id;
-  const unreadMessages = await Message.countDocuments({ recipient: me, readAt: null });
-  const unreadNotifications = await Notification.countDocuments({ user: me, readAt: null });
-  const base = { unreadMessages, unreadNotifications };
+  const id = req.user._id;
+  const [unreadMessages, unreadNotifications] = await Promise.all([
+    Message.countDocuments({ recipient: id, readAt: null }),
+    Notification.countDocuments({ user: id, readAt: null })
+  ]);
+  const base = { unreadMessages, unreadNotifications, walletBalance: req.user.walletBalance };
 
   if (req.user.role === 'client') {
-    const [byStatus, rentals] = await Promise.all([
-      Job.aggregate([{ $match: { client: me } }, { $group: { _id: '$status', n: { $sum: 1 } } }]),
-      Rental.countDocuments({ renter: me, status: { $in: ['requested', 'active'] } })
+    const [byStatus, toConfirm, activeRentals, spentAgg] = await Promise.all([
+      Job.aggregate([{ $match: { client: id } }, { $group: { _id: '$status', n: { $sum: 1 } } }]),
+      Job.countDocuments({ client: id, status: 'in_progress', stage: 'done' }),
+      Rental.countDocuments({ renter: id, status: { $in: ['requested', 'active'] } }),
+      Job.aggregate([
+        { $match: { client: id, status: 'completed' } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$agreedPrice', 0] } } } }
+      ])
     ]);
-    const jobs = Object.fromEntries(byStatus.map((s) => [s._id, s.n]));
-    return res.json({ ...base, jobs, activeRentals: rentals });
+    return res.json({
+      ...base,
+      jobs: Object.fromEntries(byStatus.map((s) => [s._id, s.n])),
+      jobsToConfirm: toConfirm,
+      activeRentals,
+      spent: spentAgg[0]?.total || 0
+    });
   }
 
   if (req.user.role === 'technician') {
-    const [requests, active, completedAgg, pendingBids] = await Promise.all([
-      Job.countDocuments({ requestedTechnician: me, status: 'pending', requestDeclined: false, 'bids.technician': { $ne: me } }),
-      Job.countDocuments({ assignedTechnician: me, status: 'in_progress' }),
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const [requests, activeJobs, completedAgg, monthAgg, pendingBids, inEscrow] = await Promise.all([
+      Job.countDocuments({ requestedTechnician: id, status: 'pending', requestDeclined: false, 'bids.technician': { $ne: id } }),
+      Job.countDocuments({ assignedTechnician: id, status: 'in_progress' }),
       Job.aggregate([
-        { $match: { assignedTechnician: me, status: 'completed' } },
-        { $group: { _id: null, n: { $sum: 1 }, earnings: { $sum: { $ifNull: ['$agreedPrice', 0] } } } }
+        { $match: { assignedTechnician: id, status: 'completed' } },
+        { $group: { _id: null, n: { $sum: 1 }, earnings: { $sum: { $ifNull: ['$payment.net', '$agreedPrice'] } } } }
       ]),
-      Job.countDocuments({ status: 'pending', bids: { $elemMatch: { technician: me, status: 'pending' } } })
+      Job.aggregate([
+        { $match: { assignedTechnician: id, status: 'completed', completedAt: { $gte: monthStart } } },
+        { $group: { _id: null, earnings: { $sum: { $ifNull: ['$payment.net', '$agreedPrice'] } } } }
+      ]),
+      Job.countDocuments({ status: 'pending', bids: { $elemMatch: { technician: id, status: 'pending' } } }),
+      Job.aggregate([
+        { $match: { assignedTechnician: id, status: 'in_progress', 'payment.status': 'held' } },
+        { $group: { _id: null, total: { $sum: '$payment.net' } } }
+      ])
     ]);
     return res.json({
       ...base,
       requests,
-      activeJobs: active,
+      activeJobs,
       completedJobs: completedAgg[0]?.n || 0,
       earnings: completedAgg[0]?.earnings || 0,
+      earningsThisMonth: monthAgg[0]?.earnings || 0,
+      inEscrow: inEscrow[0]?.total || 0,
       pendingBids
     });
   }
 
   if (req.user.role === 'supplier') {
-    const toolIds = (await Tool.find({ supplier: me }).select('_id')).map((t) => t._id);
-    const [byStatus, revenueAgg] = await Promise.all([
-      Rental.aggregate([{ $match: { tool: { $in: toolIds } } }, { $group: { _id: '$status', n: { $sum: 1 } } }]),
+    const [tools, byStatus, revenueAgg] = await Promise.all([
+      Tool.countDocuments({ supplier: id }),
+      Rental.aggregate([{ $match: { supplier: id } }, { $group: { _id: '$status', n: { $sum: 1 } } }]),
       Rental.aggregate([
-        { $match: { tool: { $in: toolIds }, status: { $in: ['active', 'returned', 'completed'] } } },
+        { $match: { supplier: id, status: { $in: ['active', 'returned', 'completed'] } } },
         { $group: { _id: null, total: { $sum: '$totalCost' } } }
       ])
     ]);
-    const rentals = Object.fromEntries(byStatus.map((s) => [s._id, s.n]));
-    return res.json({ ...base, tools: toolIds.length, rentals, revenue: revenueAgg[0]?.total || 0 });
+    return res.json({ ...base, tools, rentals: Object.fromEntries(byStatus.map((s) => [s._id, s.n])), revenue: revenueAgg[0]?.total || 0 });
   }
 
   res.json(base);
@@ -125,8 +212,7 @@ router.get('/me/notifications', authRequired, async (req, res) => {
 });
 
 router.get('/me/notifications/unread-count', authRequired, async (req, res) => {
-  const count = await Notification.countDocuments({ user: req.user._id, readAt: null });
-  res.json({ count });
+  res.json({ count: await Notification.countDocuments({ user: req.user._id, readAt: null }) });
 });
 
 router.post('/me/notifications/read-all', authRequired, async (req, res) => {
@@ -135,6 +221,7 @@ router.post('/me/notifications/read-all', authRequired, async (req, res) => {
 });
 
 router.post('/me/notifications/:id/read', authRequired, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Notification not found');
   await Notification.updateOne({ _id: req.params.id, user: req.user._id }, { $set: { readAt: new Date() } });
   res.json({ ok: true });
 });
@@ -176,14 +263,13 @@ router.get('/technicians', optionalAuth, async (req, res) => {
 });
 
 router.get('/:id', optionalAuth, async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) throw notFound();
+  if (!mongoose.isValidObjectId(req.params.id)) throw notFound('User not found');
   const user = await User.findById(req.params.id);
-  if (!user) throw notFound();
+  if (!user) throw notFound('User not found');
   // Visitors only see the marketplace's public faces: technicians and suppliers.
-  if (!req.user && !['technician', 'supplier'].includes(user.role)) throw notFound();
-  const self = req.user && String(user._id) === String(req.user._id);
-  const json = self || req.user?.role === 'admin' ? user.toPublicJSON() : user.toProfileJSON();
-  res.json(withPresence(json));
+  if (!req.user && !['technician', 'supplier'].includes(user.role)) throw notFound('User not found');
+  const full = req.user && (String(user._id) === String(req.user._id) || req.user.role === 'admin');
+  res.json(withPresence(full ? user.toPrivateJSON() : user.toProfileJSON()));
 });
 
 module.exports = router;

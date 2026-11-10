@@ -42,7 +42,6 @@ the app keeps working — responses then carry `"engine": "fallback"`.
 | POST | `/analyze` | `{text}` → `{category, label, confidence, categories[3], urgency, urgencyTerms, keywords}` |
 | POST | `/recommend` | `{description, category?, city?, budget?, urgency?, technicians[]}` → `{analysis, ranked[]}` |
 | POST | `/rank` | `{technicians[] (bids), jobCategory, description?, budget?, city?, urgency?}` → `{ranked[]}` |
-| POST | `/score` | one technician → `{score}` (kept for v1 backends) |
 
 Each ranked item keeps every input field and adds
 `score` (0–5), `matchPercent` (0–100), `breakdown` (each component 0–1),
@@ -109,7 +108,7 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-34 tests: stemming, held-out accuracy, urgency, scoring properties (weights
+33 tests: stemming, held-out accuracy, urgency, scoring properties (weights
 sum to 1, Bayesian damping, urgency boost, price/budget notes), API
 contracts, and a **parity test** that runs the backend's JS fallback through
 Node and checks it ranks identically to this service.

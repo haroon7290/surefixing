@@ -8,7 +8,6 @@ GET  /model/info    classifier stats and scoring weights
 POST /analyze       problem text → category (+ confidence) and urgency
 POST /recommend     problem + candidate technicians → ranked, explained matches
 POST /rank          bids on one job → ranked, explained quotes
-POST /score         score a single technician (kept for older backends)
 
 Interactive docs: http://localhost:5001/docs
 """
@@ -24,7 +23,7 @@ from .classifier import classify, model_info
 from .training_data import CATEGORY_LABELS
 from .urgency import detect_urgency
 
-VERSION = "2.0.0"
+VERSION = "3.0.0"
 
 app = FastAPI(
     title="SureFix AI Service",
@@ -141,8 +140,3 @@ def rank(req: RankRequest):
         "urgency": req.urgency or "normal",
     }
     return {"ranked": scoring.rank_bids(_dump(req.technicians), ctx)}
-
-
-@app.post("/score")
-def score(t: Technician, jobCategory: str = ""):
-    return {"score": scoring.score_one(t.model_dump(), {"category": jobCategory}, "recommend")["score"]}
