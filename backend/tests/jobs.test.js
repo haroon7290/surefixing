@@ -73,6 +73,11 @@ describe('job lifecycle', () => {
     expect(market.body.bidCount).toBe(2);
     expect(market.body.bids).toHaveLength(1);
     expect(market.body.bids[0].amount).toBe(3500);
+    // …and the activity log does not give away what the others quoted.
+    expect(market.body.history.filter((h) => h.event === 'bid')).toHaveLength(1);
+    expect(JSON.stringify(market.body.history)).not.toContain('2800');
+    const owner = await client.api('get', `/api/jobs/${job._id}`);
+    expect(owner.body.history.filter((h) => h.event === 'bid')).toHaveLength(2);
 
     const ranked = await client.api('get', `/api/jobs/${job._id}/ranked-bids`);
     expect(ranked.body).toHaveLength(2);

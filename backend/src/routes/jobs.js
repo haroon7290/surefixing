@@ -56,7 +56,12 @@ function present(job, user) {
     }
   }
   json.bidCount = json.bids.filter((b) => b.status !== 'withdrawn').length;
-  if (!isClient && user.role !== 'admin') json.bids = json.bids.filter((b) => sameId(b.technician, user._id));
+  if (!isClient && user.role !== 'admin') {
+    json.bids = json.bids.filter((b) => sameId(b.technician, user._id));
+    // The activity log mentions every quote: keep only this technician's own.
+    const QUOTE_EVENTS = ['bid', 'bid_withdrawn', 'request_declined', 'technician_withdrew'];
+    json.history = json.history.filter((h) => !QUOTE_EVENTS.includes(h.event) || sameId(h.by, user._id));
+  }
   if (!isClient && !isAssigned && user.role !== 'admin') delete json.payment;
   json.autoCompleteAt = jobs.autoCompleteAt(job);
   return json;
