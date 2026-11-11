@@ -5,7 +5,7 @@
 | MongoDB | mongod 6+ | 27017 |
 | Backend | Node.js 18+ (22 recommended) | 4000 |
 | AI service | Python 3.10 – 3.13 | 5001 |
-| Mobile app | Flutter 3.35 (Dart 3.9) | — |
+| App / website | Flutter 3.35 (Dart 3.9) | 8080 (website) |
 
 The AI service is optional at runtime — if it's down the backend uses its built-in fallback
 scorer (responses say `"engine": "fallback"`).
@@ -22,8 +22,12 @@ run `setup.bat`, then the four `scripts\start-*.bat`.
 cd backend && cp .env.example .env && npm install && npm run dev        # :4000
 cd ai-service && python3 -m venv venv && . venv/bin/activate \
   && pip install -r requirements.txt && uvicorn app.main:app --reload --port 5001
-cd mobile && flutter pub get && flutter run
+cd mobile && flutter pub get && flutter run          # a phone, or: flutter run -d chrome
 ```
+
+The repository ships the Android, iOS, web and Windows runners. To run as a native macOS or
+Linux desktop app, add that runner once with `flutter create --platforms=macos,linux .` in
+`mobile/`.
 
 ## Docker (backend + AI + MongoDB)
 
@@ -41,18 +45,24 @@ Set `JWT_SECRET` (and `NODE_ENV=production`) in your shell or a `.env` next to
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `4000` | HTTP + Socket.IO port |
-| `MONGO_URI` | `mongodb://localhost:27017/fixit` | Database (name kept from v1) |
+| `MONGO_URI` | `mongodb://localhost:27017/surefix` | Database |
 | `JWT_SECRET` | `change_me…` | **Change it.** Production refuses to start with the default |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime |
 | `AI_SERVICE_URL` | `http://localhost:5001` | Python AI service |
 | `AI_TIMEOUT_MS` | `2500` | Wait this long before using the fallback |
 | `UPLOAD_DIR` | `uploads` | Where photos are stored |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed browser origins |
-| `RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_MAX` | `1000` / `30` | Requests per 15 min per IP (API / login+register) |
+| `RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_MAX` | `1000` / `30` | Requests per 15 min per IP (API / login, register, reset) |
+| `PLATFORM_FEE_PERCENT` | `10` | SureFix fee kept from wallet payments on release |
+| `AUTO_CONFIRM_HOURS` | `72` | How long a client has to confirm a finished job before the technician may close it |
+| `SMTP_URL` / `MAIL_FROM` | empty | Email server for password-reset codes. Empty = codes are printed in the console and shown in the app |
 | `NODE_ENV` | `development` | `production` hides internal error messages |
 
 Useful commands (in `backend/`): `npm run dev` · `npm test` · `npm run seed` (only seeds an
 empty DB) · `npm run seed -- --force` (wipes + reseeds) · `npm run create-admin`.
+
+**Sandbox wallet**: balances are demo credit. `POST /api/wallet/topup` adds funds and no
+payment provider is involved; the escrow, fee and ledger logic is real.
 
 ## Mobile app
 
@@ -61,8 +71,7 @@ empty DB) · `npm run seed -- --force` (wipes + reseeds) · `npm run create-admi
 | Backend URL | `--dart-define=API_BASE_URL=http://<host>:4000` (default `http://localhost:4000`) |
 | Android emulator | `--dart-define=API_BASE_URL=http://10.0.2.2:4000` |
 | Real phone over USB | `adb reverse tcp:4000 tcp:4000` once per connection (keeps `localhost`) |
-| Currency symbol | `--dart-define=CURRENCY=$` (default `Rs`) |
-| Demo login buttons in release builds | `--dart-define=DEMO=true` (always shown in debug) |
+| Hide the demo account buttons | `--dart-define=DEMO=false` |
 
 **Release APK**: `flutter build apk --release --dart-define=API_BASE_URL=http://<your-server>:4000`.
 The Android manifest includes the INTERNET permission and allows cleartext HTTP so a local
@@ -70,10 +79,10 @@ The Android manifest includes the INTERNET permission and allows cleartext HTTP 
 iOS includes camera/photo-library usage strings and allows local-network HTTP.
 
 **Web / website**: `flutter run -d chrome --web-port 8080` (Windows: `scripts\start-web.bat`). Wider
-than 1000 px the app shows the website layout (public pages for visitors, desktop dashboards for
+than 1000 px the app shows the website layout (public pages for visitors, a sidebar web app for
 signed-in users). To host it, run `flutter build web --release --dart-define=API_BASE_URL=https://<your-api>`
 and serve `build/web` from any static host; set `CORS_ORIGINS` on the backend to the site's
-address. Sections use hash URLs (`/#/technicians`), so no server rewrite rules are needed.
+address. Pages use hash URLs (`/#/technicians`, `/#/jobs/<id>`), so no server rewrite rules are needed.
 
 ## Tests
 
@@ -92,6 +101,7 @@ On Windows: `scripts\test-all.bat`. CI runs the same on every push.
 | Backend exits with `Mongo connection failed` | Start MongoDB (`scripts\start-mongo.bat` or the Windows service) |
 | `Cannot find module 'helmet'` (or similar) after updating | Run `setup.bat` or `npm install` in `backend/` (the start script now does this automatically) |
 | App says "Can't reach SureFix" | Backend not running, wrong `API_BASE_URL`, or phone needs `adb reverse tcp:4000 tcp:4000` |
-| Smart Match says "Offline engine" | The AI service isn't running — results still work via the fallback; start `scripts\start-ai.bat` |
+| Smart Match says "Built-in engine" | The AI service isn't running — results still work via the fallback; start `scripts\start-ai.bat` |
+| Errors on jobs or rentals right after upgrading | The database holds data from an older version: `npm run seed -- --force` (Windows: `scripts\reset-demo-data.bat`) |
 | "Too many attempts" on login | Rate limit (30 per 15 min per IP); wait or raise `AUTH_RATE_LIMIT_MAX` |
 | Port in use | Change `PORT` in `backend/.env`, or stop the other process |
