@@ -1,5 +1,6 @@
 @echo off
-REM Starts the Node backend on :4000.
+REM Starts the Node backend on :4000 WITHOUT loading demo data: for a
+REM clean install where you create the admin account yourself.
 setlocal
 cd /d "%~dp0..\backend"
 
@@ -26,8 +27,8 @@ if not exist .env (
   node -e "const fs=require('fs');const crypto=require('crypto');const p='.env';let c=fs.readFileSync(p,'utf8');c=c.replace(/JWT_SECRET=.*/,'JWT_SECRET='+crypto.randomBytes(48).toString('hex'));fs.writeFileSync(p,c);console.log('==^> Generated a random JWT_SECRET in backend\\.env');"
 )
 
-echo ==^> Checking whether the database has any users yet...
-node -e "const m=require('mongoose');m.connect(process.env.MONGO_URI||'mongodb://localhost:27017/fixit').then(async()=>{const c=await m.connection.db.collection('users').countDocuments();process.exit(c===0?0:1);}).catch(()=>process.exit(2));"
+echo ==^> Checking the database...
+node src\scripts\check-db.js
 if %ERRORLEVEL%==0 (
   echo ==^> Database is empty -- no user accounts exist yet.
   echo     Create your admin account with:
@@ -36,6 +37,9 @@ if %ERRORLEVEL%==0 (
 ) else if %ERRORLEVEL%==2 (
   echo ==^> Could not reach MongoDB. Make sure start-mongo.bat is running
   echo     ^(or the MongoDB service is started^) before continuing.
+) else if %ERRORLEVEL%==3 (
+  echo ==^> This database holds data from an older SureFix version.
+  echo     Run scripts\reset-demo-data.bat, or point MONGO_URI in backend\.env at a new database.
 )
 
 call npm run dev

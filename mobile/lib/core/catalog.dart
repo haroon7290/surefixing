@@ -100,7 +100,7 @@ const stageLabels = {'hired': 'Hired', 'on_the_way': 'On the way', 'working': 'W
 
 (String, Tone) rentalStatus(String status, {bool installment = false, bool overdue = false}) => switch (status) {
       'requested' => ('Awaiting approval', Tone.info),
-      'active' => overdue ? ('Overdue', Tone.danger) : (installment ? ('Paying monthly', Tone.brand) : ('Rented out', Tone.brand)),
+      'active' => overdue ? ('Overdue', Tone.danger) : (installment ? ('Paying monthly', Tone.brand) : ('On rent', Tone.brand)),
       'returned' => ('Returned', Tone.success),
       'completed' => ('Paid off', Tone.success),
       'rejected' => ('Declined', Tone.danger),

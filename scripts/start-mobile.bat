@@ -7,13 +7,12 @@ REM   start-mobile.bat chrome     -- runs in Chrome (web)
 REM   start-mobile.bat <deviceid> -- runs on a specific device (see `flutter devices`)
 REM
 REM If you're running on a REAL Android phone over USB (not an emulator),
-REM the backend/AI service at localhost won't be reachable from the phone
-REM by default. Run these two commands first (once per USB connection),
-REM with adb on PATH (it ships inside the Android SDK platform-tools):
+REM the backend at localhost won't be reachable from the phone by default.
+REM Run this first (once per USB connection), with adb on PATH (it ships
+REM inside the Android SDK platform-tools):
 REM   adb reverse tcp:4000 tcp:4000
-REM   adb reverse tcp:5001 tcp:5001
-REM This makes "localhost:4000" and "localhost:5001" on the PHONE point
-REM back to your PC, so no IP address juggling is needed.
+REM This makes "localhost:4000" on the PHONE point back to your PC, so no
+REM IP address juggling is needed.
 
 setlocal
 cd /d "%~dp0..\mobile"
@@ -35,7 +34,7 @@ if exist ios goto skip_create
 if exist web goto skip_create
 if exist windows goto skip_create
 echo ==^> flutter create ^(platform folders missing^)
-flutter create --org com.fixit --project-name surefix .
+flutter create --org com.surefix --project-name surefix --platforms=android,ios,web,windows .
 :skip_create
 
 if "%~1"=="" (

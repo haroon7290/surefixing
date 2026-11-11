@@ -26,14 +26,22 @@ if not exist .env (
   echo ==^> Created backend\.env from .env.example
 )
 
-echo ==^> Checking whether the database needs seeding...
-node -e "const m=require('mongoose');m.connect(process.env.MONGO_URI||'mongodb://localhost:27017/fixit').then(async()=>{const c=await m.connection.db.collection('users').countDocuments();process.exit(c===0?0:1);}).catch(()=>process.exit(2));"
+echo ==^> Checking the database...
+node src\scripts\check-db.js
 if %ERRORLEVEL%==0 (
   echo ==^> Empty database detected -- seeding demo data
   call npm run seed
 ) else if %ERRORLEVEL%==2 (
   echo ==^> Could not reach MongoDB. Make sure start-mongo.bat is running
   echo     ^(or the MongoDB service is started^) before continuing.
+) else if %ERRORLEVEL%==3 (
+  echo.
+  echo  !! This database holds data from an OLDER SureFix version.
+  echo  !! Jobs and rentals made by the old version will not work with this one.
+  echo  !! Close this window and run:   scripts\reset-demo-data.bat
+  echo  !! ^(it wipes the database and loads fresh demo data^)
+  echo.
+  pause
 )
 
 call npm run dev
