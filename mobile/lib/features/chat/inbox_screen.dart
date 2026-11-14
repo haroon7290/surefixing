@@ -127,7 +127,8 @@ class _InboxScreenState extends State<InboxScreen> {
                 SizedBox(
                   width: 44,
                   child: Column(children: [
-                    RoundBtn(open.isTool ? AppIcons.tools : AppIcons.jobs, tooltip: open.isTool ? 'Open tool' : 'Open job', onPressed: () => open.isTool ? openTool(context, open.toolId) : openJob(context, open.jobId)),
+                    RoundBtn(open.isTool ? AppIcons.tools : AppIcons.jobs,
+                        tooltip: open.isTool ? 'Open tool' : 'Open job', onPressed: () => open.isTool ? openTool(context, open.toolId) : openJob(context, open.jobId)),
                   ]),
                 ),
               ],

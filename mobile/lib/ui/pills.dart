@@ -28,10 +28,7 @@ class Pill extends StatelessWidget {
         if (dot) ...[Container(width: 6, height: 6, decoration: BoxDecoration(color: fg, shape: BoxShape.circle)), Gap.w6],
         if (icon != null) ...[Icon(icon, size: 13, color: fg), Gap.w4],
         Flexible(
-          child: Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontFamily: kBodyFont, fontSize: 12, fontWeight: FontWeight.w700, color: fg, height: 1.2)),
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: kBodyFont, fontSize: 12, fontWeight: FontWeight.w700, color: fg, height: 1.2)),
         ),
       ]),
     );
@@ -121,16 +118,13 @@ class Avatar extends StatelessWidget {
     final fallback = Container(
       color: color.withValues(alpha: 0.16),
       alignment: Alignment.center,
-      child: Text(initials(name),
-          style: TextStyle(fontFamily: kDisplayFont, fontSize: size * 0.38, fontWeight: FontWeight.w700, color: color, height: 1, letterSpacing: -0.3)),
+      child: Text(initials(name), style: TextStyle(fontFamily: kDisplayFont, fontSize: size * 0.38, fontWeight: FontWeight.w700, color: color, height: 1, letterSpacing: -0.3)),
     );
     final face = ClipRRect(
       borderRadius: radius,
       child: SizedBox.square(
         dimension: size,
-        child: image.isEmpty
-            ? fallback
-            : Image.network(mediaUrl(image), fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => fallback, semanticLabel: name),
+        child: image.isEmpty ? fallback : Image.network(mediaUrl(image), fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => fallback, semanticLabel: name),
       ),
     );
     if (!online) return face;

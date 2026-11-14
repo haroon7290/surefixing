@@ -42,9 +42,7 @@ class _QuoteFormState extends State<QuoteForm> {
           Text('Send your quote', style: context.text.titleLarge),
           Gap.h4,
           Text(
-            widget.estimate.exists
-                ? 'Jobs like this usually go for ${money(widget.estimate.low)} – ${money(widget.estimate.high)}.'
-                : 'Price the whole job, including materials you will bring.',
+            widget.estimate.exists ? 'Jobs like this usually go for ${money(widget.estimate.low)} – ${money(widget.estimate.high)}.' : 'Price the whole job, including materials you will bring.',
             style: context.text.bodySmall,
           ),
           Gap.h16,
@@ -107,7 +105,15 @@ Future<Json?> showRateSheet(BuildContext context, {required String name}) {
           child: Text(const ['Tap a star', 'Poor', 'Below average', 'Okay', 'Good', 'Excellent'][stars], style: context.text.titleSmall),
         ),
         Gap.h20,
-        Field(label: 'Write a review', hint: 'How did it go? Was the work good, on time, fairly priced?', controller: review, maxLines: 4, minLines: 3, maxLength: 1000, optional: true, capitalization: TextCapitalization.sentences),
+        Field(
+            label: 'Write a review',
+            hint: 'How did it go? Was the work good, on time, fairly priced?',
+            controller: review,
+            maxLines: 4,
+            minLines: 3,
+            maxLength: 1000,
+            optional: true,
+            capitalization: TextCapitalization.sentences),
         Gap.h8,
         Btn('Submit review', size: BtnSize.lg, expand: true, onPressed: stars == 0 ? null : () => Navigator.of(context).pop({'rating': stars, 'review': review.text.trim()})),
       ]),
@@ -131,7 +137,15 @@ Future<DoneReport?> showDoneSheet(BuildContext context) {
     subtitle: 'Tell the client what you did. Photos of the result help them confirm quickly.',
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Field(label: 'What was done', hint: 'e.g. Replaced the tap cartridge and sealed the joint. Tested for leaks.', controller: note, maxLines: 4, minLines: 3, maxLength: 500, optional: true, capitalization: TextCapitalization.sentences),
+        Field(
+            label: 'What was done',
+            hint: 'e.g. Replaced the tap cartridge and sealed the joint. Tested for leaks.',
+            controller: note,
+            maxLines: 4,
+            minLines: 3,
+            maxLength: 500,
+            optional: true,
+            capitalization: TextCapitalization.sentences),
         Gap.h8,
         const FieldLabel('Photos of the finished work', optional: true),
         PhotoPicker(picked: photos, onChanged: (v) => setState(() => photos = v), max: 4),

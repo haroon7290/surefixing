@@ -76,26 +76,21 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
           ),
         ),
         PagePad(
-          child: SizedBox(
-            height: 40,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              Pills<bool>(values: const [true], label: (_) => 'In stock', selected: _inStock ? true : null, onTap: (_) => setState(() => _inStock = !_inStock)),
-              Gap.w8,
-              Pills<bool>(values: const [true], label: (_) => 'Buy monthly', icon: (_) => AppIcons.calendar, selected: _installment ? true : null, onTap: (_) => setState(() => _installment = !_installment)),
-              Gap.w8,
-              if (city.isNotEmpty) ...[
-                Pills<bool>(values: const [true], label: (_) => 'In $city', icon: (_) => AppIcons.pin, selected: _nearby ? true : null, onTap: (_) => setState(() => _nearby = !_nearby)),
-                Gap.w8,
-              ],
-              Pills<CatalogItem>(
-                values: toolCategories,
-                label: (c) => c.label,
-                icon: (c) => c.icon,
-                selected: _category == null ? null : toolCategory(_category!),
-                onTap: (c) => setState(() => _category = _category == c.key ? null : c.key),
-              ),
-            ]),
-          ),
+          child: FilterBar(children: [
+            Pills<bool>(values: const [true], label: (_) => 'In stock', selected: _inStock ? true : null, onTap: (_) => setState(() => _inStock = !_inStock)),
+            Pills<bool>(
+                values: const [true], label: (_) => 'Buy monthly', icon: (_) => AppIcons.calendar, selected: _installment ? true : null, onTap: (_) => setState(() => _installment = !_installment)),
+            if (city.isNotEmpty) ...[
+              Pills<bool>(values: const [true], label: (_) => 'In $city', icon: (_) => AppIcons.pin, selected: _nearby ? true : null, onTap: (_) => setState(() => _nearby = !_nearby)),
+            ],
+            Pills<CatalogItem>(
+              values: toolCategories,
+              label: (c) => c.label,
+              icon: (c) => c.icon,
+              selected: _category == null ? null : toolCategory(_category!),
+              onTap: (c) => setState(() => _category = _category == c.key ? null : c.key),
+            ),
+          ]),
         ),
         Expanded(
           child: AsyncView<List<Tool>>(
@@ -106,10 +101,12 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
                     icon: AppIcons.tools,
                     title: 'No tools match',
                     message: 'Try another search, or remove a filter.',
-                    action: Btn('Clear filters', kind: BtnKind.dark, onPressed: () => setState(() {
-                          _category = null;
-                          _inStock = _installment = _nearby = false;
-                        })),
+                    action: Btn('Clear filters',
+                        kind: BtnKind.dark,
+                        onPressed: () => setState(() {
+                              _category = null;
+                              _inStock = _installment = _nearby = false;
+                            })),
                   )
                 : PageList(children: [
                     Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(plural(tools.length, 'tool'), style: context.text.bodySmall)),

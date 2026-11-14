@@ -74,7 +74,9 @@ class _ClientHomeState extends State<ClientHome> {
                 child: Row(children: [
                   Icon(AppIcons.sparkleFill, size: 18, color: c.brand),
                   Gap.w12,
-                  Expanded(child: Text('e.g. My kitchen tap is leaking…', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: kBodyFont, fontSize: 15, fontWeight: FontWeight.w500, color: c.onHeroMuted))),
+                  Expanded(
+                      child: Text('e.g. My kitchen tap is leaking…',
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: kBodyFont, fontSize: 15, fontWeight: FontWeight.w500, color: c.onHeroMuted))),
                   Container(
                     width: 42,
                     height: 42,

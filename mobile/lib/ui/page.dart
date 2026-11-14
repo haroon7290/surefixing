@@ -53,9 +53,6 @@ class AppPage extends StatelessWidget {
     final frame = PageFrame.maybeOf(context);
     final canPop = ModalRoute.of(context)?.canPop ?? false;
     final block = context.isWide || (frame?.hideBar ?? false);
-    final mq = MediaQuery.of(context);
-    // Tab screens sit under the floating dock: lift a FAB above it.
-    final dockInset = math.max(0.0, mq.padding.bottom - mq.viewPadding.bottom);
 
     Widget content = _PageWidth(maxWidth: maxWidth, child: body);
     // Screens without an app bar (dashboards) still clear the status bar.
@@ -81,16 +78,14 @@ class AppPage extends StatelessWidget {
           : AppBar(
               automaticallyImplyLeading: false,
               leadingWidth: 64,
-              leading: canPop
-                  ? Center(child: RoundBtn(AppIcons.back, tooltip: 'Back', size: 40, onPressed: () => Navigator.of(context).maybePop()))
-                  : null,
+              leading: canPop ? Center(child: RoundBtn(AppIcons.back, tooltip: 'Back', size: 40, onPressed: () => Navigator.of(context).maybePop())) : null,
               titleSpacing: canPop ? 4 : 20,
               title: Text(title!, maxLines: 1, overflow: TextOverflow.ellipsis),
               actions: [...actions, Gap.w12],
               bottom: tabs,
             ),
       body: content,
-      floatingActionButton: fab == null ? null : Padding(padding: EdgeInsets.only(bottom: dockInset), child: fab),
+      floatingActionButton: fab,
       bottomNavigationBar: bottom == null ? null : _BottomBar(maxWidth: maxWidth, child: bottom!),
     );
   }
@@ -166,7 +161,7 @@ class PageList extends StatelessWidget {
     final list = LayoutBuilder(builder: (context, box) {
       final side = pageGutter(context, box.maxWidth, max);
       return CustomScrollView(
-        controller: controller,
+        controller: controller ?? PrimaryScrollController.maybeOf(context),
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(

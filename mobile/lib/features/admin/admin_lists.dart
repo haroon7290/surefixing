@@ -24,7 +24,14 @@ class _AdminKycScreenState extends State<AdminKycScreen> {
   Future<void> _decide(Kyc k, bool approve) async {
     String? reason;
     if (!approve) {
-      reason = await promptText(context, title: 'Reject ${k.user.name}\'s documents?', message: 'They can fix the problem and submit again.', label: 'What is wrong', hint: 'e.g. The ID photo is blurry', confirmLabel: 'Reject', danger: true, mandatory: true);
+      reason = await promptText(context,
+          title: 'Reject ${k.user.name}\'s documents?',
+          message: 'They can fix the problem and submit again.',
+          label: 'What is wrong',
+          hint: 'e.g. The ID photo is blurry',
+          confirmLabel: 'Reject',
+          danger: true,
+          mandatory: true);
       if (reason == null) return;
     }
     try {
@@ -57,7 +64,8 @@ class _AdminKycScreenState extends State<AdminKycScreen> {
               load: () async => (await Api.list('/api/admin/kyc', query: {'status': _status})).map(Kyc.fromJson).toList(),
               events: Live.admin,
               builder: (context, items) => items.isEmpty
-                  ? EmptyState(icon: AppIcons.verify, title: _status == 'pending' ? 'Nothing to review' : 'None yet', message: _status == 'pending' ? 'New submissions appear here straight away.' : null)
+                  ? EmptyState(
+                      icon: AppIcons.verify, title: _status == 'pending' ? 'Nothing to review' : 'None yet', message: _status == 'pending' ? 'New submissions appear here straight away.' : null)
                   : PageList(
                       onRefresh: () => _view.currentState!.reload(),
                       children: [
@@ -137,7 +145,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final note = await promptText(
       context,
       title: suspend ? 'Suspend and resolve?' : (actionTaken ? 'Resolve this report?' : 'Dismiss this report?'),
-      message: suspend ? 'The reported account is suspended and the reporter is told you took action.' : (actionTaken ? 'The reporter is told you took action.' : 'The reporter is told no violation was found.'),
+      message: suspend
+          ? 'The reported account is suspended and the reporter is told you took action.'
+          : (actionTaken ? 'The reporter is told you took action.' : 'The reporter is told no violation was found.'),
       label: 'Internal note',
       confirmLabel: suspend ? 'Suspend & resolve' : (actionTaken ? 'Resolve' : 'Dismiss'),
       danger: suspend,
@@ -309,7 +319,10 @@ class _AdminToolsScreenState extends State<AdminToolsScreen> {
   }
 
   Future<void> _remove(Tool t) async {
-    if (!await confirm(context, title: 'Remove "${t.name}"?', message: 'The listing is deleted. Pending requests are cancelled and refunded.', confirmLabel: 'Remove listing', danger: true, icon: AppIcons.trash)) return;
+    if (!await confirm(context,
+        title: 'Remove "${t.name}"?', message: 'The listing is deleted. Pending requests are cancelled and refunded.', confirmLabel: 'Remove listing', danger: true, icon: AppIcons.trash)) {
+      return;
+    }
     try {
       await Api.delete('/api/tools/${t.id}');
       toast('Listing removed');
@@ -361,7 +374,8 @@ class _AdminToolsScreenState extends State<AdminToolsScreen> {
                                 Expanded(
                                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                                     Text(tools[i].name, style: context.text.titleSmall!.copyWith(fontSize: 14.5), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                    Text('${tools[i].supplier.name}  ·  ${money(tools[i].rentPricePerDay)} /day  ·  ${tools[i].stock} in stock', style: context.text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    Text('${tools[i].supplier.name}  ·  ${money(tools[i].rentPricePerDay)} /day  ·  ${tools[i].stock} in stock',
+                                        style: context.text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                                   ]),
                                 ),
                                 if (!tools[i].available) const Padding(padding: EdgeInsets.only(right: 8), child: Pill('Hidden')),

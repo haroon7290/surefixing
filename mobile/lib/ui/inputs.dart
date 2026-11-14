@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/format.dart';
+import '../core/responsive.dart';
 import '../core/theme.dart';
 import 'icons.dart';
 
@@ -240,7 +241,8 @@ class Pills<T> extends StatelessWidget {
           onTap: () => onTap(v),
         ),
     ];
-    if (!scroll) return Wrap(spacing: 8, runSpacing: 8, children: pills);
+    // On wide windows there is room to show every pill: no sideways scrolling.
+    if (!scroll || context.isWide) return Wrap(spacing: 8, runSpacing: 8, children: pills);
     return SizedBox(
       height: 40,
       child: ListView.separated(
@@ -322,10 +324,7 @@ class Segmented<T> extends StatelessWidget {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     if (icons?[e.key] != null) ...[Icon(icons![e.key], size: 17, color: e.key == value ? c.ink : c.muted), Gap.w6],
                     Flexible(
-                      child: Text(e.value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.text.titleSmall!.copyWith(fontSize: 13.5, color: e.key == value ? c.ink : c.muted)),
+                      child: Text(e.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleSmall!.copyWith(fontSize: 13.5, color: e.key == value ? c.ink : c.muted)),
                     ),
                   ]),
                 ),
@@ -400,9 +399,7 @@ class DateField extends StatelessWidget {
           child: InputDecorator(
             decoration: InputDecoration(
               prefixIcon: const Icon(AppIcons.calendar, size: 20),
-              suffixIcon: value == null || !optional
-                  ? null
-                  : IconButton(tooltip: 'Clear date', icon: const Icon(AppIcons.close, size: 16), onPressed: () => onChanged(null)),
+              suffixIcon: value == null || !optional ? null : IconButton(tooltip: 'Clear date', icon: const Icon(AppIcons.close, size: 16), onPressed: () => onChanged(null)),
             ),
             child: Text(
               value == null ? hint : longDate(value),
@@ -477,3 +474,24 @@ String? Function(String?) positiveNumber(String message, {bool allowEmpty = fals
       final n = num.tryParse(s);
       return n == null || n <= 0 ? message : null;
     };
+
+/// A row of filter pills: one scrolling line on phones, wrapped onto as many
+/// lines as needed on wide windows (nothing hidden off-screen).
+class FilterBar extends StatelessWidget {
+  final List<Widget> children;
+  const FilterBar({super.key, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.isWide) return Wrap(spacing: 8, runSpacing: 8, children: children);
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: children.length,
+        separatorBuilder: (_, __) => Gap.w8,
+        itemBuilder: (_, i) => children[i],
+      ),
+    );
+  }
+}

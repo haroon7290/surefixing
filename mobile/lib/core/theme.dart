@@ -270,8 +270,7 @@ abstract final class AppTheme {
       surfaceTint: Colors.transparent,
     );
 
-    OutlineInputBorder border(Color color, [double width = 1]) =>
-        OutlineInputBorder(borderRadius: BorderRadius.circular(R.md), borderSide: BorderSide(color: color, width: width));
+    OutlineInputBorder border(Color color, [double width = 1]) => OutlineInputBorder(borderRadius: BorderRadius.circular(R.md), borderSide: BorderSide(color: color, width: width));
     final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(R.md));
     const buttonPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 14);
 

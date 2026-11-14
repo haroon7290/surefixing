@@ -42,8 +42,8 @@ class Eyebrow extends StatelessWidget {
   const Eyebrow(this.text, {super.key});
 
   @override
-  Widget build(BuildContext context) => Text(text.toUpperCase(),
-      style: TextStyle(fontFamily: kBodyFont, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: context.colors.brandDeep));
+  Widget build(BuildContext context) =>
+      Text(text.toUpperCase(), style: TextStyle(fontFamily: kBodyFont, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: context.colors.brandDeep));
 }
 
 class SectionHead extends StatelessWidget {

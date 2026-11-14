@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -104,8 +102,8 @@ void openSection(BuildContext context, String key) {
   }
 }
 
-/// The signed-in app: the current section's screen, plus the floating dock
-/// on phones. (On wide windows the sidebar lives in `WebFrame`, above the
+/// The signed-in app: the current section's screen, plus the tab bar on
+/// phones. (On wide windows the sidebar lives in `WebFrame`, above the
 /// navigator, so it stays put while pages open.)
 class HomeShell extends StatefulWidget {
   final String role;
@@ -118,63 +116,119 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   late final List<Dest> _dests = destinationsFor(widget.role);
   final Set<String> _visited = {};
+  // One scroll controller per section: sections kept alive side by side
+  // must not share the page's primary controller.
+  final Map<String, ScrollController> _scrollers = {};
+  bool _redirecting = false;
+
+  ScrollController _scrollerFor(String key) => _scrollers.putIfAbsent(key, ScrollController.new);
+
+  @override
+  void dispose() {
+    for (final c in _scrollers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Tapping the tab you are already on scrolls it back to the top.
+  void _onTabTap(String key) {
+    if (SiteNav.section.value == key) {
+      final c = _scrollers[key];
+      if (c != null && c.hasClients) {
+        for (final p in c.positions) {
+          p.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+        }
+      }
+    }
+    SiteNav.go(key);
+  }
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<String>(
         valueListenable: SiteNav.section,
         builder: (context, section, _) {
+          final wide = context.isWide;
           var index = _dests.indexWhere((d) => d.key == section);
           if (index < 0) index = 0;
           final current = _dests[index];
+
+          // On a phone only tab sections live in the shell; any other section
+          // (a link, a notification, a narrowed browser window) opens as a
+          // page with a back button on top of Home.
+          if (!wide && !current.dock && !_redirecting) {
+            _redirecting = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _redirecting = false;
+              if (!mounted || SiteNav.section.value != current.key) return;
+              SiteNav.select('home');
+              push(context, current.builder(context), path: '/${current.key}');
+            });
+          }
+
           _visited.add(current.key);
           // Sections are built on first visit and then kept alive, so
-          // switching back is instant and keeps scroll position.
+          // switching back is instant and keeps its scroll position. Hidden
+          // ones can't take focus or run animations, so typing and taps only
+          // ever reach the section on screen.
           final stack = IndexedStack(index: index, children: [
-            for (final d in _dests) _visited.contains(d.key) ? KeyedSubtree(key: ValueKey(d.key), child: d.builder(context)) : const SizedBox.shrink(),
+            for (var i = 0; i < _dests.length; i++)
+              !_visited.contains(_dests[i].key)
+                  ? const SizedBox.shrink()
+                  : KeyedSubtree(
+                      key: ValueKey(_dests[i].key),
+                      child: TickerMode(
+                        enabled: i == index,
+                        child: ExcludeFocus(
+                          excluding: i != index,
+                          child: PrimaryScrollController(controller: _scrollerFor(_dests[i].key), child: _dests[i].builder(context)),
+                        ),
+                      ),
+                    ),
           ]);
           final body = Column(children: [const OfflineBanner(), Expanded(child: stack)]);
-          if (context.isWide) return Material(color: context.colors.canvas, child: body);
+          if (wide) return Material(color: context.colors.canvas, child: body);
           return Scaffold(
-            extendBody: true,
             body: body,
-            bottomNavigationBar: Dock(items: _dests.where((d) => d.dock).toList(), current: current.key),
+            bottomNavigationBar: TabBarNav(items: _dests.where((d) => d.dock).toList(), current: current.key, onTap: _onTabTap),
           );
         },
       );
 }
 
-/// The phone's floating navigation: a dark capsule with an orange marker
-/// on the current tab.
-class Dock extends StatelessWidget {
+/// The phone's tab bar: attached to the bottom edge (content never scrolls
+/// underneath it, so a tap on a card can't land on a tab), with an orange
+/// marker on the current tab.
+class TabBarNav extends StatelessWidget {
   final List<Dest> items;
   final String current;
-  const Dock({super.key, required this.items, required this.current});
+  final ValueChanged<String> onTap;
+  const TabBarNav({super.key, required this.items, required this.current, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final safe = MediaQuery.paddingOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(14, 0, 14, math.max(safe, 12)),
+    return Material(
+      color: c.surface,
       child: Container(
-        height: 68,
-        decoration: BoxDecoration(
-          color: c.hero,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: c.heroLine),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 24, offset: const Offset(0, 10))],
+        decoration: BoxDecoration(border: Border(top: BorderSide(color: c.line))),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 66,
+            child: Row(children: [for (final d in items) Expanded(child: _TabItem(d, active: d.key == current, onTap: () => onTap(d.key)))]),
+          ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Row(children: [for (final d in items) Expanded(child: _DockItem(d, active: d.key == current))]),
       ),
     );
   }
 }
 
-class _DockItem extends StatelessWidget {
+class _TabItem extends StatelessWidget {
   final Dest dest;
   final bool active;
-  const _DockItem(this.dest, {required this.active});
+  final VoidCallback onTap;
+  const _TabItem(this.dest, {required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -182,17 +236,17 @@ class _DockItem extends StatelessWidget {
     Widget icon = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      width: 50,
+      width: 54,
       height: 30,
       decoration: BoxDecoration(color: active ? c.brand : Colors.transparent, borderRadius: BorderRadius.circular(15)),
-      child: Icon(active ? dest.activeIcon : dest.icon, size: 21, color: active ? c.onBrand : c.onHeroMuted),
+      child: Icon(active ? dest.activeIcon : dest.icon, size: 21, color: active ? c.onBrand : c.body),
     );
     if (dest.badge != null) {
       icon = ValueListenableBuilder<int>(
         valueListenable: dest.badge!,
         builder: (context, n, child) => Stack(clipBehavior: Clip.none, children: [
           child!,
-          if (n > 0) Positioned(right: 2, top: -5, child: CountBadge(n)),
+          if (n > 0) Positioned(right: 4, top: -5, child: CountBadge(n)),
         ]),
         child: icon,
       );
@@ -202,17 +256,16 @@ class _DockItem extends StatelessWidget {
       selected: active,
       label: dest.label,
       excludeSemantics: true,
-      child: InkResponse(
-        onTap: () => SiteNav.go(dest.key),
-        radius: 36,
+      child: InkWell(
+        onTap: onTap,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           icon,
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Text(
             dest.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontFamily: kBodyFont, fontSize: 10.5, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? c.onHero : c.onHeroMuted, height: 1.1),
+            style: TextStyle(fontFamily: kBodyFont, fontSize: 11, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? c.ink : c.muted, height: 1.1),
           ),
         ]),
       ),

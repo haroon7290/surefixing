@@ -43,8 +43,18 @@ void toastError(Object error) => toast(errorText(error), kind: ToastKind.error);
 
 /// Opens a screen. [path] becomes the browser address on the web
 /// (e.g. `/tools/<id>`), so the page can be refreshed or shared.
-Future<T?> push<T>(BuildContext context, Widget page, {String? path}) =>
-    Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page, settings: RouteSettings(name: path)));
+///
+/// A second tap within half a second (a double tap, or a tap while the
+/// first page is still sliding in) is ignored, so one tap opens one page.
+Future<T?> push<T>(BuildContext context, Widget page, {String? path}) {
+  final now = DateTime.now();
+  if (now.difference(_lastPush) < const Duration(milliseconds: 500)) return Future<T?>.value();
+  _lastPush = now;
+  FocusManager.instance.primaryFocus?.unfocus();
+  return Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page, settings: RouteSettings(name: path)));
+}
+
+DateTime _lastPush = DateTime.fromMillisecondsSinceEpoch(0);
 
 /// Which top-level section is showing: a dock tab on phones, a sidebar or
 /// header link on the website. Signed out the sections are the public
@@ -86,6 +96,8 @@ abstract final class SiteNav {
 
   /// Switches section without touching the page stack.
   static void select(String key) {
+    // Close the keyboard: what was typed belongs to the section being left.
+    if (key != section.value) FocusManager.instance.primaryFocus?.unfocus();
     section.value = key;
     syncUrl();
   }

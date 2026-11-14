@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -178,9 +177,8 @@ class LocalImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FutureBuilder<Uint8List>(
         future: file.readAsBytes(),
-        builder: (context, snap) => snap.hasData
-            ? Image.memory(snap.data!, width: size, height: size, fit: BoxFit.cover, gaplessPlayback: true)
-            : Container(width: size, height: size, color: context.colors.sunken),
+        builder: (context, snap) =>
+            snap.hasData ? Image.memory(snap.data!, width: size, height: size, fit: BoxFit.cover, gaplessPlayback: true) : Container(width: size, height: size, color: context.colors.sunken),
       );
 }
 

@@ -56,6 +56,21 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
     return true;
   }
 
+  /// Android back button and the browser's back button. Pages and dialogs
+  /// close as usual; on a top-level section other than Home, back goes Home
+  /// instead of leaving the app.
+  @override
+  Future<bool> didPopRoute() async {
+    final navigator = navigatorKey.currentState;
+    if (navigator != null && navigator.canPop()) return false; // the navigator pops it
+    final section = SiteNav.section.value;
+    if (section != 'home' && !(section == 'login' && !Session.instance.loggedIn && !(kIsWeb || (navigatorKey.currentContext?.isWide ?? false)))) {
+      SiteNav.go('home');
+      return true;
+    }
+    return false;
+  }
+
   void _onSessionChanged() {
     final now = Session.instance.loggedIn;
     if (now == _wasLoggedIn) return;
@@ -137,6 +152,7 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
             final page = pageForPath(settings.name ?? '/');
             return MaterialPageRoute(builder: (_) => page ?? const RootGate(), settings: page == null ? null : settings);
           },
+          scrollBehavior: const AppScrollBehavior(),
           builder: (context, child) => WebFrame(child: child!),
         ),
       );

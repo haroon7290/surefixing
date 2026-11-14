@@ -81,7 +81,10 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
   }
 
   Future<void> _delete() async {
-    if (!await confirm(context, title: 'Delete "${_tool!.name}"?', message: 'Pending requests are cancelled and refunded. This cannot be undone.', confirmLabel: 'Delete', danger: true, icon: AppIcons.trash)) return;
+    if (!await confirm(context,
+        title: 'Delete "${_tool!.name}"?', message: 'Pending requests are cancelled and refunded. This cannot be undone.', confirmLabel: 'Delete', danger: true, icon: AppIcons.trash)) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       await Api.delete('/api/tools/${_tool.id}');
@@ -113,7 +116,15 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
           Gap.h20,
           Field(label: 'Tool name', hint: 'e.g. Bosch hammer drill 800W', controller: _name, maxLength: 100, capitalization: TextCapitalization.words, validator: minLength(2, 'Enter the tool name')),
           Gap.h16,
-          Field(label: 'Description', hint: 'What it is good for, what is included (bits, case, charger)…', controller: _description, maxLines: 4, minLines: 3, maxLength: 2000, optional: true, capitalization: TextCapitalization.sentences),
+          Field(
+              label: 'Description',
+              hint: 'What it is good for, what is included (bits, case, charger)…',
+              controller: _description,
+              maxLines: 4,
+              minLines: 3,
+              maxLength: 2000,
+              optional: true,
+              capitalization: TextCapitalization.sentences),
         ]),
       ),
       Gap.h16,
@@ -132,7 +143,15 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
       Panel(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Field(label: 'Rent per day', hint: '800', prefixText: 'Rs  ', controller: _rent, keyboardType: TextInputType.number, formatters: Field.digits, validator: positiveNumber('Enter a daily rate'))),
+            Expanded(
+                child: Field(
+                    label: 'Rent per day',
+                    hint: '800',
+                    prefixText: 'Rs  ',
+                    controller: _rent,
+                    keyboardType: TextInputType.number,
+                    formatters: Field.digits,
+                    validator: positiveNumber('Enter a daily rate'))),
             Gap.w12,
             Expanded(child: Field(label: 'Deposit', hint: '2000', prefixText: 'Rs  ', controller: _deposit, keyboardType: TextInputType.number, formatters: Field.digits, optional: true)),
           ]),
@@ -173,7 +192,15 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
             Gap.h16,
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
-                child: Field(label: 'Full price', hint: '24000', prefixText: 'Rs  ', controller: _price, keyboardType: TextInputType.number, formatters: Field.digits, onChanged: (_) => setState(() {}), validator: _sells ? positiveNumber('Enter the price') : null),
+                child: Field(
+                    label: 'Full price',
+                    hint: '24000',
+                    prefixText: 'Rs  ',
+                    controller: _price,
+                    keyboardType: TextInputType.number,
+                    formatters: Field.digits,
+                    onChanged: (_) => setState(() {}),
+                    validator: _sells ? positiveNumber('Enter the price') : null),
               ),
               Gap.w12,
               Expanded(

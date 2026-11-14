@@ -52,9 +52,15 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 Gap.w12,
                 Expanded(
-                  child: Btn('Withdraw', icon: AppIcons.withdraw, kind: BtnKind.soft, expand: true, onPressed: w.balance < 100 ? null : () async {
-                    if (await _showWithdraw(context, w.balance)) _changed();
-                  }),
+                  child: Btn('Withdraw',
+                      icon: AppIcons.withdraw,
+                      kind: BtnKind.soft,
+                      expand: true,
+                      onPressed: w.balance < 100
+                          ? null
+                          : () async {
+                              if (await _showWithdraw(context, w.balance)) _changed();
+                            }),
                 ),
               ]),
             ]),
@@ -187,9 +193,7 @@ class TransactionsScreen extends StatelessWidget {
         body: AsyncView<List<Txn>>(
           load: () async => (await Api.list('/api/wallet/transactions', query: {'limit': 100})).map(Txn.fromJson).toList(),
           events: Live.wallet,
-          builder: (context, items) => items.isEmpty
-              ? const EmptyState(icon: AppIcons.payments, title: 'No transactions yet')
-              : PageList(children: [TxnList(items)]),
+          builder: (context, items) => items.isEmpty ? const EmptyState(icon: AppIcons.payments, title: 'No transactions yet') : PageList(children: [TxnList(items)]),
         ),
       );
 }
@@ -344,7 +348,10 @@ Future<String?> choosePayment(
                       Gap.w12,
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                          Row(children: [Flexible(child: Text(label, style: context.text.titleSmall!.copyWith(fontSize: 15))), if (badge != null) ...[Gap.w8, badge]]),
+                          Row(children: [
+                            Flexible(child: Text(label, style: context.text.titleSmall!.copyWith(fontSize: 15))),
+                            if (badge != null) ...[Gap.w8, badge]
+                          ]),
                           Gap.h2,
                           Text(detail, style: context.text.bodySmall),
                         ]),

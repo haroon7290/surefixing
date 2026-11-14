@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// Window width at which SureFix switches from the phone layout (floating
@@ -20,8 +21,7 @@ class FadePageTransitionsBuilder extends PageTransitionsBuilder {
   const FadePageTransitionsBuilder();
 
   @override
-  Widget buildTransitions<T>(
-          PageRoute<T> route, BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) =>
+  Widget buildTransitions<T>(PageRoute<T> route, BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) =>
       FadeTransition(opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut), child: child);
 }
 
@@ -60,4 +60,19 @@ class AutoGrid extends StatelessWidget {
         }
         return Column(mainAxisSize: MainAxisSize.min, children: rows);
       });
+}
+
+/// Lets a mouse drag scroll lists too (on the website a mouse can't swipe
+/// sideways rows of filters, photos or cards otherwise).
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.invertedStylus,
+      };
 }

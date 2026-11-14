@@ -18,8 +18,7 @@ class Btn extends StatelessWidget {
   final bool loading;
   final bool expand;
 
-  const Btn(this.label,
-      {super.key, this.onPressed, this.icon, this.trailing, this.kind = BtnKind.primary, this.size = BtnSize.md, this.loading = false, this.expand = false});
+  const Btn(this.label, {super.key, this.onPressed, this.icon, this.trailing, this.kind = BtnKind.primary, this.size = BtnSize.md, this.loading = false, this.expand = false});
 
   @override
   Widget build(BuildContext context) {
@@ -42,10 +41,7 @@ class Btn extends StatelessWidget {
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (loading)
-          SizedBox.square(dimension: iconSize, child: CircularProgressIndicator(strokeWidth: 2.2, color: fg))
-        else if (icon != null)
-          Icon(icon, size: iconSize, color: fg),
+        if (loading) SizedBox.square(dimension: iconSize, child: CircularProgressIndicator(strokeWidth: 2.2, color: fg)) else if (icon != null) Icon(icon, size: iconSize, color: fg),
         if (loading || icon != null) SizedBox(width: size == BtnSize.sm ? 6 : 8),
         Flexible(
           child: Text(
@@ -58,7 +54,7 @@ class Btn extends StatelessWidget {
         if (trailing != null) ...[SizedBox(width: size == BtnSize.sm ? 6 : 8), Icon(trailing, size: iconSize, color: fg)],
       ],
     );
-    return Semantics(
+    final button = Semantics(
       button: true,
       enabled: enabled,
       child: Opacity(
@@ -82,6 +78,9 @@ class Btn extends StatelessWidget {
         ),
       ),
     );
+    // A disabled or busy button still swallows the tap, so it never falls
+    // through to the card underneath and opens something else.
+    return enabled ? button : GestureDetector(behavior: HitTestBehavior.opaque, onTap: () {}, child: button);
   }
 }
 
@@ -96,8 +95,7 @@ class RoundBtn extends StatelessWidget {
   final Color? background;
   final bool bordered;
 
-  const RoundBtn(this.icon,
-      {super.key, this.onPressed, required this.tooltip, this.badge = 0, this.size = 44, this.color, this.background, this.bordered = true});
+  const RoundBtn(this.icon, {super.key, this.onPressed, required this.tooltip, this.badge = 0, this.size = 44, this.color, this.background, this.bordered = true});
 
   @override
   Widget build(BuildContext context) {

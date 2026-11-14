@@ -112,7 +112,9 @@ class _ChatViewState extends State<ChatView> {
         if (str(e.data['by']) != _t.otherId) return;
         setState(() => _messages = [
               for (final m in _messages)
-                m.senderId == _me && !m.read ? Message(id: m.id, thread: m.thread, senderId: m.senderId, recipientId: m.recipientId, text: m.text, image: m.image, read: true, createdAt: m.createdAt) : m,
+                m.senderId == _me && !m.read
+                    ? Message(id: m.id, thread: m.thread, senderId: m.senderId, recipientId: m.recipientId, text: m.text, image: m.image, read: true, createdAt: m.createdAt)
+                    : m,
             ]);
       case 'typing':
         if (str(e.data['from']) != _t.otherId) return;
@@ -144,7 +146,12 @@ class _ChatViewState extends State<ChatView> {
     try {
       final res = image == null
           ? await Api.post(_t.path, {'text': text, 'to': _t.otherId})
-          : await Api.upload(_t.path, fields: {'text': '', 'to': _t.otherId}, files: {'image': [image]});
+          : await Api.upload(_t.path, fields: {
+              'text': '',
+              'to': _t.otherId
+            }, files: {
+              'image': [image]
+            });
       final m = Message.fromJson(asJson(res));
       if (mounted && !_messages.any((x) => x.id == m.id)) {
         setState(() => _messages = [..._messages, m]);
@@ -168,10 +175,12 @@ class _ChatViewState extends State<ChatView> {
     if (_loading) {
       body = const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
-      body = ErrorState(error: _error!, onRetry: () {
-        setState(() => _loading = true);
-        _load();
-      });
+      body = ErrorState(
+          error: _error!,
+          onRetry: () {
+            setState(() => _loading = true);
+            _load();
+          });
     } else if (_messages.isEmpty) {
       body = EmptyState(
         icon: AppIcons.chat,
@@ -237,10 +246,12 @@ class _ChatViewState extends State<ChatView> {
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           IconButton(
             tooltip: 'Send a photo',
-            onPressed: _sending ? null : () async {
-              final file = await pickPhoto(context);
-              if (file != null) _send(image: file);
-            },
+            onPressed: _sending
+                ? null
+                : () async {
+                    final file = await pickPhoto(context);
+                    if (file != null) _send(image: file);
+                  },
             icon: Icon(AppIcons.camera, color: c.body),
           ),
           Expanded(

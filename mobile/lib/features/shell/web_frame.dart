@@ -98,7 +98,6 @@ class Sidebar extends StatelessWidget {
         final dests = destinationsFor(user.role);
         final groups = <String, List<Dest>>{};
         for (final d in dests) {
-          if (d.key == 'account') continue;
           groups.putIfAbsent(d.group, () => []).add(d);
         }
         final dark = AppColors.light.canvas; // text on the dark rail
@@ -245,64 +244,73 @@ class _RailWallet extends StatelessWidget {
   }
 }
 
-enum _UserAction { account, theme, logout }
-
+/// Name, role and a menu (dark mode, sign out). Tapping the name opens the
+/// account page. The sidebar sits above the page navigator, so the menu is
+/// a [MenuAnchor] (it only needs an overlay, which the frame provides).
 class _RailUser extends StatelessWidget {
   final User user;
   const _RailUser(this.user);
+
+  Future<void> _signOut() async {
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null && await confirm(ctx, title: 'Sign out?', message: 'You can sign back in any time.', confirmLabel: 'Sign out', icon: AppIcons.logout)) {
+      await Session.instance.logout();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final light = AppColors.light.canvas;
     final dark = context.isDark;
-    return PopupMenuButton<_UserAction>(
-      tooltip: 'Account menu',
-      position: PopupMenuPosition.over,
-      offset: const Offset(0, -150),
-      onSelected: (action) async {
-        switch (action) {
-          case _UserAction.account:
-            SiteNav.go('account');
-          case _UserAction.theme:
-            Settings.instance.setThemeMode(dark ? ThemeMode.light : ThemeMode.dark);
-          case _UserAction.logout:
-            final ctx = navigatorKey.currentContext;
-            if (ctx != null && await confirm(ctx, title: 'Sign out?', message: 'You can sign back in any time.', confirmLabel: 'Sign out', icon: AppIcons.logout)) {
-              await Session.instance.logout();
-            }
-        }
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(value: _UserAction.account, child: _MenuLine(AppIcons.account, 'Account & settings')),
-        PopupMenuItem(value: _UserAction.theme, child: _MenuLine(dark ? AppIcons.sun : AppIcons.moon, dark ? 'Light mode' : 'Dark mode')),
-        const PopupMenuDivider(),
-        const PopupMenuItem(value: _UserAction.logout, child: _MenuLine(AppIcons.logout, 'Sign out')),
-      ],
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: SiteNav.section.value == 'account' ? light.withValues(alpha: 0.1) : Colors.transparent),
-        child: Row(children: [
-          Avatar(name: user.name, image: user.avatar, size: 38),
-          Gap.w12,
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: kBodyFont, fontSize: 14, fontWeight: FontWeight.w700, color: light, height: 1.25)),
-              Text(roleLabels[user.role] ?? user.role,
-                  maxLines: 1, style: TextStyle(fontFamily: kBodyFont, fontSize: 12, fontWeight: FontWeight.w500, color: light.withValues(alpha: 0.55), height: 1.25)),
-            ]),
+    final active = SiteNav.section.value == 'account';
+    return Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: active ? light.withValues(alpha: 0.1) : Colors.transparent),
+      child: Row(children: [
+        Expanded(
+          child: Semantics(
+            button: true,
+            label: 'Account: ${user.name}',
+            excludeSemantics: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => SiteNav.go('account'),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(children: [
+                  Avatar(name: user.name, image: user.avatar, size: 38),
+                  Gap.w12,
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: kBodyFont, fontSize: 14, fontWeight: FontWeight.w700, color: light, height: 1.25)),
+                      Text(roleLabels[user.role] ?? user.role,
+                          maxLines: 1, style: TextStyle(fontFamily: kBodyFont, fontSize: 12, fontWeight: FontWeight.w500, color: light.withValues(alpha: 0.55), height: 1.25)),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
           ),
-          Icon(AppIcons.dots, size: 18, color: light.withValues(alpha: 0.6)),
-        ]),
-      ),
+        ),
+        MenuAnchor(
+          alignmentOffset: const Offset(-150, 0),
+          menuChildren: [
+            MenuItemButton(leadingIcon: const Icon(AppIcons.account, size: 18), onPressed: () => SiteNav.go('account'), child: const Text('Account & settings')),
+            MenuItemButton(
+              leadingIcon: Icon(dark ? AppIcons.sun : AppIcons.moon, size: 18),
+              onPressed: () => Settings.instance.setThemeMode(dark ? ThemeMode.light : ThemeMode.dark),
+              child: Text(dark ? 'Light mode' : 'Dark mode'),
+            ),
+            const Divider(height: 8),
+            MenuItemButton(leadingIcon: const Icon(AppIcons.logout, size: 18), onPressed: _signOut, child: const Text('Sign out')),
+          ],
+          builder: (context, menu, _) => IconButton(
+            tooltip: 'Account menu',
+            onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+            icon: Icon(AppIcons.dots, size: 18, color: light.withValues(alpha: 0.7)),
+          ),
+        ),
+        Gap.w4,
+      ]),
     );
   }
-}
-
-class _MenuLine extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _MenuLine(this.icon, this.label);
-
-  @override
-  Widget build(BuildContext context) => Row(children: [Icon(icon, size: 18), Gap.w12, Text(label)]);
 }

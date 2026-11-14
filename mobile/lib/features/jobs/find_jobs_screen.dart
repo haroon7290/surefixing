@@ -73,28 +73,28 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
           ),
         ),
         PagePad(
-          child: SizedBox(
-            height: 40,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              if (me.skills.isNotEmpty) ...[
-                Pills<bool>(values: const [true], label: (_) => 'My skills', icon: (_) => AppIcons.target, selected: _matching && _category == null ? true : null, onTap: (_) => setState(() {
-                      _matching = !_matching || _category != null;
-                      _category = null;
-                    })),
-                Gap.w8,
-              ],
-              if (me.city.isNotEmpty) ...[
-                Pills<bool>(values: const [true], label: (_) => 'In ${me.city}', icon: (_) => AppIcons.pin, selected: _nearby ? true : null, onTap: (_) => setState(() => _nearby = !_nearby)),
-                Gap.w8,
-              ],
-              Pills<CatalogItem>(
-                values: serviceCategories,
-                label: (c) => c.label,
-                selected: _category == null ? null : serviceCategory(_category!),
-                onTap: (c) => setState(() => _category = _category == c.key ? null : c.key),
-              ),
-            ]),
-          ),
+          child: FilterBar(children: [
+            if (me.skills.isNotEmpty) ...[
+              Pills<bool>(
+                  values: const [true],
+                  label: (_) => 'My skills',
+                  icon: (_) => AppIcons.target,
+                  selected: _matching && _category == null ? true : null,
+                  onTap: (_) => setState(() {
+                        _matching = !_matching || _category != null;
+                        _category = null;
+                      })),
+            ],
+            if (me.city.isNotEmpty) ...[
+              Pills<bool>(values: const [true], label: (_) => 'In ${me.city}', icon: (_) => AppIcons.pin, selected: _nearby ? true : null, onTap: (_) => setState(() => _nearby = !_nearby)),
+            ],
+            Pills<CatalogItem>(
+              values: serviceCategories,
+              label: (c) => c.label,
+              selected: _category == null ? null : serviceCategory(_category!),
+              onTap: (c) => setState(() => _category = _category == c.key ? null : c.key),
+            ),
+          ]),
         ),
         Expanded(
           child: AsyncView<List<Job>>(
@@ -108,11 +108,13 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
                     title: 'No open jobs match',
                     message: _matching && _category == null ? 'Nothing for your skills right now. Try all categories.' : 'Try another search or filter.',
                     action: _matching || _category != null || _nearby || _query.isNotEmpty
-                        ? Btn('Show all jobs', kind: BtnKind.dark, onPressed: () => setState(() {
-                              _matching = false;
-                              _category = null;
-                              _nearby = false;
-                            }))
+                        ? Btn('Show all jobs',
+                            kind: BtnKind.dark,
+                            onPressed: () => setState(() {
+                                  _matching = false;
+                                  _category = null;
+                                  _nearby = false;
+                                }))
                         : null,
                   )
                 : PageList(

@@ -40,18 +40,39 @@ const faqs = [
 ];
 
 const termsSections = [
-  ('Using SureFix', 'SureFix connects customers with independent technicians and tool suppliers. You must give accurate information, keep your password private, and use the marketplace lawfully and respectfully.'),
-  ('Jobs and quotes', 'A quote is an offer to do the described work for the stated price. Hiring a technician creates an agreement between the customer and that technician. Either side may withdraw before work starts; after that, problems go through SureFix support.'),
-  ('Payments', 'Wallet payments are held in escrow and released when the customer confirms completion, when an admin resolves a dispute, or when the customer has not responded 72 hours after the work was marked finished. SureFix keeps a service fee from released payments. In this project build all funds are simulated.'),
-  ('Tool rentals', 'Renters must return tools on time and in the condition received. Deposits cover late fees of one daily rate per late day, up to the deposit. Suppliers must describe tools honestly and hand them over as agreed.'),
+  (
+    'Using SureFix',
+    'SureFix connects customers with independent technicians and tool suppliers. You must give accurate information, keep your password private, and use the marketplace lawfully and respectfully.'
+  ),
+  (
+    'Jobs and quotes',
+    'A quote is an offer to do the described work for the stated price. Hiring a technician creates an agreement between the customer and that technician. Either side may withdraw before work starts; after that, problems go through SureFix support.'
+  ),
+  (
+    'Payments',
+    'Wallet payments are held in escrow and released when the customer confirms completion, when an admin resolves a dispute, or when the customer has not responded 72 hours after the work was marked finished. SureFix keeps a service fee from released payments. In this project build all funds are simulated.'
+  ),
+  (
+    'Tool rentals',
+    'Renters must return tools on time and in the condition received. Deposits cover late fees of one daily rate per late day, up to the deposit. Suppliers must describe tools honestly and hand them over as agreed.'
+  ),
   ('Reviews and conduct', 'Reviews must reflect real experiences. Harassment, fraud, off-platform payment requests to avoid fees, and fake listings lead to suspension.'),
   ('Accounts', 'Admins may suspend accounts that break these terms. You may ask for your account to be removed once you have no job in progress and no tool out on rent.'),
 ];
 
 const privacySections = [
-  ('What we store', 'Your profile (name, email, phone, city, address), the jobs, quotes, rentals, messages and reviews you create, wallet transactions, and — if you verify your identity — the ID details and photos you submit.'),
-  ('Who sees what', 'Your public profile shows your name, city, skills, ratings and portfolio. Phone numbers and addresses are shared only between a customer and the technician they hired, or between a renter and supplier once a rental is approved. ID documents are visible only to admins.'),
-  ('How it is used', 'To run the marketplace: matching and ranking technicians, sending notifications, resolving disputes and preventing abuse. The AI ranking uses marketplace data only — skills, ratings, completion rate, response time, distance and price.'),
+  (
+    'What we store',
+    'Your profile (name, email, phone, city, address), the jobs, quotes, rentals, messages and reviews you create, wallet transactions, and — if you verify your identity — the ID details and photos you submit.'
+  ),
+  (
+    'Who sees what',
+    'Your public profile shows your name, city, skills, ratings and portfolio. Phone numbers and addresses are shared only between a customer and the technician they hired, or between a renter and supplier once a rental is approved. ID documents are visible only to admins.'
+  ),
+  (
+    'How it is used',
+    'To run the marketplace: matching and ranking technicians, sending notifications, resolving disputes and preventing abuse. The AI ranking uses marketplace data only — skills, ratings, completion rate, response time, distance and price.'
+  ),
   ('Security', 'Passwords are stored hashed, never in plain text. Sessions use signed tokens that expire. Uploaded files are limited to images.'),
   ('Your choices', 'You can edit your profile at any time, and ask an admin to delete your account and its data.'),
 ];

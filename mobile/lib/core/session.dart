@@ -67,8 +67,7 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async =>
-      _start(await Api.post('/api/auth/login', {'email': email.trim(), 'password': password}));
+  Future<void> login(String email, String password) async => _start(await Api.post('/api/auth/login', {'email': email.trim(), 'password': password}));
 
   Future<void> register({required String name, required String email, required String password, required String role, String phone = '', String city = ''}) async =>
       _start(await Api.post('/api/auth/register', {
@@ -105,7 +104,9 @@ class Session extends ChangeNotifier {
 
   Future<void> updateProfile(Json fields) async => _setUser(await Api.patch('/api/users/me', fields));
 
-  Future<void> uploadAvatar(XFile file) async => _setUser(await Api.upload('/api/users/me/avatar', files: {'avatar': [file]}));
+  Future<void> uploadAvatar(XFile file) async => _setUser(await Api.upload('/api/users/me/avatar', files: {
+        'avatar': [file]
+      }));
 
   Future<void> addPortfolio(List<XFile> files) async => _setUser(await Api.upload('/api/users/me/portfolio', files: {'images': files}));
 

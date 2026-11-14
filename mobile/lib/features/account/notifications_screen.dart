@@ -79,12 +79,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 Expanded(
                                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                                     Text(items[i].title, style: context.text.titleSmall!.copyWith(fontWeight: items[i].read ? FontWeight.w600 : FontWeight.w800)),
-                                    if (items[i].body.isNotEmpty) ...[Gap.h2, Text(items[i].body, style: context.text.bodyMedium!.copyWith(fontSize: 13.5), maxLines: 3, overflow: TextOverflow.ellipsis)],
+                                    if (items[i].body.isNotEmpty) ...[
+                                      Gap.h2,
+                                      Text(items[i].body, style: context.text.bodyMedium!.copyWith(fontSize: 13.5), maxLines: 3, overflow: TextOverflow.ellipsis)
+                                    ],
                                     Gap.h4,
                                     Text(timeAgo(items[i].createdAt), style: context.text.bodySmall!.copyWith(fontSize: 11.5)),
                                   ]),
                                 ),
-                                if (!items[i].read) Padding(padding: const EdgeInsets.only(top: 6, left: 8), child: Container(width: 9, height: 9, decoration: BoxDecoration(color: c.brand, shape: BoxShape.circle))),
+                                if (!items[i].read)
+                                  Padding(padding: const EdgeInsets.only(top: 6, left: 8), child: Container(width: 9, height: 9, decoration: BoxDecoration(color: c.brand, shape: BoxShape.circle))),
                               ]),
                             ),
                           ),

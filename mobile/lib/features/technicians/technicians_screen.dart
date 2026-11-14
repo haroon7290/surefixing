@@ -82,25 +82,19 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
           ),
         ),
         PagePad(
-          child: SizedBox(
-            height: 40,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              Pills<bool>(values: const [true], label: (_) => 'Verified', icon: (_) => AppIcons.shield, selected: _verified ? true : null, onTap: (_) => setState(() => _verified = !_verified)),
-              Gap.w8,
-              Pills<bool>(values: const [true], label: (_) => 'Available now', icon: (_) => AppIcons.bolt, selected: _available ? true : null, onTap: (_) => setState(() => _available = !_available)),
-              Gap.w8,
-              if (city.isNotEmpty) ...[
-                Pills<bool>(values: const [true], label: (_) => 'In $city', icon: (_) => AppIcons.pin, selected: _nearby ? true : null, onTap: (_) => setState(() => _nearby = !_nearby)),
-                Gap.w8,
-              ],
-              Pills<CatalogItem>(
-                values: serviceCategories,
-                label: (c) => c.label,
-                selected: _category == null ? null : serviceCategory(_category!),
-                onTap: (c) => setState(() => _category = _category == c.key ? null : c.key),
-              ),
-            ]),
-          ),
+          child: FilterBar(children: [
+            Pills<bool>(values: const [true], label: (_) => 'Verified', icon: (_) => AppIcons.shield, selected: _verified ? true : null, onTap: (_) => setState(() => _verified = !_verified)),
+            Pills<bool>(values: const [true], label: (_) => 'Available now', icon: (_) => AppIcons.bolt, selected: _available ? true : null, onTap: (_) => setState(() => _available = !_available)),
+            if (city.isNotEmpty) ...[
+              Pills<bool>(values: const [true], label: (_) => 'In $city', icon: (_) => AppIcons.pin, selected: _nearby ? true : null, onTap: (_) => setState(() => _nearby = !_nearby)),
+            ],
+            Pills<CatalogItem>(
+              values: serviceCategories,
+              label: (c) => c.label,
+              selected: _category == null ? null : serviceCategory(_category!),
+              onTap: (c) => setState(() => _category = _category == c.key ? null : c.key),
+            ),
+          ]),
         ),
         Expanded(
           child: AsyncView<List<User>>(
@@ -111,10 +105,12 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
                     icon: AppIcons.technicians,
                     title: 'No technicians match',
                     message: 'Try a different skill, or remove a filter.',
-                    action: Btn('Clear filters', kind: BtnKind.dark, onPressed: () => setState(() {
-                          _category = null;
-                          _verified = _available = _nearby = false;
-                        })),
+                    action: Btn('Clear filters',
+                        kind: BtnKind.dark,
+                        onPressed: () => setState(() {
+                              _category = null;
+                              _verified = _available = _nearby = false;
+                            })),
                   )
                 : PageList(children: [
                     Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(plural(techs.length, 'technician'), style: context.text.bodySmall)),

@@ -129,8 +129,8 @@ class _SmartMatchScreenState extends State<SmartMatchScreen> {
               Gap.h12,
               EstimateBox(r.estimate),
               Gap.h12,
-              Btn('Post this as a job instead', icon: AppIcons.add, kind: BtnKind.dark, expand: true,
-                  onPressed: () => push(context, PostJobScreen(description: _problem.text.trim(), category: r.category), path: '/post-job')),
+              Btn('Post this as a job instead',
+                  icon: AppIcons.add, kind: BtnKind.dark, expand: true, onPressed: () => push(context, PostJobScreen(description: _problem.text.trim(), category: r.category), path: '/post-job')),
             ],
           ]),
           main: r == null
@@ -156,8 +156,8 @@ class _SmartMatchScreenState extends State<SmartMatchScreen> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: MatchCard(m, rank: i + 1, onTap: () => openTechnician(context, m.technician.id), actions: [
                             Btn('View profile', kind: BtnKind.outline, expand: true, onPressed: () => openTechnician(context, m.technician.id)),
-                            Btn('Request', icon: AppIcons.bolt, expand: true,
-                                onPressed: () => push(context, PostJobScreen(technician: m.technician, description: _problem.text.trim(), category: r.category))),
+                            Btn('Request',
+                                icon: AppIcons.bolt, expand: true, onPressed: () => push(context, PostJobScreen(technician: m.technician, description: _problem.text.trim(), category: r.category))),
                           ]),
                         ),
                     ])),

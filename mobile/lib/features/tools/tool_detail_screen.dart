@@ -57,12 +57,15 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       Session.instance.refresh();
       toast(done, kind: ToastKind.success, actionLabel: 'View', onAction: () => openSection(navigatorKey.currentContext!, 'rentals'));
       if (!mounted) return;
-      final seeRentals = await confirm(context, title: 'Request sent', message: 'The supplier will approve or decline it. You will get a notification either way.', confirmLabel: 'See my rentals', cancelLabel: 'Stay here', icon: AppIcons.success);
+      final seeRentals = await confirm(context,
+          title: 'Request sent',
+          message: 'The supplier will approve or decline it. You will get a notification either way.',
+          confirmLabel: 'See my rentals',
+          cancelLabel: 'Stay here',
+          icon: AppIcons.success);
       if (seeRentals && mounted) openSection(context, 'rentals');
     } on ApiError catch (e) {
-      e.insufficientFunds
-          ? toast(e.message, kind: ToastKind.error, actionLabel: 'Add funds', onAction: () => openSection(navigatorKey.currentContext!, 'wallet'))
-          : toastError(e);
+      e.insufficientFunds ? toast(e.message, kind: ToastKind.error, actionLabel: 'Add funds', onAction: () => openSection(navigatorKey.currentContext!, 'wallet')) : toastError(e);
     } catch (e) {
       toastError(e);
     } finally {
@@ -192,7 +195,10 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         ),
         if (canRequest && me != null) ...[
           Gap.h12,
-          Btn('Ask the supplier a question', icon: AppIcons.chat, kind: BtnKind.outline, expand: true,
+          Btn('Ask the supplier a question',
+              icon: AppIcons.chat,
+              kind: BtnKind.outline,
+              expand: true,
               onPressed: () => openChat(context, ChatTarget(toolId: tool.id, otherId: tool.supplier.id, otherName: tool.supplier.name, otherAvatar: tool.supplier.avatar, subject: tool.name))),
         ],
       ]),
@@ -203,7 +209,11 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         Text('How renting works', style: context.text.titleMedium),
         Gap.h8,
         for (final (icon, title, body) in [
-          (AppIcons.store, 'Pickup or delivery', 'Collect from the supplier in ${tool.city.isEmpty ? 'their city' : tool.city}, or have it delivered. The exact address is shared once your request is approved.'),
+          (
+            AppIcons.store,
+            'Pickup or delivery',
+            'Collect from the supplier in ${tool.city.isEmpty ? 'their city' : tool.city}, or have it delivered. The exact address is shared once your request is approved.'
+          ),
           (AppIcons.shield, 'Refundable deposit', tool.deposit > 0 ? '${money(tool.deposit)} is held with your payment and returned when the tool is back.' : 'This tool needs no deposit.'),
           (AppIcons.timer, 'Late returns', 'Each late day costs one day of rent (${money(tool.rentPricePerDay)}), taken from the deposit.'),
         ])
@@ -294,7 +304,11 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             Btn(tool.rentable ? 'Request to rent' : 'Currently unavailable', size: BtnSize.lg, expand: true, loading: _busy, onPressed: tool.rentable ? () => _rent(tool) : null),
             if (tool.hasInstallments) ...[
               Gap.h12,
-              Row(children: [const Expanded(child: Divider()), Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or own it', style: context.text.bodySmall)), const Expanded(child: Divider())]),
+              Row(children: [
+                const Expanded(child: Divider()),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or own it', style: context.text.bodySmall)),
+                const Expanded(child: Divider())
+              ]),
               Gap.h12,
               Panel(
                 color: c.brandSoft,

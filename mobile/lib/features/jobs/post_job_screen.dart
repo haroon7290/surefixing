@@ -171,7 +171,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         child: Text(
                           _thinking
                               ? 'Reading your description…'
-                              : (a!.confident ? 'Looks like ${serviceCategory(a.category).label.toLowerCase()} · ${urgencyLabel(a.urgency).toLowerCase()}' : 'Add a little more detail and we will suggest the right trade'),
+                              : (a!.confident
+                                  ? 'Looks like ${serviceCategory(a.category).label.toLowerCase()} · ${urgencyLabel(a.urgency).toLowerCase()}'
+                                  : 'Add a little more detail and we will suggest the right trade'),
                           style: context.text.bodySmall!.copyWith(color: c.brandDeep, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -253,7 +255,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
           Gap.h16,
           SelectField<String>(label: 'City', hint: 'Choose your city', value: _city, icon: AppIcons.city, items: {for (final c in cities) c: c}, onChanged: (v) => setState(() => _city = v)),
           Gap.h16,
-          Field(label: 'Address', hint: 'House, street, area', controller: _location, icon: AppIcons.pin, optional: true, maxLength: 200, helper: 'Shared with the technician only after you hire them.'),
+          Field(
+              label: 'Address', hint: 'House, street, area', controller: _location, icon: AppIcons.pin, optional: true, maxLength: 200, helper: 'Shared with the technician only after you hire them.'),
         ]),
       ),
       if (context.isWide) ...[

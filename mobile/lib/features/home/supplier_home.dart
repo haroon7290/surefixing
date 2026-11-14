@@ -65,7 +65,12 @@ class _SupplierHomeState extends State<SupplierHome> {
             );
             final stats = [
               StatCard(label: 'Waiting for approval', value: '${integer(byStatus['requested'])}', icon: AppIcons.hourglass, tone: Tone.warning, onTap: () => openSection(context, 'orders')),
-              StatCard(label: 'Finished rentals', value: '${integer(byStatus['returned']) + integer(byStatus['completed'])}', icon: AppIcons.success, tone: Tone.success, onTap: () => openSection(context, 'orders')),
+              StatCard(
+                  label: 'Finished rentals',
+                  value: '${integer(byStatus['returned']) + integer(byStatus['completed'])}',
+                  icon: AppIcons.success,
+                  tone: Tone.success,
+                  onTap: () => openSection(context, 'orders')),
             ];
 
             return PageList(
@@ -111,8 +116,7 @@ class _SupplierHomeState extends State<SupplierHome> {
                 if (active.isNotEmpty) ...[
                   const SectionTitle('Out with customers'),
                   AutoGrid(minWidth: 340, gap: 12, maxColumns: 2, children: [
-                    for (final r in active)
-                      RentalCard(r, forSupplier: true, onTap: () => openRental(context, r, forSupplier: true, onChanged: _reload), actions: supplierActions(context, r, _reload)),
+                    for (final r in active) RentalCard(r, forSupplier: true, onTap: () => openRental(context, r, forSupplier: true, onChanged: _reload), actions: supplierActions(context, r, _reload)),
                   ]),
                 ],
               ],

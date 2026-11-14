@@ -67,7 +67,6 @@ class HScroll extends StatelessWidget {
         height: height,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
           itemCount: children.length,
           separatorBuilder: (_, __) => Gap.w12,
           itemBuilder: (_, i) => children[i],

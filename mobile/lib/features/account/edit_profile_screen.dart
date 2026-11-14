@@ -97,7 +97,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           helper: supplier ? 'Customers get this after you approve a pickup rental.' : 'Used as your default for jobs and deliveries. Never shown on your public profile.',
         ),
         Gap.h16,
-        Field(label: tech ? 'About you' : 'Bio', hint: tech ? 'Your experience, what you specialise in, how you work…' : 'A line or two about you', controller: _bio, maxLines: 5, minLines: 3, maxLength: 1000, optional: true, capitalization: TextCapitalization.sentences),
+        Field(
+            label: tech ? 'About you' : 'Bio',
+            hint: tech ? 'Your experience, what you specialise in, how you work…' : 'A line or two about you',
+            controller: _bio,
+            maxLines: 5,
+            minLines: 3,
+            maxLength: 1000,
+            optional: true,
+            capitalization: TextCapitalization.sentences),
       ]),
     );
 
@@ -116,7 +124,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 values: serviceCategories,
                 label: (c) => c.label,
                 icon: (c) => c.icon,
-                selectedSet: {for (final c in serviceCategories) if (_skills.contains(c.key)) c},
+                selectedSet: {
+                  for (final c in serviceCategories)
+                    if (_skills.contains(c.key)) c
+                },
                 onTap: (c) => setState(() => _skills.contains(c.key) ? _skills.remove(c.key) : _skills.add(c.key)),
               ),
               Gap.h16,

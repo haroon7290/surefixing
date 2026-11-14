@@ -29,7 +29,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _setStatus(User u, String status) async {
     if (status == 'suspended' &&
-        !await confirm(context, title: 'Suspend ${u.name}?', message: 'They are signed out and cannot log in until you reactivate the account.', confirmLabel: 'Suspend', danger: true, icon: AppIcons.blocked)) {
+        !await confirm(context,
+            title: 'Suspend ${u.name}?', message: 'They are signed out and cannot log in until you reactivate the account.', confirmLabel: 'Suspend', danger: true, icon: AppIcons.blocked)) {
       return;
     }
     try {
@@ -139,7 +140,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                         },
                                         itemBuilder: (_) => [
                                           if (public) const PopupMenuItem(value: 'profile', child: Text('View public profile')),
-                                          u.suspended ? const PopupMenuItem(value: 'active', child: Text('Reactivate account')) : const PopupMenuItem(value: 'suspended', child: Text('Suspend account')),
+                                          u.suspended
+                                              ? const PopupMenuItem(value: 'active', child: Text('Reactivate account'))
+                                              : const PopupMenuItem(value: 'suspended', child: Text('Suspend account')),
                                           PopupMenuItem(value: 'delete', child: Text('Delete account', style: TextStyle(color: c.danger))),
                                         ],
                                       ),

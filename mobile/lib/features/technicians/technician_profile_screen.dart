@@ -96,8 +96,7 @@ class TechnicianProfileScreen extends StatelessWidget {
                     if (t.skills.isNotEmpty) ...[
                       Gap.h12,
                       Wrap(spacing: 6, runSpacing: 6, children: [
-                        for (final s in t.skills)
-                          Pill(skillLabel(s), icon: serviceCategories.any((cat) => cat.key == s) ? serviceCategory(s).icon : null),
+                        for (final s in t.skills) Pill(skillLabel(s), icon: serviceCategories.any((cat) => cat.key == s) ? serviceCategory(s).icon : null),
                       ]),
                     ],
                   ]),

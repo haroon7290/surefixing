@@ -16,9 +16,7 @@ Future<bool> _call(Future<dynamic> Function() call, {String? done}) async {
     Session.instance.refresh();
     return true;
   } on ApiError catch (e) {
-    e.insufficientFunds
-        ? toast(e.message, kind: ToastKind.error, actionLabel: 'Add funds', onAction: () => openSection(navigatorKey.currentContext!, 'wallet'))
-        : toastError(e);
+    e.insufficientFunds ? toast(e.message, kind: ToastKind.error, actionLabel: 'Add funds', onAction: () => openSection(navigatorKey.currentContext!, 'wallet')) : toastError(e);
     return false;
   } catch (e) {
     toastError(e);
@@ -31,7 +29,13 @@ Future<void> _approve(BuildContext context, Rental r, VoidCallback onChanged) as
 }
 
 Future<void> _decline(BuildContext context, Rental r, VoidCallback onChanged) async {
-  final reason = await promptText(context, title: 'Decline this request?', message: r.payment.held ? 'The customer is refunded in full.' : null, label: 'Reason', hint: 'e.g. Already booked for those dates', confirmLabel: 'Decline', danger: true);
+  final reason = await promptText(context,
+      title: 'Decline this request?',
+      message: r.payment.held ? 'The customer is refunded in full.' : null,
+      label: 'Reason',
+      hint: 'e.g. Already booked for those dates',
+      confirmLabel: 'Decline',
+      danger: true);
   if (reason != null && await _call(() => Api.post('/api/rentals/${r.id}/reject', {'reason': reason}), done: 'Request declined')) onChanged();
 }
 
@@ -107,7 +111,10 @@ class _RentalListState extends State<_RentalList> {
     return AppPage(
       title: supplier ? 'Orders' : 'My rentals',
       subtitle: supplier ? 'Approve requests, take tools back and track installment plans.' : 'Tools you rented or are buying in installments.',
-      actions: [if (!supplier) Btn(context.isWide ? 'Browse tools' : 'Browse', icon: AppIcons.tools, kind: BtnKind.soft, size: context.isWide ? BtnSize.md : BtnSize.sm, onPressed: () => openSection(context, 'tools'))],
+      actions: [
+        if (!supplier)
+          Btn(context.isWide ? 'Browse tools' : 'Browse', icon: AppIcons.tools, kind: BtnKind.soft, size: context.isWide ? BtnSize.md : BtnSize.sm, onPressed: () => openSection(context, 'tools'))
+      ],
       body: AsyncView<List<Rental>>(
         key: _view,
         load: () async => (await Api.list('/api/rentals', query: {'as': supplier ? 'supplier' : 'renter', 'limit': 100})).map(Rental.fromJson).toList(),
@@ -132,9 +139,8 @@ class _RentalListState extends State<_RentalList> {
                   ? EmptyState(
                       icon: supplier ? AppIcons.orders : AppIcons.rentals,
                       title: all.isEmpty ? (supplier ? 'No orders yet' : 'No rentals yet') : 'Nothing here',
-                      message: all.isEmpty
-                          ? (supplier ? 'Requests from customers will appear here.' : 'Rent a drill for the weekend, or buy a tool in monthly payments.')
-                          : 'Nothing matches this filter.',
+                      message:
+                          all.isEmpty ? (supplier ? 'Requests from customers will appear here.' : 'Rent a drill for the weekend, or buy a tool in monthly payments.') : 'Nothing matches this filter.',
                       action: all.isEmpty && !supplier ? Btn('Browse tools', icon: AppIcons.tools, onPressed: () => openSection(context, 'tools')) : null,
                     )
                   : PageList(
@@ -150,8 +156,11 @@ class _RentalListState extends State<_RentalList> {
                                   ? supplierActions(context, r, _reload)
                                   : [
                                       if (r.isInstallment && r.active)
-                                        Btn('Pay ${money(r.monthlyAmount)}', icon: AppIcons.wallet, size: BtnSize.sm, expand: true, onPressed: () => openRental(context, r, forSupplier: false, onChanged: _reload)),
-                                      if (r.canReview) Btn('Leave a review', icon: AppIcons.star, kind: BtnKind.dark, size: BtnSize.sm, expand: true, onPressed: () => openRental(context, r, forSupplier: false, onChanged: _reload)),
+                                        Btn('Pay ${money(r.monthlyAmount)}',
+                                            icon: AppIcons.wallet, size: BtnSize.sm, expand: true, onPressed: () => openRental(context, r, forSupplier: false, onChanged: _reload)),
+                                      if (r.canReview)
+                                        Btn('Leave a review',
+                                            icon: AppIcons.star, kind: BtnKind.dark, size: BtnSize.sm, expand: true, onPressed: () => openRental(context, r, forSupplier: false, onChanged: _reload)),
                                     ],
                             ),
                         ]),
@@ -240,17 +249,31 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
 
     final what = switch (r.status) {
       'requested' => supplier
-          ? Notice('${r.renter.firstName} is waiting for your answer.${r.payment.held ? ' Their payment is already in escrow.' : ''}', title: 'New request', tone: Tone.brand,
+          ? Notice('${r.renter.firstName} is waiting for your answer.${r.payment.held ? ' Their payment is already in escrow.' : ''}',
+              title: 'New request',
+              tone: Tone.brand,
               action: Wrap(spacing: 8, runSpacing: 8, children: [
                 Btn('Approve', icon: AppIcons.check, size: BtnSize.sm, onPressed: _busy ? null : () => _approve(context, r, _reload)),
                 Btn('Decline', kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () => _decline(context, r, _reload)),
               ]))
-          : Notice('The supplier will approve or decline soon. You will get the handover details once approved.', title: 'Waiting for approval', tone: Tone.info,
-              action: Btn('Cancel request', kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () async {
-                if (await confirm(context, title: 'Cancel this request?', message: r.payment.held ? 'Your payment is refunded in full.' : null, confirmLabel: 'Cancel request', cancelLabel: 'Keep it', danger: true)) {
-                  _do(() => Api.post('/api/rentals/${r.id}/cancel'), 'Request cancelled');
-                }
-              })),
+          : Notice('The supplier will approve or decline soon. You will get the handover details once approved.',
+              title: 'Waiting for approval',
+              tone: Tone.info,
+              action: Btn('Cancel request',
+                  kind: BtnKind.outline,
+                  size: BtnSize.sm,
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          if (await confirm(context,
+                              title: 'Cancel this request?',
+                              message: r.payment.held ? 'Your payment is refunded in full.' : null,
+                              confirmLabel: 'Cancel request',
+                              cancelLabel: 'Keep it',
+                              danger: true)) {
+                            _do(() => Api.post('/api/rentals/${r.id}/cancel'), 'Request cancelled');
+                          }
+                        })),
       'active' when r.isInstallment => null,
       'active' => r.overdue
           ? Notice(
@@ -269,7 +292,9 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
               action: supplier ? Btn('Mark returned', icon: AppIcons.check, kind: BtnKind.dark, size: BtnSize.sm, onPressed: _busy ? null : () => _markReturned(context, r, _reload)) : null,
             ),
       'returned' => Notice(
-          r.lateFee > 0 ? 'Returned ${plural(r.lateDays, 'day')} late. A ${money(r.lateFee)} late fee came out of the deposit.' : 'Returned on time${r.payment.isWallet && r.deposit > 0 ? ' — the deposit was refunded' : ''}.',
+          r.lateFee > 0
+              ? 'Returned ${plural(r.lateDays, 'day')} late. A ${money(r.lateFee)} late fee came out of the deposit.'
+              : 'Returned on time${r.payment.isWallet && r.deposit > 0 ? ' — the deposit was refunded' : ''}.',
           title: 'Rental finished',
           tone: Tone.success,
         ),
@@ -300,7 +325,11 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
                   Btn('Mark as fully paid', kind: BtnKind.outline, expand: true, onPressed: _busy ? null : () => _recordInstallment(context, r, _reload, all: true)),
                 ] else ...[
                   Btn('Pay month ${r.monthsPaid + 1} · ${money(r.monthlyAmount)}', icon: AppIcons.wallet, size: BtnSize.lg, expand: true, loading: _busy, onPressed: () async {
-                    if (await confirm(context, title: 'Pay ${money(r.monthlyAmount)} from your wallet?', message: 'Month ${r.monthsPaid + 1} of ${r.monthsTotal} for ${r.tool.name}.', confirmLabel: 'Pay now', icon: AppIcons.wallet)) {
+                    if (await confirm(context,
+                        title: 'Pay ${money(r.monthlyAmount)} from your wallet?',
+                        message: 'Month ${r.monthsPaid + 1} of ${r.monthsTotal} for ${r.tool.name}.',
+                        confirmLabel: 'Pay now',
+                        icon: AppIcons.wallet)) {
                       _do(() => Api.post('/api/rentals/${r.id}/pay-installment'), 'Installment paid');
                     }
                   }),
@@ -345,7 +374,8 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Text(h.delivery ? 'Delivery' : 'Pickup', style: context.text.titleMedium),
-              Text(h.delivery ? (supplier ? 'Deliver the tool to the customer' : 'The supplier brings it to you') : (supplier ? 'The customer collects from you' : 'Collect it from the supplier'), style: context.text.bodySmall),
+              Text(h.delivery ? (supplier ? 'Deliver the tool to the customer' : 'The supplier brings it to you') : (supplier ? 'The customer collects from you' : 'Collect it from the supplier'),
+                  style: context.text.bodySmall),
             ]),
           ),
         ]),
@@ -354,7 +384,9 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
           _CopyLine(icon: AppIcons.pin, text: h.address, what: 'Address')
         else
           Text(
-            h.revealed ? 'No address was given — message ${other.firstName} to arrange it.' : 'In ${h.city.isEmpty ? 'the supplier\'s city' : h.city}. The exact address is shared once the request is approved.',
+            h.revealed
+                ? 'No address was given — message ${other.firstName} to arrange it.'
+                : 'In ${h.city.isEmpty ? 'the supplier\'s city' : h.city}. The exact address is shared once the request is approved.',
             style: context.text.bodyMedium,
           ),
       ]),
@@ -367,7 +399,10 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
         PersonRow(name: other.name, image: other.avatar, verified: other.verified, subtitle: other.city, size: 46),
         if (other.phone.isNotEmpty) ...[Gap.h12, _CopyLine(icon: AppIcons.phone, text: other.phone, what: 'Phone number')],
         Gap.h12,
-        Btn('Message ${other.firstName}', icon: AppIcons.chat, kind: BtnKind.dark, expand: true,
+        Btn('Message ${other.firstName}',
+            icon: AppIcons.chat,
+            kind: BtnKind.dark,
+            expand: true,
             onPressed: () => openChat(context, ChatTarget(toolId: r.tool.id, otherId: other.id, otherName: other.name, otherAvatar: other.avatar, subject: r.tool.name))),
       ]),
     );
@@ -380,11 +415,19 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
             ]),
           )
         : (!supplier && r.canReview
-            ? Notice('How was the tool? Your review helps other renters.', title: 'Leave a review', tone: Tone.brand, icon: AppIcons.starFill,
-                action: Btn('Rate this tool', size: BtnSize.sm, kind: BtnKind.dark, onPressed: _busy ? null : () async {
-                  final res = await showRateSheet(context, name: r.tool.name);
-                  if (res != null) _do(() => Api.post('/api/rentals/${r.id}/review', res), 'Thanks for your review');
-                }))
+            ? Notice('How was the tool? Your review helps other renters.',
+                title: 'Leave a review',
+                tone: Tone.brand,
+                icon: AppIcons.starFill,
+                action: Btn('Rate this tool',
+                    size: BtnSize.sm,
+                    kind: BtnKind.dark,
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            final res = await showRateSheet(context, name: r.tool.name);
+                            if (res != null) _do(() => Api.post('/api/rentals/${r.id}/review', res), 'Thanks for your review');
+                          }))
             : null);
 
     Widget gap(Widget? w) => w == null ? const SizedBox.shrink() : Padding(padding: const EdgeInsets.only(bottom: 16), child: w);

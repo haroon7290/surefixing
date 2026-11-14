@@ -92,7 +92,9 @@ class _KycScreenState extends State<KycScreen> {
               child: SizedBox(
                 width: 72,
                 height: 56,
-                child: picked != null ? LocalImage(picked) : (existing.isNotEmpty ? NetImage(existing) : Container(color: c.surface, child: Icon(camera ? AppIcons.user : AppIcons.verify, color: c.muted))),
+                child: picked != null
+                    ? LocalImage(picked)
+                    : (existing.isNotEmpty ? NetImage(existing) : Container(color: c.surface, child: Icon(camera ? AppIcons.user : AppIcons.verify, color: c.muted))),
               ),
             ),
             Gap.w12,
@@ -130,14 +132,22 @@ class _KycScreenState extends State<KycScreen> {
         switch (status) {
           'approved' => const Notice('Your profile shows the blue verified seal. Clients see it on your quotes and profile.', title: 'You are verified', tone: Tone.success, icon: AppIcons.verified),
           'pending' => const Notice('An admin is checking your documents. This usually takes less than a day.', title: 'Under review', tone: Tone.info, icon: AppIcons.hourglass),
-          'rejected' => Notice(kyc!.rejectionReason.isEmpty ? 'Please check your details and submit again.' : '${kyc.rejectionReason} Please fix this and submit again.', title: 'Verification was not approved', tone: Tone.danger),
-          _ => const Notice('Verified members rank higher in search and AI matching, and customers trust them more. Your documents are only ever seen by SureFix admins.', title: 'Earn the verified seal', tone: Tone.brand, icon: AppIcons.verified),
+          'rejected' => Notice(kyc!.rejectionReason.isEmpty ? 'Please check your details and submit again.' : '${kyc.rejectionReason} Please fix this and submit again.',
+              title: 'Verification was not approved', tone: Tone.danger),
+          _ => const Notice('Verified members rank higher in search and AI matching, and customers trust them more. Your documents are only ever seen by SureFix admins.',
+              title: 'Earn the verified seal', tone: Tone.brand, icon: AppIcons.verified),
         },
         Gap.h16,
         if (status != 'approved')
           Panel(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-              Field(label: 'Full legal name', hint: 'As written on your ID', controller: _name, enabled: !locked, capitalization: TextCapitalization.words, validator: minLength(3, 'Enter your full legal name')),
+              Field(
+                  label: 'Full legal name',
+                  hint: 'As written on your ID',
+                  controller: _name,
+                  enabled: !locked,
+                  capitalization: TextCapitalization.words,
+                  validator: minLength(3, 'Enter your full legal name')),
               Gap.h16,
               const FieldLabel('ID type'),
               IgnorePointer(

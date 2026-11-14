@@ -327,7 +327,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ],
               if (!me.isAdmin && !job.cancelled && (isClient || isAssigned || myBid != null || job.requestedTechnician?.id == me.id)) ...[
                 Gap.h12,
-                Btn('Message ${other.firstName}', icon: AppIcons.chat, kind: BtnKind.dark, expand: true,
+                Btn('Message ${other.firstName}',
+                    icon: AppIcons.chat,
+                    kind: BtnKind.dark,
+                    expand: true,
                     onPressed: () => openChat(context, ChatTarget(jobId: job.id, otherId: other.id, otherName: other.name, otherAvatar: other.avatar, subject: job.title))),
               ],
             ]),
@@ -350,11 +353,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   if (myBid.message.isNotEmpty) ...[Gap.h8, Text('"${myBid.message}"', style: context.text.bodyMedium)],
                   if (myBid.pending) ...[
                     Gap.h12,
-                    Btn('Withdraw quote', kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () async {
-                      if (await confirm(context, title: 'Withdraw your quote?', message: 'The client will no longer be able to hire you for this job.', confirmLabel: 'Withdraw', danger: true)) {
-                        _act(() => Api.delete('$_path/bids/me'), done: 'Quote withdrawn');
-                      }
-                    }),
+                    Btn('Withdraw quote',
+                        kind: BtnKind.outline,
+                        size: BtnSize.sm,
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                if (await confirm(context,
+                                    title: 'Withdraw your quote?', message: 'The client will no longer be able to hire you for this job.', confirmLabel: 'Withdraw', danger: true)) {
+                                  _act(() => Api.delete('$_path/bids/me'), done: 'Quote withdrawn');
+                                }
+                              }),
                   ],
                 ]),
               )
@@ -374,7 +383,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (isClient && (job.pending || job.beforeWork)) Btn('Cancel job', kind: BtnKind.danger, expand: true, onPressed: _busy ? null : () => _cancel(job)),
       if (isAssigned && job.beforeWork) Btn('Withdraw from job', kind: BtnKind.danger, expand: true, onPressed: _busy ? null : _withdrawFromJob),
       if (!me.isAdmin && (isClient || isAssigned))
-        Btn('Report a problem', icon: AppIcons.reports, kind: BtnKind.ghost, expand: true,
+        Btn('Report a problem',
+            icon: AppIcons.reports,
+            kind: BtnKind.ghost,
+            expand: true,
             onPressed: () => showReportSheet(context, targetType: 'job', targetId: job.id, label: job.title, suggested: job.inProgress ? 'payment' : null)),
     ];
 
@@ -383,8 +395,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final main = Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       gap(header),
       gap(next),
-      if (job.inProgress || job.completed)
-        gap(Panel(padding: const EdgeInsets.fromLTRB(8, 18, 8, 16), child: StageTrack(job.stageIndex, completed: job.completed))),
+      if (job.inProgress || job.completed) gap(Panel(padding: const EdgeInsets.fromLTRB(8, 18, 8, 16), child: StageTrack(job.stageIndex, completed: job.completed))),
       if (!context.isWide) ...[gap(person), gap(quoting)],
       gap(proof),
       gap(review),
@@ -435,7 +446,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (job.pending) {
         final requested = job.requestedTechnician;
         if (requested != null) {
-          final open = Btn('Open to all technicians', kind: job.requestDeclined ? BtnKind.primary : BtnKind.dark, size: BtnSize.sm,
+          final open = Btn('Open to all technicians',
+              kind: job.requestDeclined ? BtnKind.primary : BtnKind.dark,
+              size: BtnSize.sm,
               onPressed: _busy ? null : () => _act(() => Api.post('$_path/open'), done: 'Your job is now open for quotes'));
           return job.requestDeclined
               ? card(Tone.danger, AppIcons.blocked, '${requested.firstName} cannot take this job', 'Open it to every technician to get quotes from others.', [open])
@@ -464,7 +477,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         };
       }
       if (job.completed && job.rating == null) {
-        return card(Tone.success, AppIcons.success, 'Job completed', 'How did $tech do? Your review helps other customers.', [Btn('Rate $tech', icon: AppIcons.star, onPressed: _busy ? null : () => _rate(job))]);
+        return card(Tone.success, AppIcons.success, 'Job completed', 'How did $tech do? Your review helps other customers.',
+            [Btn('Rate $tech', icon: AppIcons.star, onPressed: _busy ? null : () => _rate(job))]);
       }
       return card(Tone.success, AppIcons.success, 'Job completed', 'Thanks for using SureFix.');
     }
@@ -523,7 +537,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     List<Widget> actionsFor(String bidId, User tech, double amount, String status) => !hiring || status != 'pending'
         ? const []
         : [
-            Btn('Message', icon: AppIcons.chat, kind: BtnKind.outline, expand: true,
+            Btn('Message',
+                icon: AppIcons.chat,
+                kind: BtnKind.outline,
+                expand: true,
                 onPressed: () => openChat(context, ChatTarget(jobId: job.id, otherId: tech.id, otherName: tech.name, otherAvatar: tech.avatar, subject: job.title))),
             Btn('Hire · ${money(amount)}', expand: true, onPressed: _busy ? null : () => _hire(job, bidId, tech.firstName, amount)),
           ];

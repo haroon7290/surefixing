@@ -69,10 +69,32 @@ class _AdminOverviewState extends State<AdminOverview> {
           }
 
           final attention = [
-            StatCard(label: 'IDs to verify', value: '${integer(s['pendingKyc'])}', icon: AppIcons.verify, tone: integer(s['pendingKyc']) > 0 ? Tone.warning : Tone.success, onTap: () => openSection(context, 'verify')),
-            StatCard(label: 'Open reports', value: '${integer(s['openReports'])}', icon: AppIcons.reports, tone: integer(s['openReports']) > 0 ? Tone.danger : Tone.success, onTap: () => openSection(context, 'reports')),
-            StatCard(label: 'Users', value: count(integer(s['users'])), icon: AppIcons.users, tone: Tone.info, caption: '${integer(s['suspendedUsers'])} suspended', onTap: () => openSection(context, 'users')),
-            StatCard(label: 'Jobs', value: count(integer(s['jobs'])), icon: AppIcons.jobs, tone: Tone.brand, caption: '${integer(jobs['in_progress'])} in progress', onTap: () => openSection(context, 'all-jobs')),
+            StatCard(
+                label: 'IDs to verify',
+                value: '${integer(s['pendingKyc'])}',
+                icon: AppIcons.verify,
+                tone: integer(s['pendingKyc']) > 0 ? Tone.warning : Tone.success,
+                onTap: () => openSection(context, 'verify')),
+            StatCard(
+                label: 'Open reports',
+                value: '${integer(s['openReports'])}',
+                icon: AppIcons.reports,
+                tone: integer(s['openReports']) > 0 ? Tone.danger : Tone.success,
+                onTap: () => openSection(context, 'reports')),
+            StatCard(
+                label: 'Users',
+                value: count(integer(s['users'])),
+                icon: AppIcons.users,
+                tone: Tone.info,
+                caption: '${integer(s['suspendedUsers'])} suspended',
+                onTap: () => openSection(context, 'users')),
+            StatCard(
+                label: 'Jobs',
+                value: count(integer(s['jobs'])),
+                icon: AppIcons.jobs,
+                tone: Tone.brand,
+                caption: '${integer(jobs['in_progress'])} in progress',
+                onTap: () => openSection(context, 'all-jobs')),
             StatCard(label: 'Tools listed', value: count(integer(s['tools'])), icon: AppIcons.tools, caption: '${integer(s['rentals'])} rentals', onTap: () => openSection(context, 'all-tools')),
             StatCard(label: 'Avg technician rating', value: dbl(s['avgTechnicianRating']) > 0 ? dbl(s['avgTechnicianRating']).toStringAsFixed(2) : '—', icon: AppIcons.starFill, tone: Tone.warning),
           ];
@@ -184,7 +206,11 @@ class _AdminOverviewState extends State<AdminOverview> {
               ]),
               const SectionTitle('Marketplace'),
               if (wide)
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: breakdown), Gap.w16, Expanded(child: Column(children: [categories, Gap.h16, ai]))])
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: breakdown),
+                  Gap.w16,
+                  Expanded(child: Column(children: [categories, Gap.h16, ai]))
+                ])
               else ...[breakdown, Gap.h12, categories, Gap.h12, ai],
             ],
           );

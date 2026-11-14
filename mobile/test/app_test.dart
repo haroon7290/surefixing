@@ -103,7 +103,14 @@ void main() {
     });
 
     test('references may be populated objects or bare ids', () {
-      final job = Job.fromJson({'_id': 'x', 'client': 'c9', 'assignedTechnician': null, 'bids': [{'_id': 'b', 'technician': 't9', 'amount': 10}]});
+      final job = Job.fromJson({
+        '_id': 'x',
+        'client': 'c9',
+        'assignedTechnician': null,
+        'bids': [
+          {'_id': 'b', 'technician': 't9', 'amount': 10}
+        ]
+      });
       expect(job.client.id, 'c9');
       expect(job.client.name, '');
       expect(job.technician, isNull);
@@ -248,7 +255,7 @@ void main() {
       expect(sent, contains('POST /api/auth/login'));
       expect(sentBodies['POST /api/auth/login'], {'email': 'client@demo.com', 'password': 'password123'});
       expect(Session.instance.loggedIn, isTrue);
-      expect(find.byType(Dock), findsOneWidget);
+      expect(find.byType(TabBarNav), findsOneWidget);
       Realtime.instance.disconnect();
       Badges.instance.stop();
     });

@@ -68,8 +68,7 @@ class Conversation {
     this.unread = 0,
   });
 
-  ChatTarget get target =>
-      ChatTarget(jobId: jobId, toolId: toolId, otherId: other.id, otherName: other.name, otherAvatar: other.avatar, subject: title);
+  ChatTarget get target => ChatTarget(jobId: jobId, toolId: toolId, otherId: other.id, otherName: other.name, otherAvatar: other.avatar, subject: title);
 
   factory Conversation.fromJson(Json j) {
     final tool = j['kind'] == 'tool';

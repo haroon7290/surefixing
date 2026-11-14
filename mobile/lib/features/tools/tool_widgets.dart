@@ -24,9 +24,7 @@ class ToolCard extends StatelessWidget {
             Positioned(
               left: 10,
               top: 10,
-              child: !tool.rentable
-                  ? const Pill('Unavailable', tone: Tone.neutral)
-                  : (tool.hasInstallments ? const Pill('Buy monthly', solid: true) : const SizedBox.shrink()),
+              child: !tool.rentable ? const Pill('Unavailable', tone: Tone.neutral) : (tool.hasInstallments ? const Pill('Buy monthly', solid: true) : const SizedBox.shrink()),
             ),
             if (showFavorite) Positioned(right: 8, top: 8, child: FavoriteButton(type: 'tool', id: tool.id, size: 34, onImage: true)),
           ]),
@@ -70,9 +68,7 @@ class RentalCard extends StatelessWidget {
     final cat = toolCategory(r.tool.category);
     final status = rentalStatus(r.status, installment: r.isInstallment, overdue: r.overdue);
     final other = forSupplier ? r.renter : r.supplier;
-    final period = r.isInstallment
-        ? '${r.monthsPaid} of ${r.monthsTotal} months paid'
-        : '${shortDate(r.startDate)} → ${shortDate(r.endDate)}  ·  ${plural(r.days, 'day')}';
+    final period = r.isInstallment ? '${r.monthsPaid} of ${r.monthsTotal} months paid' : '${shortDate(r.startDate)} → ${shortDate(r.endDate)}  ·  ${plural(r.days, 'day')}';
 
     return Panel(
       onTap: onTap,
@@ -91,7 +87,8 @@ class RentalCard extends StatelessWidget {
               Gap.h6,
               Wrap(spacing: 6, runSpacing: 6, children: [
                 Pill.status(status),
-                Pill(r.isInstallment ? 'Installments' : (r.handover.delivery ? 'Delivery' : 'Pickup'), icon: r.isInstallment ? AppIcons.calendar : (r.handover.delivery ? AppIcons.truck : AppIcons.store)),
+                Pill(r.isInstallment ? 'Installments' : (r.handover.delivery ? 'Delivery' : 'Pickup'),
+                    icon: r.isInstallment ? AppIcons.calendar : (r.handover.delivery ? AppIcons.truck : AppIcons.store)),
                 if (r.payment.held) const Pill('In escrow', tone: Tone.info, icon: AppIcons.lock),
               ]),
             ]),
