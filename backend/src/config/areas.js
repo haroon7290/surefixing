@@ -78,7 +78,17 @@ const AREAS = [
   ['Sialkot', 'Model Town', 32.512, 74.526],
   // Gujranwala
   ['Gujranwala', 'Satellite Town', 32.174, 74.18],
-  ['Gujranwala', 'Model Town', 32.17, 74.2]
+  ['Gujranwala', 'Model Town', 32.17, 74.2],
+  // Attock (city and nearby towns of the district)
+  ['Attock', 'City Centre', 33.767, 72.36],
+  ['Attock', 'Cantt', 33.775, 72.35],
+  ['Attock', 'Kamra', 33.869, 72.401],
+  ['Attock', 'Hazro', 33.909, 72.493],
+  ['Attock', 'Attock Khurd', 33.893, 72.243],
+  ['Attock', 'Hasan Abdal', 33.82, 72.689],
+  ['Attock', 'Fateh Jang', 33.565, 72.642],
+  ['Attock', 'Pindi Gheb', 33.241, 72.265],
+  ['Attock', 'Jand', 33.43, 72.019]
 ].map(([city, name, lat, lng]) => ({ city, name, lat, lng }));
 
 module.exports = { AREAS };
