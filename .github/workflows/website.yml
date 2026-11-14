@@ -1,0 +1,57 @@
+# Builds the Flutter website and publishes it on GitHub Pages:
+#   https://haroon7290.github.io/surefixing/
+# Runs on every push to main that changes the app, and on demand.
+# One-time setup: Settings → Pages → Source: "GitHub Actions".
+# Optional repository variables (Settings → Secrets and variables → Actions →
+# Variables): API_BASE_URL (the backend's address on Render) and DEMO
+# ("true" shows the one-tap demo log-in buttons).
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**", ".github/workflows/website.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.7"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build
+        run: >
+          flutter build web --release
+          --base-href /${{ github.event.repository.name }}/
+          --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'https://surefix-api.onrender.com' }}
+          --dart-define=DEMO=${{ vars.DEMO || 'false' }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
