@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { pointSchema, latLng } = require('../utils/geo');
 
 const ROLES = ['client', 'technician', 'supplier', 'admin'];
 const PORTFOLIO_MAX = 8;
@@ -20,6 +21,13 @@ const userSchema = new mongoose.Schema(
     // renter once a request is approved). Others: default delivery address.
     // Never shown on public profiles.
     address: { type: String, default: '', trim: true, maxlength: 300 },
+    // Where the user is, for "near me" search: technicians' base, suppliers'
+    // shop (their tools inherit it), customers' home. Never shown to others —
+    // they only see the distance and the area name.
+    geo: { type: pointSchema, default: undefined },
+    area: { type: String, default: '', trim: true, maxlength: 60 },
+    // Technicians: how far they are willing to travel.
+    serviceRadiusKm: { type: Number, default: 15, min: 1, max: 100 },
 
     // Technician professional profile.
     headline: { type: String, default: '', trim: true },
@@ -61,6 +69,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ role: 1, rating: -1 });
+userSchema.index({ geo: '2dsphere' });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
@@ -90,6 +99,8 @@ function profileFields(u) {
     avatar: u.avatar,
     bio: u.bio,
     city: u.city,
+    area: u.area,
+    serviceRadiusKm: u.serviceRadiusKm,
     headline: u.headline,
     skills: u.skills,
     hourlyRate: u.hourlyRate,
@@ -113,6 +124,7 @@ userSchema.methods.toPrivateJSON = function () {
     email: this.email,
     phone: this.phone,
     address: this.address,
+    geo: latLng(this.geo),
     status: this.status,
     walletBalance: this.walletBalance,
     payoutAccount: this.payoutAccount,

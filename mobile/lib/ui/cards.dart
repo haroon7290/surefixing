@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/format.dart';
 import '../core/theme.dart';
 import 'brand.dart';
 import 'buttons.dart';
@@ -271,5 +272,26 @@ class Meta extends StatelessWidget {
       Gap.w4,
       Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.bodySmall!.copyWith(color: fg, fontWeight: FontWeight.w600))),
     ]);
+  }
+}
+
+/// "2.3 km away · DHA Phase 5" — or just the area when the distance is unknown.
+class DistanceText extends StatelessWidget {
+  final double? km;
+  final String place;
+  final bool compact;
+  const DistanceText({super.key, this.km, this.place = '', this.compact = false});
+
+  static String? describe(double? km, String place, {bool compact = false}) {
+    if (km != null) return compact ? distance(km) : (place.isEmpty ? '${distance(km)} away' : '${distance(km)} · $place');
+    return place.isEmpty ? null : place;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = describe(km, place, compact: compact);
+    if (text == null) return const SizedBox.shrink();
+    final d = km;
+    return Meta(d == null ? AppIcons.pin : AppIcons.route, text, color: d != null && d <= 5 ? context.colors.success : null);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../kit.dart';
+import '../location/location_picker.dart';
 
 /// Edit the signed-in user's profile. Technicians also manage their
 /// professional details and portfolio here.
@@ -23,6 +24,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _years = TextEditingController(text: _u.experienceYears > 0 ? '${_u.experienceYears}' : '');
   late String? _city = cities.contains(_u.city) ? _u.city : null;
   late final Set<String> _skills = {..._u.skills};
+  late Place? _place = _u.geo == null ? null : Place(point: _u.geo!, area: _u.area, city: _u.city, source: 'profile');
+  bool _placeChanged = false;
+  late int _radius = _u.serviceRadiusKm;
   bool _busy = false;
   bool _uploading = false;
 
@@ -44,13 +48,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'city': _city ?? _u.city,
         'address': _address.text.trim(),
         'bio': _bio.text.trim(),
+        if (_placeChanged && _place == null) 'clearLocation': true,
+        if (_placeChanged && _place != null) ...{'lat': _place!.point.lat, 'lng': _place!.point.lng, 'area': _place!.area},
         if (_u.isTechnician) ...{
+          'serviceRadiusKm': _radius,
           'headline': _headline.text.trim(),
           'skills': _skills.toList(),
           'hourlyRate': double.tryParse(_rate.text) ?? 0,
           'experienceYears': int.tryParse(_years.text) ?? 0,
         },
       });
+      // A newly saved location becomes where searches start from on this device.
+      if (_placeChanged) await Locations.instance.choose(null);
       toastOk('Profile saved');
       if (mounted) Navigator.of(context).maybePop();
     } catch (e) {
@@ -86,6 +95,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Field(label: 'Phone', hint: '0300-1234567', controller: _phone, icon: AppIcons.phone, keyboardType: TextInputType.phone, helper: 'Shared only with people you work with.'),
         Gap.h16,
         SelectField<String>(label: 'City', hint: 'Choose your city', value: _city, icon: AppIcons.city, items: {for (final c in cities) c: c}, onChanged: (v) => setState(() => _city = v)),
+        Gap.h16,
+        LocationField(
+          label: supplier ? 'Shop location' : (tech ? 'Where you work from' : 'Your location'),
+          value: _place,
+          onChanged: (p) => setState(() {
+            _place = p;
+            _placeChanged = true;
+            if (p != null && cities.contains(p.city)) _city = p.city;
+          }),
+        ),
+        Gap.h6,
+        Text(
+          supplier
+              ? 'Customers see how far your tools are from them. Your exact spot is never shown.'
+              : (tech ? 'Clients near you see you first, with the distance. Your exact spot is never shown.' : 'Used to find technicians and tools near you. Never shown to anyone.'),
+          style: context.text.bodySmall,
+        ),
         Gap.h16,
         Field(
           label: supplier ? 'Shop / pickup address' : 'Address',
@@ -130,6 +156,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
                 onTap: (c) => setState(() => _skills.contains(c.key) ? _skills.remove(c.key) : _skills.add(c.key)),
               ),
+              Gap.h16,
+              const FieldLabel('How far you travel for work'),
+              Pills<int>(
+                values: ({5, 10, 15, 20, 30, 50, _radius}.toList()..sort()),
+                label: (km) => '$km km',
+                selected: _radius,
+                onTap: (km) => setState(() => _radius = km),
+              ),
+              Gap.h6,
+              Text('Jobs farther than this are still shown to you, marked as outside your area.', style: context.text.bodySmall),
               Gap.h16,
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(child: Field(label: 'Hourly rate', hint: '1500', prefixText: 'Rs  ', controller: _rate, keyboardType: TextInputType.number, formatters: Field.digits, optional: true)),

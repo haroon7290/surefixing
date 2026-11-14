@@ -1,6 +1,7 @@
 // Public reference data and headline numbers for the app and the website.
 const express = require('express');
 const catalog = require('../config/catalog');
+const { AREAS } = require('../config/areas');
 const config = require('../config');
 const User = require('../models/User');
 const Job = require('../models/Job');
@@ -81,6 +82,9 @@ const testimonials = cached(5 * 60 * 1000, async () => {
       };
     });
 });
+
+// Neighbourhoods by city, for picking a location without GPS.
+router.get('/areas', (_req, res) => res.json(AREAS));
 
 router.get('/stats', async (_req, res) => res.json(await stats()));
 router.get('/testimonials', async (_req, res) => res.json(await testimonials()));

@@ -30,7 +30,11 @@ class JobCard extends StatelessWidget {
               Text(job.title, style: context.text.titleSmall!.copyWith(fontSize: 15.5), maxLines: 2, overflow: TextOverflow.ellipsis),
               Gap.h4,
               Text(
-                [cat.label, if (job.city.isNotEmpty) job.city, timeAgo(job.createdAt)].join('  ·  '),
+                [
+                  cat.label,
+                  if (job.distanceKm != null) '${distance(job.distanceKm!)} away' else if (job.area.isNotEmpty) job.area else if (job.city.isNotEmpty) job.city,
+                  timeAgo(job.createdAt),
+                ].join('  ·  '),
                 style: context.text.bodySmall,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -209,7 +213,7 @@ class MatchCard extends StatelessWidget {
               Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 Rating(t.rating, t.ratingCount),
                 Meta(AppIcons.work, plural(t.jobsCompleted, 'job')),
-                if (t.city.isNotEmpty) Meta(AppIcons.pin, t.city),
+                DistanceText(km: t.distanceKm, place: t.distanceKm != null ? t.area : t.place),
               ]),
             ]),
           ),

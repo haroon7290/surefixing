@@ -20,7 +20,7 @@ class TechnicianProfileScreen extends StatelessWidget {
 
   Future<_Data> _load() async {
     final results = await Future.wait([
-      Api.map('/api/users/$technicianId'),
+      Api.map('/api/users/$technicianId', query: Locations.instance.query(withRadius: false)),
       Api.list('/api/reviews/technician/$technicianId', query: {'limit': 30}),
       Api.map('/api/reviews/technician/$technicianId/summary'),
     ]);
@@ -65,7 +65,8 @@ class TechnicianProfileScreen extends StatelessWidget {
                     Gap.h8,
                     Wrap(spacing: 12, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
                       Rating(t.rating, t.ratingCount, size: 14),
-                      if (t.city.isNotEmpty) Meta(AppIcons.pin, t.city),
+                      if (t.distanceKm != null || t.place.isNotEmpty) DistanceText(km: t.distanceKm, place: t.place),
+                      if (t.isTechnician && t.distanceKm != null) Meta(AppIcons.route, t.covers(t.distanceKm!) ? 'Works in your area' : 'Usually within ${t.serviceRadiusKm} km', color: t.covers(t.distanceKm!) ? c.success : null),
                       if (t.online) Meta(AppIcons.circle, 'Online now', color: c.success) else if (t.lastSeenAt != null) Meta(AppIcons.clock, 'Active ${timeAgo(t.lastSeenAt)}'),
                     ]),
                   ]),

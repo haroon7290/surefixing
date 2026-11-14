@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../kit.dart';
+import '../location/location_picker.dart';
 import 'job_detail_screen.dart';
 import 'job_widgets.dart';
 
@@ -32,6 +33,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
   late String? _city = cities.contains(Session.instance.user?.city) ? Session.instance.user!.city : null;
   DateTime? _date;
   List<XFile> _photos = [];
+  // Where the work is: the saved profile location until the client picks another.
+  Place? _place = _savedPlace();
+
+  static Place? _savedPlace() {
+    final u = Session.instance.user;
+    return u?.geo == null ? null : Place(point: u!.geo!, area: u.area, city: u.city, source: 'profile');
+  }
 
   bool _categoryChosen = false; // the customer picked one by hand
   bool _urgencyChosen = false;
@@ -113,6 +121,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (_budget.text.isNotEmpty) 'budget': _budget.text,
         'location': _location.text.trim(),
         'city': _city ?? '',
+        if (_place != null) ...{'lat': '${_place!.point.lat}', 'lng': '${_place!.point.lng}', 'area': _place!.area},
         if (_date != null) 'preferredDate': _date!.toIso8601String(),
         if (widget.technician != null) 'requestedTechnician': widget.technician!.id,
       }, files: {
@@ -254,6 +263,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
           DateField(label: 'Preferred date', value: _date, optional: true, hint: 'Any time', onChanged: (d) => setState(() => _date = d)),
           Gap.h16,
           SelectField<String>(label: 'City', hint: 'Choose your city', value: _city, icon: AppIcons.city, items: {for (final c in cities) c: c}, onChanged: (v) => setState(() => _city = v)),
+          Gap.h16,
+          LocationField(
+            label: 'Job location',
+            value: _place,
+            emptyText: 'Add the location',
+            onChanged: (p) => setState(() {
+              _place = p;
+              if (p != null && cities.contains(p.city)) _city = p.city;
+            }),
+          ),
+          Gap.h6,
+          Text('Technicians see the area and how far away it is, so the nearest can quote first.', style: context.text.bodySmall),
           Gap.h16,
           Field(
               label: 'Address', hint: 'House, street, area', controller: _location, icon: AppIcons.pin, optional: true, maxLength: 200, helper: 'Shared with the technician only after you hire them.'),

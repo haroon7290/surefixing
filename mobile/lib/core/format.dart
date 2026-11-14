@@ -99,3 +99,10 @@ String greeting() {
 
 /// Cleans an exception into a sentence a person can read.
 String errorText(Object error) => error.toString().replaceFirst('Exception: ', '');
+
+/// "850 m", "2.3 km", "12 km" — the same wording as the AI explanations.
+String distance(num km) {
+  if (km < 1) return '${(km * 1000).round()} m';
+  if (km < 10) return '${km.toStringAsFixed(1)} km';
+  return '${km.round()} km';
+}

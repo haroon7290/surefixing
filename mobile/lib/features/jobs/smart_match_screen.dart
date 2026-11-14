@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../kit.dart';
 import '../../routes.dart';
+import '../location/location_picker.dart';
 import 'job_widgets.dart';
 import 'post_job_screen.dart';
 
@@ -37,7 +38,13 @@ class _SmartMatchScreenState extends State<SmartMatchScreen> {
     }
     setState(() => _busy = true);
     try {
-      final res = await Api.post('/api/ai/recommend', {'description': text, if (_category != null) 'category': _category, 'limit': 12});
+      final from = Locations.instance.searchFrom;
+      final res = await Api.post('/api/ai/recommend', {
+        'description': text,
+        if (_category != null) 'category': _category,
+        if (from != null) ...{'lat': from.point.lat, 'lng': from.point.lng},
+        'limit': 12,
+      });
       if (mounted) setState(() => _result = Recommendation.fromJson(asJson(res)));
     } catch (e) {
       toastError(e);
@@ -81,6 +88,30 @@ class _SmartMatchScreenState extends State<SmartMatchScreen> {
           ),
         ),
         Gap.h12,
+        // Where the AI measures distance from (nearer technicians rank higher).
+        ListenableBuilder(
+          listenable: Locations.instance,
+          builder: (context, _) {
+            final from = Locations.instance.searchFrom;
+            return InkWell(
+              borderRadius: BorderRadius.circular(R.sm),
+              onTap: () => pickSearchPlace(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  Icon(from == null ? AppIcons.gps : AppIcons.pinFill, size: 16, color: c.brand),
+                  Gap.w8,
+                  Expanded(
+                    child: Text(from == null ? 'Add your location to rank nearby technicians higher' : 'Near ${from.fullLabel}',
+                        style: context.text.bodySmall!.copyWith(color: c.onHero, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  Text(from == null ? 'Set' : 'Change', style: context.text.bodySmall!.copyWith(color: c.brand, fontWeight: FontWeight.w800)),
+                ]),
+              ),
+            );
+          },
+        ),
+        Gap.h8,
         Btn('Find my match', icon: AppIcons.sparkleFill, size: BtnSize.lg, expand: true, loading: _busy, onPressed: _match),
       ]),
     );

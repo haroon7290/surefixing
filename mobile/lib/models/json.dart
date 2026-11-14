@@ -24,3 +24,25 @@ String idOf(dynamic v) {
   if (v is Map) return str(v['_id'] ?? v['id']);
   return v.toString();
 }
+
+/// A latitude/longitude pair (the server sends `{lat, lng}`).
+class GeoPoint {
+  final double lat;
+  final double lng;
+  const GeoPoint(this.lat, this.lng);
+
+  static GeoPoint? tryParse(dynamic v) {
+    if (v is! Map) return null;
+    final lat = v['lat'], lng = v['lng'];
+    if (lat is! num || lng is! num) return null;
+    return GeoPoint(lat.toDouble(), lng.toDouble());
+  }
+
+  Json toJson() => {'lat': lat, 'lng': lng};
+
+  @override
+  bool operator ==(Object other) => other is GeoPoint && other.lat == lat && other.lng == lng;
+
+  @override
+  int get hashCode => Object.hash(lat, lng);
+}

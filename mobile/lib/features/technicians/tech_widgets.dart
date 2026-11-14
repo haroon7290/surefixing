@@ -71,7 +71,7 @@ class TechCard extends StatelessWidget {
               Gap.h6,
               Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 Rating(tech.rating, tech.ratingCount),
-                if (tech.city.isNotEmpty) Meta(AppIcons.pin, tech.city),
+                DistanceText(km: tech.distanceKm, place: tech.distanceKm != null ? tech.area : tech.place),
               ]),
             ]),
           ),
@@ -97,7 +97,13 @@ class TechCard extends StatelessWidget {
           Expanded(child: _Fact(tech.experienceYears > 0 ? '${tech.experienceYears} yr' : '—', 'experience')),
           Expanded(child: _Fact(tech.hourlyRate > 0 ? money(tech.hourlyRate) : '—', 'per hour')),
         ]),
-        if (!tech.isAvailable) ...[Gap.h12, const Pill('Busy right now', tone: Tone.warning, dot: true)],
+        if (!tech.isAvailable || (tech.distanceKm != null && !tech.covers(tech.distanceKm!))) ...[
+          Gap.h12,
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            if (!tech.isAvailable) const Pill('Busy right now', tone: Tone.warning, dot: true),
+            if (tech.distanceKm != null && !tech.covers(tech.distanceKm!)) Pill('Usually travels up to ${tech.serviceRadiusKm} km', icon: AppIcons.route),
+          ]),
+        ],
       ]),
     );
   }
@@ -139,7 +145,13 @@ class TechTile extends StatelessWidget {
             Text(tech.headline.isEmpty ? (tech.skills.isEmpty ? 'Technician' : skillLabel(tech.skills.first)) : tech.headline,
                 style: context.text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
             const Spacer(),
-            Rating(tech.rating, tech.ratingCount),
+            Row(children: [
+              Rating(tech.rating, tech.ratingCount),
+              if (tech.distanceKm != null) ...[
+                const Spacer(),
+                Text(distance(tech.distanceKm!), style: context.text.bodySmall!.copyWith(fontWeight: FontWeight.w700)),
+              ],
+            ]),
           ]),
         ),
       );

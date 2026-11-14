@@ -12,8 +12,10 @@ import 'package:surefix/features/rentals/rentals_screens.dart';
 import 'package:surefix/features/shell/shell.dart';
 import 'package:surefix/features/site/public_site.dart';
 import 'package:surefix/features/technicians/technician_profile_screen.dart';
+import 'package:surefix/features/technicians/technicians_screen.dart';
 import 'package:surefix/features/tools/tool_detail_screen.dart';
 import 'package:surefix/features/tools/tool_form_screen.dart';
+import 'package:surefix/features/tools/tool_market_screen.dart';
 import 'package:surefix/kit.dart';
 
 import 'fake_api.dart';
@@ -115,6 +117,24 @@ void main() {
       expect(job.client.name, '');
       expect(job.technician, isNull);
       expect(job.bids.single.technician.id, 't9');
+    });
+
+    test('locations: areas, distances and who covers what', () {
+      final t = User.fromJson({'id': 't', 'role': 'technician', 'city': 'Lahore', 'area': 'Gulberg', 'serviceRadiusKm': 10, 'distanceKm': 6.8, 'geo': {'lat': 31.5, 'lng': 74.3}});
+      expect(t.place, 'Gulberg, Lahore');
+      expect(t.covers(6.8), isTrue);
+      expect(t.covers(12), isFalse);
+      expect(t.geo, const GeoPoint(31.5, 74.3));
+      expect(User.fromJson(t.toJson()).geo, const GeoPoint(31.5, 74.3)); // survives the saved session
+      expect(User.fromJson({'id': 'x'}).distanceKm, isNull);
+      expect(User.fromJson({'id': 'x'}).serviceRadiusKm, 15);
+      expect(Tool.fromJson({'_id': 'k', 'area': 'Garden Town', 'city': 'Lahore', 'distanceKm': 7.1}).place, 'Garden Town, Lahore');
+      expect(distance(0.85), '850 m');
+      expect(distance(2.34), '2.3 km');
+      expect(distance(12.4), '12 km');
+      expect(DistanceText.describe(2, 'DHA Phase 5'), '2.0 km · DHA Phase 5');
+      expect(DistanceText.describe(null, 'Lahore'), 'Lahore');
+      expect(kmBetween(const GeoPoint(31.463, 74.408), const GeoPoint(31.515, 74.344)), closeTo(8.4, 0.3));
     });
 
     test('Tool and Rental computed helpers', () {
@@ -386,6 +406,100 @@ void main() {
       await tester.enterText(find.byType(TextFormField).last, 'Account title does not match');
       await tapOn(tester, find.text('Reject').last);
       expect(sent, contains('POST /api/admin/wallet-requests/wr2/reject'));
+    });
+
+    testWidgets('technicians are searched near the saved location, with distance filters', (tester) async {
+      await pumpApp(tester, role: 'client', size: desktop);
+      SiteNav.select('technicians');
+      await settle(tester);
+      var q = lastGet('/api/users/technicians')!.queryParameters;
+      expect(q['lat'], '31.46800');
+      expect(q['lng'], '74.38300');
+      expect(q['sort'], 'distance'); // nearest first by default once a location is known
+      expect(q.containsKey('radius'), isFalse);
+      expect(find.text('5.5 km · Model Town'), findsOneWidget);
+      expect(find.text('Usually travels up to 5 km'), findsOneWidget); // Noor is 6.8 km away, covers 5
+      expect(find.textContaining('nearest to DHA Phase 4 first'), findsOneWidget);
+
+      await tapOn(tester, find.text('Within 10 km'));
+      q = lastGet('/api/users/technicians')!.queryParameters;
+      expect(q['radius'], '10');
+      expect(Locations.instance.radiusKm, 10);
+
+      await tapOn(tester, find.text('Travels to me'));
+      await tapOn(tester, find.text('4.5+'));
+      q = lastGet('/api/users/technicians')!.queryParameters;
+      expect(q['covers'], '1');
+      expect(q['minRating'], '4.5');
+      expect(find.text('Filters · 3'), findsOneWidget);
+
+      await tapOn(tester, find.text('Reset'));
+      q = lastGet('/api/users/technicians')!.queryParameters;
+      expect(q.containsKey('radius'), isFalse);
+      expect(q.containsKey('covers'), isFalse);
+    });
+
+    testWidgets('phone filter sheet applies only on "Show results"', (tester) async {
+      await pumpApp(tester, role: 'client');
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const TechniciansScreen()));
+      await settle(tester);
+      expect(find.text('Near DHA Phase 4'), findsOneWidget);
+      await tapOn(tester, find.text('Filters'));
+      await tapOn(tester, find.text('Verified ID'));
+      await tapOn(tester, find.text('Within 5 km'));
+      expect(lastGet('/api/users/technicians')!.queryParameters.containsKey('verified'), isFalse);
+      await tapOn(tester, find.text('Show results'));
+      final q = lastGet('/api/users/technicians')!.queryParameters;
+      expect(q['verified'], '1');
+      expect(q['radius'], '5');
+      expect(find.text('Near DHA Phase 4 · 5 km'), findsOneWidget);
+    });
+
+    testWidgets('a visitor picks an area and tools are sorted by distance from it', (tester) async {
+      await pumpApp(tester, size: desktop);
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const ToolMarketScreen()));
+      await settle(tester);
+      expect(lastGet('/api/tools')!.queryParameters.containsKey('lat'), isFalse);
+      expect(find.text('Set your location'), findsOneWidget);
+      await tapOn(tester, find.text('Set your location'));
+      expect(find.text('Use my current location'), findsOneWidget);
+      expect(find.text('Pick on the map'), findsOneWidget);
+      await tapOn(tester, find.text('DHA Phase 5'));
+      expect(Locations.instance.chosen?.area, 'DHA Phase 5');
+      final q = lastGet('/api/tools')!.queryParameters;
+      expect(q['lat'], '31.46300');
+      expect(q['sort'], 'distance');
+      expect(find.text('7.1 km'), findsOneWidget);
+      expect(find.textContaining('nearest to DHA Phase 5 first'), findsOneWidget);
+    });
+
+    testWidgets('technician sets where they work and how far they travel', (tester) async {
+      await pumpApp(tester, role: 'technician', size: desktop);
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+      await settle(tester);
+      expect(find.text('Model Town, Lahore'), findsOneWidget);
+      await tapOn(tester, find.text('20 km'));
+      await tapOn(tester, find.text('Model Town, Lahore'));
+      await tapOn(tester, find.text('Gulberg'));
+      await tapOn(tester, find.text('Save changes'));
+      final body = sentBodies['PATCH /api/users/me'] as Map;
+      expect(body['serviceRadiusKm'], 20);
+      expect(body['lat'], 31.515);
+      expect(body['area'], 'Gulberg');
+    });
+
+    testWidgets('find jobs shows how far each job is and filters by urgency', (tester) async {
+      await pumpApp(tester, role: 'technician', size: desktop);
+      SiteNav.select('find');
+      await settle(tester);
+      expect(find.textContaining('2.1 km away'), findsWidgets);
+      expect(find.textContaining('4.6 km away'), findsWidgets);
+      Finder inPanel(String text) => find.descendant(of: find.byType(FilterPanel), matching: find.text(text));
+      await tapOn(tester, inPanel('Urgent'));
+      await tapOn(tester, inPanel('Emergency'));
+      expect(lastGet('/api/jobs')!.queryParameters['urgency'], 'high,emergency');
+      await tapOn(tester, inPanel('Rs 5,000+'));
+      expect(lastGet('/api/jobs')!.queryParameters['minBudget'], '5000');
     });
 
     testWidgets('the dock switches sections', (tester) async {

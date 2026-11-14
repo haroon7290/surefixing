@@ -8,6 +8,7 @@ const { authRequired, optionalAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const ai = require('../utils/ai');
 const pricing = require('../services/pricing');
+const { latLng, distanceKm, round1 } = require('../utils/geo');
 const realtime = require('../utils/realtime');
 const { URGENCY_LEVELS, serviceCategoryKeys } = require('../config/catalog');
 
@@ -55,7 +56,9 @@ router.post(
     body('city').optional().isString().isLength({ max: 60 }),
     body('budget').optional({ values: 'falsy' }).isFloat({ min: 0 }).toFloat(),
     body('urgency').optional({ values: 'falsy' }).isIn(URGENCY_LEVELS),
-    body('limit').optional().isInt({ min: 1, max: 50 }).toInt()
+    body('limit').optional().isInt({ min: 1, max: 50 }).toInt(),
+    body('lat').optional({ values: 'falsy' }).isFloat({ min: -90, max: 90 }).toFloat(),
+    body('lng').optional({ values: 'falsy' }).isFloat({ min: -180, max: 180 }).toFloat()
   ],
   validate,
   async (req, res) => {
@@ -66,7 +69,12 @@ router.post(
     const limit = req.body.limit || 10;
 
     const techs = await User.find({ role: 'technician', status: { $ne: 'suspended' } }).limit(500);
+    // Distance from where the work is (the location sent, else the client's own).
+    const from = Number.isFinite(req.body.lat) && Number.isFinite(req.body.lng) ? { lat: req.body.lat, lng: req.body.lng } : latLng(req.user.geo);
     const candidates = techs.map((t) => ({
+      ...(from && t.geo ? { distanceKm: round1(distanceKm(from, latLng(t.geo))) } : {}),
+      serviceRadiusKm: t.serviceRadiusKm || 15,
+      area: t.area || '',
       technicianId: String(t._id),
       name: t.name,
       avatar: t.avatar,

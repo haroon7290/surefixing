@@ -15,7 +15,8 @@ class _Data {
   final List<Job> jobs;
   final List<User> techs;
   final List<Tool> tools;
-  const _Data(this.summary, this.jobs, this.techs, this.tools);
+  final bool nearby; // techs are within 25 km of the search place
+  const _Data(this.summary, this.jobs, this.techs, this.tools, {this.nearby = false});
 }
 
 /// The customer's dashboard: start a job, see what needs attention, and
@@ -30,19 +31,39 @@ class ClientHome extends StatefulWidget {
 class _ClientHomeState extends State<ClientHome> {
   final _view = GlobalKey<AsyncViewState<_Data>>();
 
+  @override
+  void initState() {
+    super.initState();
+    Locations.instance.addListener(_placeChanged);
+  }
+
+  @override
+  void dispose() {
+    Locations.instance.removeListener(_placeChanged);
+    super.dispose();
+  }
+
+  void _placeChanged() {
+    if (mounted) setState(() {});
+  }
+
   Future<_Data> _load() async {
     final city = Session.instance.user?.city ?? '';
+    final near = Locations.instance.query(withRadius: false);
     final results = await Future.wait([
       Api.map('/api/users/me/summary'),
       Api.list('/api/jobs', query: {'status': 'pending,in_progress', 'limit': 6}),
-      Api.list('/api/users/technicians', query: {'sort': 'rating', 'limit': 8, 'city': city}),
-      Api.list('/api/tools', query: {'sort': 'popular', 'limit': 8}),
+      // Near the search place when there is one (25 km), else in their city.
+      Api.list('/api/users/technicians', query: {'sort': 'rating', 'limit': 8, ...near, if (near.isNotEmpty) 'radius': 25 else 'city': city}),
+      Api.list('/api/tools', query: {'sort': 'popular', 'limit': 8, ...near}),
     ]);
     var techs = (results[2] as List<Json>).map(User.fromJson).toList();
-    if (techs.length < 3 && city.isNotEmpty) {
-      techs = (await Api.list('/api/users/technicians', query: {'sort': 'rating', 'limit': 8})).map(User.fromJson).toList();
+    var nearby = near.isNotEmpty;
+    if (techs.length < 3 && (near.isNotEmpty || city.isNotEmpty)) {
+      techs = (await Api.list('/api/users/technicians', query: {'sort': 'rating', 'limit': 8, ...near})).map(User.fromJson).toList();
+      nearby = false;
     }
-    return _Data(results[0] as Json, (results[1] as List<Json>).map(Job.fromJson).toList(), techs, (results[3] as List<Json>).map(Tool.fromJson).toList());
+    return _Data(results[0] as Json, (results[1] as List<Json>).map(Job.fromJson).toList(), techs, (results[3] as List<Json>).map(Tool.fromJson).toList(), nearby: nearby);
   }
 
   void _post([String? category]) => push(context, PostJobScreen(category: category), path: '/post-job');
@@ -51,9 +72,11 @@ class _ClientHomeState extends State<ClientHome> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final wide = context.isWide;
+    final from = Locations.instance.searchFrom;
     return AppPage(
       body: AsyncView<_Data>(
         key: _view,
+        token: '${from?.point.lat},${from?.point.lng}',
         load: _load,
         events: const {...Live.jobs, ...Live.rentals},
         builder: (context, d) {
@@ -160,7 +183,7 @@ class _ClientHomeState extends State<ClientHome> {
                 ],
               ),
               if (d.techs.isNotEmpty) ...[
-                SectionTitle('Top technicians', action: 'See all', onAction: () => openSection(context, 'technicians')),
+                SectionTitle(d.nearby ? 'Top technicians near you' : 'Top technicians', action: 'See all', onAction: () => openSection(context, 'technicians')),
                 if (wide)
                   AutoGrid(minWidth: 280, gap: 16, maxColumns: 4, children: [for (final t in d.techs.take(4)) TechCard(t, onTap: () => openTechnician(context, t.id))])
                 else

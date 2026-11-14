@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { URGENCY_LEVELS, JOB_STAGES } = require('../config/catalog');
 const { paymentSchema } = require('./payment');
+const { pointSchema } = require('../utils/geo');
 
 // Lifecycle:
 //   pending ──hire──▶ in_progress ──client confirms──▶ completed
@@ -39,6 +40,10 @@ const jobSchema = new mongoose.Schema(
     budget: { type: Number, default: 0, min: 0 },
     location: { type: String, default: '' },
     city: { type: String, default: '', trim: true },
+    // Where the work is, for technicians searching near them. Only the
+    // distance and area name are ever sent to the app.
+    geo: { type: pointSchema, default: undefined },
+    area: { type: String, default: '', trim: true },
     urgency: { type: String, enum: URGENCY_LEVELS, default: 'normal' },
     preferredDate: { type: Date, default: null },
     images: { type: [String], default: [] },
@@ -70,10 +75,19 @@ const jobSchema = new mongoose.Schema(
     rating: { type: Number, default: null },
     review: { type: String, default: '' }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (_doc, ret) => {
+        delete ret.geo;
+        return ret;
+      }
+    }
+  }
 );
 
 jobSchema.index({ status: 1, createdAt: -1 });
+jobSchema.index({ geo: '2dsphere' });
 
 jobSchema.methods.log = function (event, by, note = '') {
   this.history.push({ event, by: by || null, note, at: new Date() });

@@ -9,6 +9,10 @@ flutter analyze && flutter test
 
 Requires Flutter 3.35+ (Dart 3.9). Targets Android, iOS, web and Windows from one codebase.
 
+**Location**: "Use my current location" asks for permission the first time (declared in
+`AndroidManifest.xml` and `Info.plist`). In a browser it works on `localhost` or HTTPS only. The
+map picker loads OpenStreetMap tiles, so it needs internet access; the area list works without.
+
 ## Build-time options
 
 | Flag | Default | Purpose |
@@ -22,16 +26,17 @@ Requires Flutter 3.35+ (Dart 3.9). Targets Android, iOS, web and Windows from on
 lib/
 ├── main.dart · app.dart · routes.dart   start-up, root gate, realtime toasts, addressable pages
 ├── kit.dart          the one import a screen needs (tokens, components, models, services)
-├── core/             theme · api · session · realtime · nav · format · catalog · responsive
+├── core/             theme · api · session · location · realtime · nav · format · catalog · responsive
 ├── models/           user · job · tool (+ rental) · chat · wallet · json
-├── ui/               the component library: brand, buttons, inputs, cards, pills, states,
-│                     media, sheets, charts, page scaffolding, icons
+├── ui/               the component library: brand, buttons, inputs, filters, cards, pills,
+│                     states, media, sheets, charts, page scaffolding, icons
 └── features/
     ├── shell/        sections per role, tab bar (phone), web frame + sidebar (wide)
     ├── site/         public website: header, footer, landing, how it works, help, legal
     ├── auth/         introduction, log in, sign up, password reset
     ├── home/         customer, technician and supplier dashboards
     ├── jobs/         post a job, job page (all roles), lists, Smart Match
+    ├── location/     location picker (GPS, map pin, area list) and the distance filter
     ├── technicians/  directory and profile
     ├── tools/        market, tool page, inventory, tool form
     ├── rentals/      rentals, orders, rental page
@@ -56,5 +61,8 @@ test/
   notices. Screens never hard-code colours.
 - **Layout**: `AppPage` + `PageList` give every screen its frame: an app bar on phones, a
   large heading and centred content on wide windows. `TwoCol` and `AutoGrid` handle columns.
+- **Search pages**: `FilterLayout` puts a `FilterPanel` beside the results on wide windows and
+  a location chip, a *Filters* sheet and a sort menu above them on phones. `Locations`
+  (`core/location.dart`) is the shared "search near" place and radius.
 - **Data**: `AsyncView` loads, shows a skeleton, an error with retry, and reloads on the
   realtime events you list.

@@ -12,6 +12,8 @@ const { removeUpload } = require('../utils/files');
 const wallet = require('../services/wallet');
 const { toolCategoryKeys, TOOL_CONDITIONS, PAYMENT_METHODS } = require('../config/catalog');
 const { serializeRental, DAY_MS } = require('../services/rentals');
+const { nearbySearch, readNearby } = require('../services/nearby');
+const { latLng, distanceKm, round1 } = require('../utils/geo');
 const { escapeRegex, paginate, setTotal, sameId, badRequest, forbidden, notFound } = require('../utils/http');
 
 const router = express.Router();
@@ -56,7 +58,8 @@ async function loadTool(id) {
 // --------------------------------------------------------------- browse
 
 // ?q= ?category= ?city= ?minPrice= ?maxPrice= ?available=1 ?installment=1
-// ?sort=newest|price_asc|price_desc|rating|popular ?mine=1 (supplier)
+// ?sort=newest|price_asc|price_desc|rating|popular|distance ?mine=1 (supplier)
+// ?lat=&lng= (distances in the results) ?radius=5 (only within 5 km)
 router.get('/', optionalAuth, async (req, res) => {
   const { mine, q: text, category, city, minPrice, maxPrice, available, installment, sort } = req.query;
   const q = {};
@@ -84,6 +87,16 @@ router.get('/', optionalAuth, async (req, res) => {
     popular: { rentalsCount: -1, rating: -1 }
   };
   const { limit, skip } = paginate(req, { defaultLimit: 50 });
+  const nearby = mine === '1' ? null : readNearby(req.query);
+  if (nearby) {
+    const { items, total } = await nearbySearch(Tool, { ...nearby, filter: q, sort: sorts[sort] || sorts.newest, skip, limit });
+    await Tool.populate(
+      items.map((i) => i.doc),
+      { path: 'supplier', select: 'name avatar city kycStatus' }
+    );
+    setTotal(res, total);
+    return res.json(items.map(({ doc, km }) => ({ ...doc.toJSON(), distanceKm: km })));
+  }
   const [tools, total] = await Promise.all([
     Tool.find(q).populate('supplier', 'name avatar city kycStatus').sort(sorts[sort] || sorts.newest).skip(skip).limit(limit),
     Tool.countDocuments(q)
@@ -96,12 +109,14 @@ router.get('/:id', optionalAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Tool not found');
   const tool = await Tool.findById(req.params.id).populate('supplier', 'name avatar city rating createdAt kycStatus');
   if (!tool) throw notFound('Tool not found');
+  const from = readNearby(req.query, req.user && latLng(req.user.geo));
   const reviews = await Rental.find({ tool: tool._id, rating: { $ne: null } })
     .sort({ updatedAt: -1 })
     .limit(20)
     .populate('renter', 'name avatar');
   res.json({
     ...tool.toJSON(),
+    distanceKm: from ? round1(distanceKm(from.near, latLng(tool.geo))) : null,
     reviews: reviews.map((r) => ({
       id: r._id,
       rating: r.rating,
@@ -119,6 +134,9 @@ router.post('/', authRequired, requireRole('supplier'), upload.array('images', 4
   const tool = await Tool.create({
     ...pick(req.body),
     city: req.body.city || req.user.city || '',
+    // Tools are at the supplier's shop.
+    geo: req.user.geo || undefined,
+    area: req.user.area || '',
     images: (req.files || []).map((f) => f.filename),
     supplier: req.user._id
   });

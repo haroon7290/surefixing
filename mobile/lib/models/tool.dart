@@ -10,6 +10,10 @@ class Tool {
   final String category;
   final String condition;
   final String city;
+  /// The supplier's neighbourhood, where the tool is picked up from.
+  final String area;
+  /// Distance from the searcher, when known.
+  final double? distanceKm;
   final List<String> images;
   final double rentPricePerDay;
   final double deposit;
@@ -31,6 +35,8 @@ class Tool {
     this.category = 'general',
     this.condition = 'good',
     this.city = '',
+    this.area = '',
+    this.distanceKm,
     this.images = const [],
     this.rentPricePerDay = 0,
     this.deposit = 0,
@@ -49,6 +55,7 @@ class Tool {
   bool get rentable => available && inStock;
   bool get hasInstallments => installmentMonths > 0;
   String get image => images.isEmpty ? '' : images.first;
+  String get place => [area, city].where((e) => e.isNotEmpty).join(', ');
 
   /// Monthly payment on the installment plan.
   double get monthly => installmentMonthly > 0 ? installmentMonthly : (installmentMonths > 0 ? (purchasePrice / installmentMonths).ceilToDouble() : 0);
@@ -63,6 +70,8 @@ class Tool {
         category: str(j['category'], 'general'),
         condition: str(j['condition'], 'good'),
         city: str(j['city']),
+        area: str(j['area']),
+        distanceKm: j['distanceKm'] is num ? dbl(j['distanceKm']) : null,
         images: strings(j['images']),
         rentPricePerDay: dbl(j['rentPricePerDay']),
         deposit: dbl(j['deposit']),

@@ -224,7 +224,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ]),
         Gap.h16,
         Wrap(spacing: 16, runSpacing: 8, children: [
-          if (job.city.isNotEmpty) Meta(AppIcons.pin, job.location.isNotEmpty && (isClient || isAssigned || me.isAdmin) ? '${job.location}, ${job.city}' : job.city),
+          if (job.place.isNotEmpty || job.location.isNotEmpty)
+            Meta(AppIcons.pin, job.location.isNotEmpty && (isClient || isAssigned || me.isAdmin) ? [job.location, job.place].where((e) => e.isNotEmpty).join(', ') : job.place),
+          if (job.distanceKm != null && !isClient) Meta(AppIcons.route, '${distance(job.distanceKm!)} from you', color: job.distanceKm! <= 5 ? context.colors.success : null),
           Meta(AppIcons.clock, 'Posted ${timeAgo(job.createdAt)}'),
           if (job.preferredDate != null) Meta(AppIcons.calendar, 'Preferred ${shortDate(job.preferredDate)}'),
           if (job.pending) Meta(AppIcons.tag, job.bidCount == 0 ? 'No quotes yet' : plural(job.bidCount, 'quote')),

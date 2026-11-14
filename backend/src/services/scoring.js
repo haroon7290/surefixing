@@ -9,24 +9,24 @@ const { SERVICE_CATEGORIES } = require('../config/catalog');
 const CATEGORY_LABEL = Object.fromEntries(SERVICE_CATEGORIES.map((c) => [c.key, c.label]));
 
 const RECOMMEND_WEIGHTS = {
-  skill: 0.3,
-  rating: 0.22,
+  skill: 0.28,
+  rating: 0.2,
   reliability: 0.13,
   responsiveness: 0.08,
   experience: 0.09,
-  proximity: 0.08,
+  proximity: 0.12,
   availability: 0.05,
   verified: 0.05
 };
 
 const BID_WEIGHTS = {
-  skill: 0.18,
-  rating: 0.24,
+  skill: 0.16,
+  rating: 0.22,
   reliability: 0.14,
   responsiveness: 0.08,
   experience: 0.08,
-  price: 0.18,
-  proximity: 0.05,
+  price: 0.17,
+  proximity: 0.1,
   verified: 0.05
 };
 
@@ -45,6 +45,19 @@ const STOPWORDS = new Set(
     'who why dont doesnt cant wont isnt about around one two three since than then them they their')
     .split(/\s+/)
 );
+
+// A candidate's distance in km (sent by the backend), or null when unknown.
+function distanceOf(t) {
+  const km = Number(t.distanceKm);
+  return t.distanceKm === undefined || t.distanceKm === null || !Number.isFinite(km) || km < 0 ? null : km;
+}
+
+// "850 m", "2.3 km", "12 km" — must match the Python service exactly.
+function kmText(km) {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
+}
 
 function stem(word) {
   let w = word;
@@ -225,8 +238,13 @@ function components(t, ctx, mode) {
   const minutes = Number(t.avgResponseMinutes) > 0 ? Number(t.avgResponseMinutes) : 60;
   const experience = 0.6 * Math.min(1, completed / 40) + 0.4 * Math.min(1, (Number(t.experienceYears) || 0) / 10);
 
+  // Proximity: real distance when known (1 at the door, 0.5 at 8 km, 0.2 at
+  // 32 km), otherwise whether they are in the same city.
   let proximity = 0.5;
-  if (ctx.city) {
+  const km = distanceOf(t);
+  if (km !== null) {
+    proximity = 1 / (1 + km / 8);
+  } else if (ctx.city) {
     const a = String(ctx.city).trim().toLowerCase();
     const b = String(t.city || '').trim().toLowerCase();
     proximity = !b ? 0.4 : a === b ? 1 : 0.1;
@@ -290,7 +308,14 @@ function explain(t, c, w, ctx, mode) {
   if (years >= 3) add('experience', `${years}+ years of experience`);
   else if (completed >= 20) add('experience', `${completed} jobs completed`);
 
-  if (c.proximity === 1) add('proximity', `Based in ${t.city}`);
+  const km = distanceOf(t);
+  let nearby = null; // always shown when known: distance is the first thing people ask
+  if (km !== null) {
+    const radius = Number(t.serviceRadiusKm) || 0;
+    if (radius && km > radius) notes.push(`${kmText(km)} away, outside the ${radius} km they usually cover`);
+    else if (km <= 10) nearby = `${kmText(km)} from you`;
+    else if (km > 25) notes.push(`${kmText(km)} away`);
+  } else if (c.proximity === 1) add('proximity', `Based in ${t.city}`);
   else if (c.proximity === 0.1 && t.city) notes.push(`Based in ${t.city} (outside your city)`);
 
   if (c.verified === 1) add('verified', 'ID verified');
@@ -305,7 +330,7 @@ function explain(t, c, w, ctx, mode) {
   }
 
   return {
-    reasons: reasons.sort((a, b) => b.weight - a.weight).slice(0, 4).map((r) => r.text),
+    reasons: [...reasons.sort((a, b) => b.weight - a.weight).slice(0, nearby ? 3 : 4).map((r) => r.text), ...(nearby ? [nearby] : [])],
     notes
   };
 }

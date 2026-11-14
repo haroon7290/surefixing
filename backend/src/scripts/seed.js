@@ -506,6 +506,39 @@ async function run() {
   });
   console.log('Seeded chats, notifications, 1 verification request, 1 report');
 
+  // -------------------------------------------------------------- locations
+  // Everyone gets a place near a real neighbourhood (slightly off its centre)
+  // so "near me" search and distances work out of the box. Tools sit at their
+  // supplier's shop; jobs at their client's home.
+  const { AREAS } = require('../config/areas');
+  const { point } = require('../utils/geo');
+  const placeOf = (city, name, dLat = 0.004, dLng = -0.003) => {
+    const a = AREAS.find((x) => x.city === city && x.name === name);
+    return { geo: point(a.lat + dLat, a.lng + dLng), area: a.name };
+  };
+  const places = [
+    [sara, placeOf('Lahore', 'DHA Phase 4')],
+    [bilal, placeOf('Karachi', 'Gulshan-e-Iqbal')],
+    [ahmad, { ...placeOf('Lahore', 'Model Town', -0.002, 0.004), serviceRadiusKm: 15 }],
+    [noor, { ...placeOf('Lahore', 'Gulberg', 0.003, 0.002), serviceRadiusKm: 12 }],
+    [usman, { ...placeOf('Lahore', 'DHA Phase 5', -0.003, -0.004), serviceRadiusKm: 20 }],
+    [zainab, { ...placeOf('Islamabad', 'F-7'), serviceRadiusKm: 15 }],
+    [hamza, { ...placeOf('Karachi', 'PECHS'), serviceRadiusKm: 15 }],
+    [ayesha, { ...placeOf('Lahore', 'Johar Town', 0.002, 0.003), serviceRadiusKm: 10 }],
+    [farhan, { ...placeOf('Lahore', 'Bahria Town'), serviceRadiusKm: 8 }],
+    [imran, { ...placeOf('Rawalpindi', 'Satellite Town'), serviceRadiusKm: 20 }],
+    [toolco, placeOf('Lahore', 'Garden Town', 0.001, 0.002)],
+    [buildpro, placeOf('Karachi', 'Clifton')]
+  ];
+  for (const [user, place] of places) await User.updateOne({ _id: user._id }, { $set: place });
+  for (const [supplier, place] of [[toolco, places[10][1]], [buildpro, places[11][1]]]) {
+    await Tool.updateMany({ supplier: supplier._id }, { $set: { geo: place.geo, area: place.area } });
+  }
+  for (const [client, place] of [[sara, places[0][1]], [bilal, places[1][1]]]) {
+    await Job.updateMany({ client: client._id }, { $set: { geo: place.geo, area: place.area } });
+  }
+  console.log('Seeded locations for people, tools and jobs');
+
   console.log('\nDemo accounts (password: password123):');
   [sara, bilal, ahmad, usman, toolco, admin].forEach((x) => console.log(`  ${x.role.padEnd(10)} ${x.email}`));
   await mongoose.disconnect();

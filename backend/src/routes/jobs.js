@@ -11,6 +11,8 @@ const realtime = require('../utils/realtime');
 const { rankTechnicians } = require('../utils/ai');
 const jobs = require('../services/jobs');
 const { URGENCY_LEVELS, PAYMENT_METHODS, serviceCategoryKeys } = require('../config/catalog');
+const { nearbySearch, readNearby } = require('../services/nearby');
+const { point, latLng, distanceKm, round1, nearestArea } = require('../utils/geo');
 const { escapeRegex, paginate, setTotal, sameId, badRequest, forbidden, notFound, conflict } = require('../utils/http');
 
 const router = express.Router();
@@ -41,8 +43,10 @@ function canView(job, user) {
 // What the app receives. Phone and email are only shared between the client
 // and the hired technician (and admins); a technician browsing the market
 // sees how many quotes a job has, not the other technicians' prices.
-function present(job, user) {
+function present(job, user, distance) {
   const json = job.toJSON();
+  // Technicians see how far the job is from them, never where it is exactly.
+  json.distanceKm = distance !== undefined ? distance : user.role === 'technician' ? round1(distanceKm(latLng(user.geo), latLng(job.geo))) : null;
   const isClient = sameId(json.client, user._id);
   const isAssigned = sameId(json.assignedTechnician, user._id);
   const hired = json.assignedTechnician && ['in_progress', 'completed'].includes(json.status);
@@ -83,7 +87,8 @@ async function respond(res, job, user, status = 200) {
 // ------------------------------------------------------------------ list
 
 // Client: their own jobs. Admin: all. Technician:
-//   (default)       the open marketplace  ?q= ?category= ?city= ?urgency= ?matching=1
+//   (default)       the open marketplace  ?q= ?category= ?city= ?urgency= ?matching=1 ?minBudget=
+//                   ?lat=&lng= ?radius=km ?sort=distance (near their saved location by default)
 //   ?view=requests  direct requests waiting for their answer
 //   ?view=bids      jobs they quoted on
 //   ?mine=1         jobs they were hired for
@@ -114,7 +119,11 @@ router.get('/', authRequired, async (req, res) => {
   }
 
   if (category) q.category = String(category);
-  if (urgency && URGENCY_LEVELS.includes(urgency)) q.urgency = urgency;
+  if (urgency) {
+    const levels = String(urgency).split(',').filter((u) => URGENCY_LEVELS.includes(u));
+    if (levels.length) q.urgency = { $in: levels };
+  }
+  if (req.query.minBudget && Number(req.query.minBudget) > 0) q.budget = { $gte: Number(req.query.minBudget) };
   if (city) q.city = new RegExp(`^${escapeRegex(String(city).trim())}$`, 'i');
   if (text) {
     const rx = new RegExp(escapeRegex(String(text).trim()), 'i');
@@ -123,6 +132,16 @@ router.get('/', authRequired, async (req, res) => {
 
   const sorts = { newest: { createdAt: -1 }, oldest: { createdAt: 1 }, budget: { budget: -1, createdAt: -1 } };
   const { limit, skip } = paginate(req, { defaultLimit: 50 });
+  const market = req.user.role === 'technician' && mine !== '1' && view !== 'requests' && view !== 'bids';
+  const nearby = market ? readNearby(req.query) : null;
+  if (nearby) {
+    // Default for the market without an explicit sort stays "newest"; nearest only when asked.
+    const { items, total } = await nearbySearch(Job, { ...nearby, byDistance: sort === 'distance', filter: q, sort: sorts[sort] || sorts.newest, skip, limit });
+    const docs = await populateJob(Job.find({ _id: { $in: items.map((i) => i.doc._id) } }));
+    const byId = new Map(docs.map((d) => [String(d._id), d]));
+    setTotal(res, total);
+    return res.json(items.filter((i) => byId.has(String(i.doc._id))).map(({ doc, km }) => present(byId.get(String(doc._id)), req.user, km)));
+  }
   const [items, total] = await Promise.all([
     populateJob(Job.find(q)).sort(sorts[sort] || sorts.newest).skip(skip).limit(limit),
     Job.countDocuments(q)
@@ -130,6 +149,17 @@ router.get('/', authRequired, async (req, res) => {
   setTotal(res, total);
   res.json(items.map((j) => present(j, req.user)));
 });
+
+// Where the work is: the pin the client chose, else their saved location.
+function jobLocation(req) {
+  const { lat, lng, area } = req.body;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    const near = nearestArea(lat, lng);
+    return { geo: point(lat, lng), area: area || (near ? near.name : '') };
+  }
+  if (req.user.geo) return { geo: req.user.geo, area: area || req.user.area || '' };
+  return { area: area || '' };
+}
 
 // ---------------------------------------------------------------- create
 
@@ -152,7 +182,10 @@ router.post(
       .withMessage('Invalid preferred date')
       .custom((v) => new Date(v).getTime() >= Date.now() - 24 * 3600 * 1000)
       .withMessage('Preferred date cannot be in the past'),
-    body('requestedTechnician').optional({ values: 'falsy' }).isMongoId().withMessage('Invalid technician')
+    body('requestedTechnician').optional({ values: 'falsy' }).isMongoId().withMessage('Invalid technician'),
+    body('lat').optional({ values: 'falsy' }).isFloat({ min: -90, max: 90 }).withMessage('Invalid location').toFloat(),
+    body('lng').optional({ values: 'falsy' }).isFloat({ min: -180, max: 180 }).withMessage('Invalid location').toFloat(),
+    body('area').optional().isString().trim().isLength({ max: 60 })
   ],
   validate,
   async (req, res) => {
@@ -178,7 +211,8 @@ router.post(
       urgency: urgency || 'normal',
       preferredDate: preferredDate ? new Date(preferredDate) : null,
       images: (req.files || []).map((f) => f.filename),
-      requestedTechnician: target ? target._id : null
+      requestedTechnician: target ? target._id : null,
+      ...jobLocation(req)
     });
     job.log('posted', req.user._id, target ? `Service requested from ${target.name}` : 'Job posted');
     await job.save();
@@ -209,11 +243,19 @@ router.get('/:id/ranked-bids', authRequired, async (req, res) => {
   if (!job) throw notFound('Job not found');
   if (!sameId(job.client, req.user._id) && req.user.role !== 'admin') throw forbidden('Only the job owner can see ranked quotes');
 
+  const places = new Map(
+    (await User.find({ _id: { $in: job.bids.map((b) => b.technician?._id).filter(Boolean) } }).select('geo serviceRadiusKm')).map((u) => [String(u._id), u])
+  );
+  const jobPlace = latLng(job.geo);
   const candidates = job.bids
     .filter((b) => b.technician && b.status !== 'withdrawn')
     .map((b) => {
       const t = b.technician;
+      const place = places.get(String(t._id));
+      const km = round1(distanceKm(jobPlace, latLng(place?.geo)));
       return {
+        ...(km != null ? { distanceKm: km } : {}),
+        serviceRadiusKm: place?.serviceRadiusKm || 15,
         bidId: String(b._id),
         technicianId: String(t._id),
         name: t.name,

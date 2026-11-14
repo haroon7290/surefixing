@@ -15,6 +15,14 @@ class User {
   final String bio;
   final String city;
   final String address;
+  /// Neighbourhood, e.g. "DHA Phase 5" (shown publicly; exact coordinates never are).
+  final String area;
+  /// Own saved location; only the signed-in user's own profile carries it.
+  final GeoPoint? geo;
+  /// How far a technician travels for work, in km.
+  final int serviceRadiusKm;
+  /// Distance from the searcher, when the server could work it out.
+  final double? distanceKm;
   final String headline;
   final List<String> skills;
   final double hourlyRate;
@@ -45,6 +53,10 @@ class User {
     this.bio = '',
     this.city = '',
     this.address = '',
+    this.area = '',
+    this.geo,
+    this.serviceRadiusKm = 15,
+    this.distanceKm,
     this.headline = '',
     this.skills = const [],
     this.hourlyRate = 0,
@@ -73,6 +85,12 @@ class User {
   bool get exists => id.isNotEmpty;
   String get firstName => name.trim().split(RegExp(r'\s+')).first;
 
+  /// "DHA Phase 5, Lahore", or whichever part is known.
+  String get place => [area, city].where((e) => e.isNotEmpty).join(', ');
+
+  /// Whether a job [km] away is inside the distance this technician covers.
+  bool covers(double km) => km <= serviceRadiusKm;
+
   /// Share of hired jobs that were finished (0–1); null until there is history.
   double? get completionRate => jobsAssigned <= 0 ? null : (jobsCompleted / jobsAssigned).clamp(0, 1).toDouble();
 
@@ -91,6 +109,10 @@ class User {
         bio: str(j['bio']),
         city: str(j['city']),
         address: str(j['address']),
+        area: str(j['area']),
+        geo: GeoPoint.tryParse(j['geo']),
+        serviceRadiusKm: integer(j['serviceRadiusKm'], 15),
+        distanceKm: j['distanceKm'] is num ? dbl(j['distanceKm']) : null,
         headline: str(j['headline']),
         skills: strings(j['skills']),
         hourlyRate: dbl(j['hourlyRate']),
@@ -122,6 +144,9 @@ class User {
         'bio': bio,
         'city': city,
         'address': address,
+        'area': area,
+        if (geo != null) 'geo': geo!.toJson(),
+        'serviceRadiusKm': serviceRadiusKm,
         'headline': headline,
         'skills': skills,
         'hourlyRate': hourlyRate,

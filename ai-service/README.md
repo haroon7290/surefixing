@@ -87,15 +87,15 @@ then explicit no-rush phrases (*low*, checked before *high* because
 
 | Component | How it is measured | Recommend | Bid |
 |---|---|---|---|
-| skill | 1 if the category is in the technician's skills, else keyword overlap with skills/headline/bio (max 0.6) | 0.30 | 0.18 |
-| rating | Bayesian average `(r·n + 3.5·3)/(n + 3)` ÷ 5 — one 5★ review can't beat forty 4.8★ | 0.22 | 0.24 |
+| skill | 1 if the category is in the technician's skills, else keyword overlap with skills/headline/bio (max 0.6) | 0.28 | 0.16 |
+| rating | Bayesian average `(r·n + 3.5·3)/(n + 3)` ÷ 5 — one 5★ review can't beat forty 4.8★ | 0.20 | 0.22 |
 | reliability | smoothed completed ÷ hired jobs | 0.13 | 0.14 |
 | responsiveness | `1 / (1 + avgResponseMinutes/60)`, measured from real bid times | 0.08 | 0.08 |
 | experience | jobs completed (cap 40) and years of experience (cap 10) | 0.09 | 0.08 |
-| proximity | same city 1.0, unknown 0.4, other city 0.1 | 0.08 | 0.05 |
+| proximity | real distance when known: `1 / (1 + km/8)` (1 next door, 0.5 at 8 km); otherwise same city 1.0, unknown 0.4, other city 0.1 | 0.12 | 0.10 |
 | availability | availability toggle | 0.05 | — |
 | verified | KYC-approved ID | 0.05 | 0.05 |
-| price (bids) | ½ · (lowest bid ÷ this bid) + ½ · budget fit | — | 0.18 |
+| price (bids) | ½ · (lowest bid ÷ this bid) + ½ · budget fit | — | 0.17 |
 
 For **high** / **emergency** requests the responsiveness and availability
 weights are multiplied by 1.5 / 2.0 and all weights re-normalised, so fast,

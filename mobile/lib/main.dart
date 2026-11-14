@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/location.dart';
 import 'core/nav.dart';
 import 'core/realtime.dart';
 import 'core/session.dart';
@@ -8,7 +9,7 @@ import 'core/session.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SiteNav.init();
-  await Future.wait([Session.instance.load(), Settings.instance.load()]);
+  await Future.wait([Session.instance.load(), Settings.instance.load(), Locations.instance.load()]);
   final session = Session.instance;
   if (session.loggedIn) {
     Realtime.instance.connect(session.token!);

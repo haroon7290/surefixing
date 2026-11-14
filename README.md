@@ -39,7 +39,10 @@ and tool market for visitors, and a sidebar web app for every role.
 **Customer**
 - **Describe it, get matched.** "AC is running but the room is not cold" → the AI suggests
   *AC & heating*, the urgency, and what such jobs usually cost on SureFix.
-- **Post a job** (photos, budget, date) or send a **direct request** to one technician.
+- **Find who is near.** Use your phone's location, drop a pin on the map or pick your area,
+  then filter technicians and tools by distance (2–50 km), trade, rating, price and more. Every
+  card says how far away it is ("2.3 km · DHA Phase 5"), nearest first.
+- **Post a job** (photos, budget, date, location) or send a **direct request** to one technician.
 - **Compare AI-ranked quotes**: a match score out of 100 with plain-language reasons
   ("Specialises in plumbing", "Rated 4.7★ by 12 clients", "Lowest bid") and cautions.
 - **Hire with escrow or cash.** Wallet payments are held by SureFix, not paid out.
@@ -49,11 +52,12 @@ and tool market for visitors, and a sidebar web app for every role.
   monthly installments**; save favourite technicians and tools.
 
 **Technician** — earnings dashboard (this month, in escrow, wallet) · availability switch ·
-direct requests · jobs matching their skills with live alerts · quotes with a price hint and
+direct requests · jobs matching their skills with live alerts · **jobs near them** with the
+distance, filtered by radius, urgency and budget · how far they travel for work · quotes with a price hint and
 the fee shown up front · one-tap progress updates · finish with a note and photos · profile
 with skills, rates and a **portfolio** · identity verification for the blue seal.
 
-**Supplier** — revenue dashboard · tool listings with photos, deposit, stock and installment
+**Supplier** — revenue dashboard · shop location (customers see how far each tool is) · tool listings with photos, deposit, stock and installment
 terms · approve / decline requests (stock reserved atomically) · take tools back with
 automatic late fees · record installment payments · chat with customers.
 
@@ -125,9 +129,9 @@ docker compose exec backend npm run seed -- --force   # optional demo data
 
 | Suite | Command | What it covers |
 |---|---|---|
-| Backend (87) | `cd backend && npm test` | Auth and password reset, the job lifecycle, escrow hold / release / refund, fees, deposits and withdrawals with admin approval (duplicate transaction IDs, double approval, held payouts), rentals, late fees, installments, chat, privacy, admin disputes and cascading delete, uploads, AI fallback — against a real MongoDB |
-| AI service (33) | `cd ai-service && pytest` | Stemming, held-out classifier accuracy, urgency, scoring properties, API contract, **JS ↔ Python parity** |
-| App (37) | `cd mobile && flutter test` | Models and formatting; **every screen rendered at phone and desktop size** against a fake backend to catch layout overflows; hiring, confirming, quoting, approving, deposit, withdrawal and payment-review flows |
+| Backend (92) | `cd backend && npm test` | Auth and password reset, the job lifecycle, escrow hold / release / refund, fees, deposits and withdrawals with admin approval (duplicate transaction IDs, double approval, held payouts), **near-me search** (radius, coverage, distances without leaking coordinates), rentals, late fees, installments, chat, privacy, admin disputes and cascading delete, uploads, AI fallback — against a real MongoDB |
+| AI service (34) | `cd ai-service && pytest` | Stemming, held-out classifier accuracy, urgency, scoring properties (nearer ranks higher), API contract, **JS ↔ Python parity** |
+| App (43) | `cd mobile && flutter test` | Models and formatting; **every screen rendered at phone and desktop size** against a fake backend to catch layout overflows; hiring, confirming, quoting, approving, deposit, withdrawal and payment-review flows; near-me filters, the area picker and profile location |
 
 GitHub Actions runs all three on every push (`.github/workflows/ci.yml`).
 
@@ -193,6 +197,9 @@ docs/         Architecture, installation, user guide, status, screenshots
   account, the amount is set aside at once, and the admin approves after sending it (or
   rejects, which returns the money). **Replace the demo company accounts** in
   Admin → Payments → Company accounts before real use.
+- **Locations.** Exact positions are never shown to other people — only the area name and the
+  distance. "Use my current location" needs a phone or a browser on `localhost`/HTTPS; anyone can
+  pick their area from the list instead. The map picker uses OpenStreetMap tiles (internet needed).
 - **Password reset codes** are emailed when `SMTP_URL` is set in `backend/.env`. Without it
   the code is printed in the backend console and shown on screen, so the flow can be demoed.
 - Prices are in Pakistani rupees (Rs).

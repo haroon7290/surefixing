@@ -36,7 +36,10 @@ class ToolCard extends StatelessWidget {
             Gap.h4,
             Row(children: [
               Rating(tool.rating, tool.ratingCount, size: 12),
-              if (tool.city.isNotEmpty) ...[Gap.w8, Flexible(child: Meta(AppIcons.pin, tool.city))],
+              if (tool.distanceKm != null || tool.city.isNotEmpty) ...[
+                Gap.w8,
+                Flexible(child: DistanceText(km: tool.distanceKm, place: tool.area.isNotEmpty ? tool.area : tool.city, compact: true)),
+              ],
             ]),
             Gap.h8,
             Text.rich(

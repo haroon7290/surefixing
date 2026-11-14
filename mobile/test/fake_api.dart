@@ -24,20 +24,20 @@ Json fakeUser(String role) => switch (role) {
 
 final Json _client = {
   'id': 'c1', 'name': 'Sara Khan', 'email': 'client@demo.com', 'phone': '0300-1234501', 'role': 'client', 'status': 'active', 'kycStatus': 'none',
-  'city': 'Lahore', 'address': 'House 14, Street 7, DHA Phase 4, Lahore', 'walletBalance': 12700, 'favoriteTechnicians': ['t1'], 'favoriteTools': ['tool1'],
+  'city': 'Lahore', 'area': 'DHA Phase 4', 'geo': {'lat': 31.468, 'lng': 74.383}, 'address': 'House 14, Street 7, DHA Phase 4, Lahore', 'walletBalance': 12700, 'favoriteTechnicians': ['t1'], 'favoriteTools': ['tool1'],
   'createdAt': _ago(const Duration(days: 200)),
 };
 
 final Json _tech1 = {
   'id': 't1', 'name': 'Ahmad Raza', 'email': 'tech@demo.com', 'phone': '0300-1234503', 'role': 'technician', 'status': 'active', 'kycStatus': 'approved',
-  'city': 'Lahore', 'headline': 'Licensed electrician & plumber', 'bio': 'Twelve years fixing homes across Lahore. Clean work, fair prices.',
+  'city': 'Lahore', 'area': 'Model Town', 'geo': {'lat': 31.483, 'lng': 74.325}, 'serviceRadiusKm': 15, 'headline': 'Licensed electrician & plumber', 'bio': 'Twelve years fixing homes across Lahore. Clean work, fair prices.',
   'skills': ['plumbing', 'electrical', 'general'], 'hourlyRate': 1500, 'experienceYears': 12, 'isAvailable': true, 'portfolio': <String>[],
   'rating': 4.7, 'ratingCount': 12, 'jobsCompleted': 12, 'jobsAssigned': 13, 'avgResponseMinutes': 18, 'walletBalance': 15510, 'online': true,
   'createdAt': _ago(const Duration(days: 300)),
 };
 
 final Json _tech2 = {
-  'id': 't2', 'name': 'Noor Fatima', 'role': 'technician', 'kycStatus': 'pending', 'city': 'Lahore', 'headline': 'Certified electrician',
+  'id': 't2', 'name': 'Noor Fatima', 'role': 'technician', 'kycStatus': 'pending', 'city': 'Lahore', 'area': 'Gulberg', 'serviceRadiusKm': 5, 'headline': 'Certified electrician',
   'skills': ['electrical', 'appliance', 'hvac', 'locksmith'], 'hourlyRate': 1800, 'experienceYears': 6, 'isAvailable': false,
   'rating': 0, 'ratingCount': 0, 'jobsCompleted': 0, 'jobsAssigned': 0, 'avgResponseMinutes': 240, 'createdAt': _ago(const Duration(days: 20)),
 };
@@ -91,7 +91,7 @@ final List<Json> fakeJobs = [
 
 Json _tool(String id, String name, String category, {int months = 0}) => {
       '_id': id, 'supplier': {'_id': 's1', 'name': 'ToolCo Rentals', 'avatar': '', 'city': 'Lahore', 'kycStatus': 'approved', 'createdAt': _ago(const Duration(days: 150))},
-      'name': name, 'description': '18V cordless drill/driver with 2 batteries, charger and a 30-piece bit set.', 'category': category, 'condition': 'like_new', 'city': 'Lahore',
+      'name': name, 'description': '18V cordless drill/driver with 2 batteries, charger and a 30-piece bit set.', 'category': category, 'condition': 'like_new', 'city': 'Lahore', 'area': 'Garden Town',
       'images': <String>[], 'rentPricePerDay': 800, 'deposit': 5000, 'purchasePrice': months > 0 ? 32000 : 0, 'installmentMonths': months, 'installmentMonthly': months > 0 ? 5500 : 0,
       'available': true, 'stock': 3, 'rating': 4.8, 'ratingCount': 5, 'rentalsCount': 12,
     };
@@ -152,6 +152,24 @@ Json _message(String id, String from, String to, String text) =>
 final List<String> sent = [];
 final Map<String, dynamic> sentBodies = {};
 
+/// Every GET, with its query (`/api/users/technicians?lat=…&radius=10`).
+final List<Uri> gets = [];
+
+/// The last GET to [path].
+Uri? lastGet(String path) => gets.lastWhere((u) => u.path == path, orElse: () => Uri());
+
+final List<Json> fakeAreas = [
+  {'city': 'Lahore', 'name': 'Gulberg', 'lat': 31.515, 'lng': 74.344},
+  {'city': 'Lahore', 'name': 'DHA Phase 4', 'lat': 31.468, 'lng': 74.383},
+  {'city': 'Lahore', 'name': 'DHA Phase 5', 'lat': 31.463, 'lng': 74.408},
+  {'city': 'Lahore', 'name': 'Model Town', 'lat': 31.483, 'lng': 74.325},
+  {'city': 'Karachi', 'name': 'Clifton', 'lat': 24.8138, 'lng': 67.03},
+];
+
+// The server adds distances when the request says where from.
+List<Json> _near(List<Json> rows, Map<String, String> q, List<num> km) =>
+    q['lat'] == null ? rows : [for (var i = 0; i < rows.length; i++) {...rows[i], 'distanceKm': km[i % km.length]}];
+
 dynamic _route(String method, String path, Map<String, String> q, String role) {
   final me = fakeUser(role);
   final id = path.split('/').last;
@@ -176,7 +194,7 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
   }
   if (path.endsWith('/unread-count')) return {'count': 1};
   if (path == '/api/users/me/favorites') return method == 'POST' ? {'type': 'tool', 'id': 'tool1', 'saved': false} : {'technicians': [_tech1], 'tools': [fakeTools.first]};
-  if (path == '/api/users/technicians') return [_tech1, _tech2];
+  if (path == '/api/users/technicians') return _near([_tech1, _tech2], q, [5.5, 6.8]);
   if (path.startsWith('/api/users/')) return id == 's1' ? _supplier : (id == 't2' ? _tech2 : _tech1);
   if (path.contains('/api/reviews/technician/')) {
     if (path.endsWith('/summary')) return {'count': 12, 'average': 4.7, 'distribution': {'1': 0, '2': 0, '3': 1, '4': 2, '5': 9}};
@@ -189,7 +207,9 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
     if (q['view'] == 'requests') return [fakeJobs[5]];
     if (q['view'] == 'bids') return [fakeJobs[0]];
     final status = q['status']?.split(',');
-    return [for (final j in fakeJobs) if (status == null || status.contains(j['status'])) j];
+    final rows = [for (final j in fakeJobs) if (status == null || status.contains(j['status'])) j];
+    // Technicians always get the distance from their saved location.
+    return role == 'technician' ? _near(rows, {'lat': '-'}, [2.1, 4.6, 8.3]) : rows;
   }
   if (path == '/api/jobs') return fakeJobs.first;
   if (path.endsWith('/ranked-bids')) {
@@ -202,7 +222,7 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
   }
   if (path.startsWith('/api/jobs/')) return job(path.split('/')[3]);
 
-  if (path == '/api/tools' && method == 'GET') return fakeTools;
+  if (path == '/api/tools' && method == 'GET') return _near(fakeTools, q, [7.1, 9.4, 12]);
   if (path.startsWith('/api/tools/') && method == 'GET') {
     return {...fakeTools.firstWhere((t) => t['_id'] == id, orElse: () => fakeTools.first), 'reviews': [
       {'id': 'tr1', 'rating': 5, 'review': 'Worked perfectly, batteries were fully charged.', 'date': _ago(const Duration(days: 12)), 'renterName': 'Bilal Ahmed', 'renterAvatar': ''},
@@ -244,6 +264,7 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
     return [_message('m1', 'c1', 't1', 'Hi, when can you come?'), _message('m2', 't1', 'c1', 'On my way, about 20 minutes.')];
   }
 
+  if (path == '/api/meta/areas') return fakeAreas;
   if (path == '/api/meta/stats') return {'technicians': 8, 'verifiedTechnicians': 5, 'jobsCompleted': 75, 'tools': 11, 'cities': 4, 'averageRating': 4.6, 'reviews': 75};
   if (path == '/api/meta/testimonials') {
     return [
@@ -281,8 +302,10 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
 void installFakeApi(String role) {
   sent.clear();
   sentBodies.clear();
+  gets.clear();
   Api.client = MockClient((request) async {
     final key = '${request.method} ${request.url.path}';
+    if (request.method == 'GET') gets.add(request.url);
     if (request.method != 'GET') {
       sent.add(key);
       try {
@@ -303,6 +326,7 @@ void signIn(String? role) {
   SiteNav.section.value = 'home';
   Settings.instance.introSeen = true;
   Settings.instance.themeMode = ThemeMode.light;
+  Locations.instance.reset();
   installFakeApi(role ?? 'client');
 }
 

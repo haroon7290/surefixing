@@ -14,12 +14,12 @@ are not signed in can browse the landing page, technicians and tools.
 
 | Demo account | Who |
 |---|---|
-| `client@demo.com` | Sara Khan (Lahore) — a job with three quotes, an AC job in escrow and in progress, a finished job waiting for her confirmation, reviewed jobs, an active rental, Rs 12,700 in the wallet |
-| `client2@demo.com` | Bilal Ahmed (Karachi) — a direct request to Ahmad, rental and installment requests |
-| `tech@demo.com` | Ahmad Raza — electrician & plumber, verified, one direct request, a job awaiting confirmation |
-| `tech3@demo.com` | Usman Ali — AC specialist, hired on Sara's AC job (payment in escrow) |
+| `client@demo.com` | Sara Khan (DHA Phase 4, Lahore) — a job with three quotes, an AC job in escrow and in progress, a finished job waiting for her confirmation, reviewed jobs, an active rental, Rs 12,700 in the wallet |
+| `client2@demo.com` | Bilal Ahmed (Gulshan-e-Iqbal, Karachi) — a direct request to Ahmad, rental and installment requests |
+| `tech@demo.com` | Ahmad Raza (Model Town, Lahore) — electrician & plumber, verified, one direct request, a job awaiting confirmation |
+| `tech3@demo.com` | Usman Ali (DHA Phase 5, Lahore — 2.6 km from Sara) — AC specialist, hired on Sara's AC job (payment in escrow) |
 | `tech2`, `tech4`…`tech8@demo.com` | Other trades: one with verification pending, one brand new, one marked busy |
-| `supplier@demo.com` | ToolCo Rentals — tools, requests to approve, a rental out, an overdue rental, an installment plan |
+| `supplier@demo.com` | ToolCo Rentals (Garden Town, Lahore) — tools, requests to approve, a rental out, an overdue rental, an installment plan |
 | `admin@demo.com` | Admin — a deposit and a withdrawal to review, a verification, an open report, revenue from fees |
 
 ---
@@ -35,7 +35,9 @@ are not signed in can browse the landing page, technicians and tools.
 
 1. **Post a job.** Tap the dark card on Home (or *Post a job*). Describe the problem in your
    own words; SureFix suggests the type of work and urgency and shows what such jobs usually
-   cost. Add a title, photos, a budget and your address if you like. Posting is free.
+   cost. Add a title, photos, a budget and the **job location** (your saved location is filled
+   in; tap it to change). Posting is free. Technicians see the area and how far away it is —
+   never your address until you hire them.
 2. **Or ask one technician.** Open a technician's profile → **Request**. Only they see the
    job; if they decline or stay silent, **Open to all technicians**.
 3. **Compare quotes.** Quotes arrive live, ranked by match score with the reasons. Tap
@@ -49,8 +51,33 @@ are not signed in can browse the landing page, technicians and tools.
    admin will step in.
 7. **Review.** Rate 1–5 stars. Reviews appear on the technician's profile.
 
-**Smart Match** ranks every technician for a problem you describe, before you post anything.
+**Smart Match** ranks every technician for a problem you describe, before you post anything;
+nearer technicians rank higher and the reasons say how far each one is.
 **Saved** keeps technicians and tools you marked with the heart.
+
+### Finding someone near you
+
+<p>
+  <img src="screenshots/app-location-picker.jpg" width="190" alt="Choose where to search from">
+  <img src="screenshots/app-near-filters.jpg" width="190" alt="Filters with distance">
+  <img src="screenshots/web-technicians.jpg" width="420" alt="Technicians near you on the website">
+</p>
+
+1. **Say where you are.** Tap the location chip (*Near …* or *Set your location*) on
+   Technicians, Rent tools or Smart Match. Choose **Use my current location** (your phone or
+   browser asks permission once), **Pick on the map** (drag the map until the pin is on the
+   spot), or tap your **area** in the list. Your saved profile location is used until you do.
+2. **Filter.** On a phone tap **Filters**: *Distance* (any, or within 2 / 5 / 10 / 25 / 50 km),
+   *Travels to me* (only technicians whose working range reaches you), *Verified ID*,
+   *Available now*, *Rating* and *Type of work* — then **Show results**. Tools have price per
+   day, *In stock* and *Buy monthly* instead. On the website the filters sit on the left and
+   apply as you click.
+3. **Sort.** Results are **nearest first** once SureFix knows where you are; the sort menu
+   switches to top rated, price, most jobs and so on. Every card shows the distance and area,
+   in green when it is within 5 km.
+
+Set your own location in **Account → Edit profile → Your location**. Only the area name and
+distances are ever shown to others.
 
 ### Renting and buying tools
 
@@ -92,11 +119,14 @@ Wallet payments are protected; cash is not.
 </p>
 
 1. **Set up your profile** (Account → Edit profile): headline, skills, hourly rate,
-   experience and portfolio photos. Skills decide which jobs are suggested to you.
+   experience, portfolio photos, **where you work from** and **how far you travel** (5–50 km).
+   Skills decide which jobs are suggested to you; clients near you see you first, and
+   *Travels to me* only shows you to clients inside your range.
 2. **Verify your identity** (Account → Identity verification): ID photo and a selfie. Verified
    technicians rank higher and show the blue seal.
-3. **Find jobs.** Home shows direct requests and new jobs for your skills; **Find jobs** has
-   search and filters. New matching jobs arrive with an alert.
+3. **Find jobs.** Home shows direct requests and new jobs for your skills; **Find jobs** shows
+   how far each job is from you and filters by distance, your skills or a trade, urgency and
+   budget (sort by *Nearest* to see the closest first). New matching jobs arrive with an alert.
 4. **Quote.** Enter your price (a typical range is shown, and what you receive after the 10%
    fee on wallet payments), when you can start, and a message.
 5. **Do the job.** When hired, tap **I'm on my way → Start work → Mark as finished** and add
@@ -115,8 +145,9 @@ Use the switch on Home to mark yourself **busy**.
   <img src="screenshots/web-supplier-orders.jpg" width="420" alt="Orders on the web">
 </p>
 
-1. **Add your pickup address** (Account → Edit profile). Customers who collect get it after
-   you approve.
+1. **Add your pickup address and shop location** (Account → Edit profile). Customers see how
+   far each of your tools is from them and can search within a distance; the street address is
+   only shared after you approve a pickup.
 2. **List tools** (My tools → Add): photos, daily rate, deposit, stock, and optionally a full
    price with a number of monthly installments.
 3. **Orders.** Approve or decline requests; stock is reserved automatically. **Mark returned**

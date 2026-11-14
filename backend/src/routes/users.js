@@ -11,6 +11,8 @@ const { authRequired, optionalAuth, requireRole } = require('../middleware/auth'
 const { validate, discardUploads } = require('../middleware/validate');
 const upload = require('../middleware/upload');
 const realtime = require('../utils/realtime');
+const { point, latLng, distanceKm, round1, nearestArea, validLat, validLng } = require('../utils/geo');
+const { nearbySearch, readNearby } = require('../services/nearby');
 const { removeUpload } = require('../utils/files');
 const { escapeRegex, paginate, setTotal, notFound, badRequest } = require('../utils/http');
 
@@ -23,7 +25,7 @@ const me = (req) => withPresence(req.user.toPrivateJSON());
 
 router.get('/me', authRequired, (req, res) => res.json(me(req)));
 
-const EDITABLE = ['name', 'phone', 'bio', 'city', 'address', 'headline', 'skills', 'hourlyRate', 'experienceYears', 'isAvailable'];
+const EDITABLE = ['name', 'phone', 'bio', 'city', 'address', 'headline', 'skills', 'hourlyRate', 'experienceYears', 'isAvailable', 'serviceRadiusKm'];
 
 router.patch(
   '/me',
@@ -39,20 +41,57 @@ router.patch(
     body('skills.*').optional().isString().trim().isLength({ min: 1, max: 40 }),
     body('hourlyRate').optional().isFloat({ min: 0, max: 100000 }).toFloat(),
     body('experienceYears').optional().isInt({ min: 0, max: 60 }).toInt(),
-    body('isAvailable').optional().isBoolean().toBoolean()
+    body('isAvailable').optional().isBoolean().toBoolean(),
+    body('serviceRadiusKm').optional().isInt({ min: 1, max: 100 }).withMessage('Travel distance must be 1–100 km').toInt(),
+    body('lat').optional({ values: 'null' }).isFloat({ min: -90, max: 90 }).withMessage('Invalid location').toFloat(),
+    body('lng').optional({ values: 'null' }).isFloat({ min: -180, max: 180 }).withMessage('Invalid location').toFloat(),
+    body('area').optional().isString().trim().isLength({ max: 60 }),
+    body('clearLocation').optional().isBoolean().toBoolean()
   ],
   validate,
   async (req, res) => {
     for (const key of EDITABLE) {
       if (req.body[key] !== undefined) req.user[key] = req.body[key];
     }
+    // Location: { lat, lng, area? } sets it (the area is filled in from the
+    // nearest known neighbourhood when not given); { clearLocation: true } removes it.
+    const locationChanged = await applyLocation(req.user, req.body);
     if (Array.isArray(req.body.skills)) {
       req.user.skills = [...new Set(req.body.skills.map((s) => String(s).trim().toLowerCase()).filter(Boolean))];
     }
     await req.user.save();
+    if (locationChanged && req.user.role === 'supplier') {
+      // A supplier's tools are wherever their shop is.
+      const update = req.user.geo ? { $set: { geo: req.user.geo, area: req.user.area } } : { $unset: { geo: 1 }, $set: { area: '' } };
+      await Tool.updateMany({ supplier: req.user._id }, update);
+    }
     res.json(me(req));
   }
 );
+
+async function applyLocation(user, src) {
+  if (src.clearLocation) {
+    user.geo = undefined;
+    user.area = '';
+    return true;
+  }
+  const hasLat = src.lat !== undefined && src.lat !== null;
+  const hasLng = src.lng !== undefined && src.lng !== null;
+  if (hasLat !== hasLng) throw badRequest('Send both lat and lng');
+  if (hasLat) {
+    if (!validLat(src.lat) || !validLng(src.lng)) throw badRequest('Invalid location');
+    user.geo = point(src.lat, src.lng);
+    const near = nearestArea(src.lat, src.lng);
+    user.area = src.area !== undefined ? src.area : near ? near.name : '';
+    if (near && !user.city) user.city = near.city;
+    return true;
+  }
+  if (src.area !== undefined) {
+    user.area = src.area;
+    return true;
+  }
+  return false;
+}
 
 router.post('/me/avatar', authRequired, upload.single('avatar'), async (req, res) => {
   if (!req.file) throw badRequest('Attach an image in the "avatar" field');
@@ -234,6 +273,9 @@ router.post('/me/notifications/:id/read', authRequired, async (req, res) => {
 //   ?city=     exact city (case-insensitive)
 //   ?minRating=4  ?available=1  ?verified=1
 //   ?sort=rating|jobs|price|newest   ?page= ?limit=
+//   ?lat=&lng=   search from this point (distances in the results)
+//   ?radius=5    only within 5 km   ?covers=1 only those who travel that far
+//   ?sort=distance (default when a location is given)
 router.get('/technicians', optionalAuth, async (req, res) => {
   const q = { role: 'technician', status: { $ne: 'suspended' } };
   const { q: text, category, city, minRating, available, verified, sort } = req.query;
@@ -254,6 +296,12 @@ router.get('/technicians', optionalAuth, async (req, res) => {
     newest: { createdAt: -1 }
   };
   const { limit, skip } = paginate(req, { defaultLimit: 50 });
+  const nearby = readNearby(req.query);
+  if (nearby) {
+    const { items, total } = await nearbySearch(User, { ...nearby, filter: q, sort: sorts[sort] || sorts.rating, skip, limit });
+    setTotal(res, total);
+    return res.json(items.map(({ doc, km }) => withPresence({ ...doc.toProfileJSON(), distanceKm: km })));
+  }
   const [techs, total] = await Promise.all([
     User.find(q).sort(sorts[sort] || sorts.rating).skip(skip).limit(limit),
     User.countDocuments(q)
@@ -269,7 +317,11 @@ router.get('/:id', optionalAuth, async (req, res) => {
   // Visitors only see the marketplace's public faces: technicians and suppliers.
   if (!req.user && !['technician', 'supplier'].includes(user.role)) throw notFound('User not found');
   const full = req.user && (String(user._id) === String(req.user._id) || req.user.role === 'admin');
-  res.json(withPresence(full ? user.toPrivateJSON() : user.toProfileJSON()));
+  const json = withPresence(full ? user.toPrivateJSON() : user.toProfileJSON());
+  // How far they are from the viewer (?lat=&lng=, or the viewer's saved location).
+  const from = readNearby(req.query, req.user && latLng(req.user.geo));
+  if (from && !full) json.distanceKm = round1(distanceKm(from.near, latLng(user.geo)));
+  res.json(json);
 });
 
 module.exports = router;

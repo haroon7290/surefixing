@@ -80,6 +80,10 @@ def test_parity_with_backend_js_fallback():
         {**BASE, "technicianId": "b", "skills": ["painting"], "amount": 3500, "city": "Karachi", "ratingCount": 0},
         {**BASE, "technicianId": "c", "skills": ["plumbing", "general"], "amount": 3000, "avgResponseMinutes": 8,
          "experienceYears": 6, "isAvailable": False},
+        {**BASE, "technicianId": "d", "skills": ["plumbing"], "amount": 2900, "distanceKm": 2.3, "serviceRadiusKm": 15},
+        {**BASE, "technicianId": "e", "skills": ["plumbing"], "amount": 2700, "distanceKm": 0.45, "serviceRadiusKm": 10},
+        {**BASE, "technicianId": "f", "skills": ["plumbing"], "amount": 2600, "distanceKm": 18.5, "serviceRadiusKm": 10},
+        {**BASE, "technicianId": "g", "skills": ["plumbing"], "amount": 2600, "distanceKm": 31.5, "serviceRadiusKm": 50},
     ]
     ctx = {"jobCategory": "plumbing", "description": "leaking pipe under the sink", "budget": 3000,
            "city": "Lahore", "urgency": "high"}
@@ -95,3 +99,13 @@ def test_parity_with_backend_js_fallback():
     py = [{"id": x["technicianId"], "score": x["score"], "reasons": x["reasons"], "notes": x["notes"]}
           for x in scoring.rank_bids(techs, ctx)]
     assert py == out
+
+
+def test_real_distance_beats_city_match():
+    """With distances known, the nearer of two otherwise equal technicians ranks first and says so."""
+    near = {**BASE, "technicianId": "near", "skills": ["plumbing"], "distanceKm": 1.2, "serviceRadiusKm": 15}
+    far = {**BASE, "technicianId": "far", "skills": ["plumbing"], "distanceKm": 22.0, "serviceRadiusKm": 15}
+    ranked = scoring.rank_bids([far, near], {"jobCategory": "plumbing", "city": "Lahore"})
+    assert [r["technicianId"] for r in ranked] == ["near", "far"]
+    assert "1.2 km from you" in ranked[0]["reasons"]
+    assert any("outside the 15 km they usually cover" in n for n in ranked[1]["notes"])

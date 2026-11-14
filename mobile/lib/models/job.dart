@@ -82,6 +82,10 @@ class Job {
   final double budget;
   final String location;
   final String city;
+  /// Neighbourhood of the job (the street address stays private until hire).
+  final String area;
+  /// Distance from the technician looking at it, when known.
+  final double? distanceKm;
   final String urgency;
   final DateTime? preferredDate;
   final List<String> images;
@@ -115,6 +119,8 @@ class Job {
     this.budget = 0,
     this.location = '',
     this.city = '',
+    this.area = '',
+    this.distanceKm,
     this.urgency = 'normal',
     this.preferredDate,
     this.images = const [],
@@ -145,6 +151,7 @@ class Job {
   bool get completed => status == 'completed';
   bool get cancelled => status == 'cancelled';
   bool get isDirectRequest => requestedTechnician != null;
+  String get place => [area, city].where((e) => e.isNotEmpty).join(', ');
 
   /// The technician said the work is finished; the client has yet to confirm.
   bool get awaitingConfirmation => inProgress && stage == 'done';
@@ -182,6 +189,8 @@ class Job {
       budget: dbl(j['budget']),
       location: str(j['location']),
       city: str(j['city']),
+      area: str(j['area']),
+      distanceKm: j['distanceKm'] is num ? dbl(j['distanceKm']) : null,
       urgency: str(j['urgency'], 'normal'),
       preferredDate: date(j['preferredDate']),
       images: strings(j['images']),

@@ -78,6 +78,10 @@ abstract final class AppIcons {
   // Things
   static const IconData pin = PhosphorIconsRegular.mapPin;
   static const IconData pinFill = PhosphorIconsFill.mapPin;
+  static const IconData gps = PhosphorIconsBold.crosshairSimple;
+  static const IconData map = PhosphorIconsRegular.mapTrifold;
+  static const IconData area = PhosphorIconsRegular.mapPinArea;
+  static const IconData radius = PhosphorIconsRegular.circleDashed;
   static const IconData clock = PhosphorIconsRegular.clock;
   static const IconData calendar = PhosphorIconsRegular.calendarBlank;
   static const IconData star = PhosphorIconsRegular.star;

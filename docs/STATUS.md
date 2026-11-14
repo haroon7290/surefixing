@@ -30,8 +30,14 @@ and the money returns); admin-managed company accounts; escrow
 hold, release and refund for jobs and rentals; platform fee on release; atomic debits that
 cannot overdraw; live balance updates; admin ledger and revenue reporting.
 
+**Locations & near-me search** — users, jobs and tools have a map point (GPS, a map pin or one
+of ~70 named areas) with a 2dsphere index; technician directory, tool market and job market
+search within a radius or sort nearest first, with distances on every card; technicians set
+how far they travel (*Travels to me* filter); exact coordinates never leave the server; filter
+panel on the website and a filter sheet on phones.
+
 **AI** — Naive Bayes classifier over 12 trades, urgency detection, explainable 8-factor
-ranking for Smart Match and quotes, responsiveness measured from real quote times, an
+ranking for Smart Match and quotes (proximity from real distance), responsiveness measured from real quote times, an
 in-process JavaScript fallback kept identical by a parity test.
 
 **Tools & rentals** — listings with photos, deposit, condition, stock and installment terms;
@@ -54,7 +60,7 @@ and dark themes, first-launch introduction. Wide windows: a public marketing sit
 page with a live AI estimate box, directories, how it works, help, terms, privacy) and a
 sidebar web app for every role, two-pane messages, addresses for jobs, tools and technicians.
 
-**Engineering** — 87 backend tests (real MongoDB), 33 AI tests, 37 app tests (every screen
+**Engineering** — 92 backend tests (real MongoDB), 34 AI tests, 43 app tests (every screen
 rendered at phone and desktop size), GitHub Actions CI, Dockerfiles and docker-compose,
 Windows scripts that keep dependencies in sync and detect old data, rich demo seed,
 analyzer-clean Flutter code.
@@ -67,7 +73,8 @@ analyzer-clean Flutter code.
   the app is open). FCM / APNs would be the next step.
 - **Automatic job closing** — after the confirmation window the technician can close the job
   with one tap; nothing closes it on a timer.
-- **Maps and distance** — proximity uses city matching, not GPS distance.
+- **Maps** — the map picker needs internet for OpenStreetMap tiles and distances are straight
+  lines, not driving routes. Areas cover 10 cities; elsewhere users pick a spot on the map.
 - **Installment reminders** — due dates are not scheduled; the buyer pays or the supplier
   records each month.
 - **File storage** — uploads live on the backend's disk (`backend/uploads`); production would
@@ -89,6 +96,12 @@ does not carry over**:
    uninstall the old "SureFix" first.
 
 ## Changelog
+
+- **v3.2** — Near-me search: location from GPS, a map pin or an area list; distances on every
+  technician, tool and job card; radius, *Travels to me*, rating, price, urgency and budget
+  filters in a new filter panel (website) and filter sheet (phone); nearest-first sorting;
+  technicians' travel range; job and shop locations; distance-aware Smart Match and quote
+  ranking. **Run `.\scripts\reset-demo-data.bat` once** so the demo accounts get locations.
 
 - **v3.1** — Navigation fixes: working account menu and Account link on the website; attached
   phone tab bar (taps no longer land on tabs); hidden tabs can't take focus; Android and

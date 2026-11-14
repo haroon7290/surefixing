@@ -91,13 +91,13 @@ erDiagram
 
 | Model | Notable fields |
 |---|---|
-| **User** | role (client/technician/supplier/admin), status (active/suspended), kycStatus, avatar, city, address (private), bio · technician profile: headline, skills[], hourlyRate, experienceYears, isAvailable, portfolio[] · stats: rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes · **walletBalance** · favoriteTechnicians[], favoriteTools[] · password-reset code hash, expiry and attempt counter |
-| **Job** | client, title, description, category, budget, city, location, urgency, preferredDate, images[], **status** (pending / in_progress / completed / cancelled), **stage** (hired / on_the_way / working / done), requestedTechnician + requestDeclined, assignedTechnician, agreedPrice, bids[] {technician, amount, etaDays, message, status}, history[] {event, note, by, at}, completionNote, completionImages[], **payment**, rating, review |
+| **User** | role (client/technician/supplier/admin), status (active/suspended), kycStatus, avatar, city, address (private), bio · **geo** (GeoJSON point, 2dsphere index, never sent to anyone else), area (neighbourhood shown publicly) · technician profile: headline, skills[], hourlyRate, experienceYears, isAvailable, portfolio[], serviceRadiusKm (how far they travel, default 15) · stats: rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes · **walletBalance** · favoriteTechnicians[], favoriteTools[] · password-reset code hash, expiry and attempt counter |
+| **Job** | client, title, description, category, budget, city, location, **geo** + area (where the work is; defaults to the client's saved location), urgency, preferredDate, images[], **status** (pending / in_progress / completed / cancelled), **stage** (hired / on_the_way / working / done), requestedTechnician + requestDeclined, assignedTechnician, agreedPrice, bids[] {technician, amount, etaDays, message, status}, history[] {event, note, by, at}, completionNote, completionImages[], **payment**, rating, review |
 | **Payment** (embedded) | method (wallet / cash), status (none / held / released / refunded / cash_due / cash_paid), amount, deposit, fee, net |
 | **WalletRequest** | user, kind (deposit / withdrawal), amount, status (pending / approved / rejected / cancelled), deposit: companyAccount + sentTo snapshot, transactionId (normalised key for duplicate checks), proofImage · withdrawal: payout {method, provider, accountTitle, accountNumber} · adminNote, reference, reviewedBy, reviewedAt |
 | **PaymentAccount** | kind (bank / mobile_wallet), provider, accountTitle, accountNumber, iban, instructions, active |
 | **Transaction** | user (null = the platform), type (deposit, withdrawal, withdrawal_reversed, job_hold, job_refund, job_earning, rental_hold, rental_refund, rental_earning, installment_payment, installment_earning, platform_fee), signed amount, balanceAfter, job / rental, note |
-| **Tool** | supplier, name, description, category, condition, city, images[], rentPricePerDay, deposit, purchasePrice, installmentMonths / Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
+| **Tool** | supplier, name, description, category, condition, city, **geo** + area (the supplier's shop, kept in sync when they move), images[], rentPricePerDay, deposit, purchasePrice, installmentMonths / Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
 | **Rental** | tool, renter, supplier, type (rent / installment), startDate, endDate, days, dailyRate, deposit, lateDays, lateFee, monthsTotal / monthsPaid / monthlyAmount, totalCost, **payment**, fulfillment (pickup / delivery), deliveryAddress, status (requested / active / returned / completed / rejected / cancelled) · computed in responses: overdue, daysLeft, monthsRemaining, handover `{method, address, city, revealed}` |
 | **Message** | job *or* tool, sender, recipient, text, image, readAt |
 | **Notification** | user, type, title, body, data {jobId / toolId / rentalId …}, readAt |
@@ -165,6 +165,31 @@ requested ──reject───▶ rejected      requested ──cancel (renter)
 - Stock is reserved on approve with an atomic `findOneAndUpdate({ stock: { $gt: 0 } })` and
   released on return. The pickup address and both phone numbers are revealed on approval.
 
+## Location and near-me search
+
+- **Where things are.** Users, jobs and tools store a GeoJSON point (`geo`) with a 2dsphere
+  index, plus a public `area` name. Points come from the phone's GPS, a pin dropped on the map,
+  or a neighbourhood picked from `config/areas.js` (about 70 areas in 10 cities; also used to
+  name a GPS point after the nearest area). A supplier's tools move with their shop location;
+  a job takes the client's saved location unless they pick another spot.
+- **Privacy.** Coordinates never leave the server for anyone but their owner. Lists and detail
+  pages get `distanceKm` (rounded to 0.1 km) and `area` only; the street address stays hidden
+  until hire / approval as before.
+- **Searching.** `services/nearby.js` serves the technician directory, the tool market and the
+  job market. With `?radius=` it runs MongoDB `$geoNear` (only results within that many km,
+  nearest first, or by another `sort`); without one it returns everything that matches with
+  its distance, nearest first and unknown locations last. `?covers=1` keeps technicians whose
+  own `serviceRadiusKm` reaches the searcher.
+- **Ranking.** Smart Match and ranked quotes pass each technician's `distanceKm` to the scorer:
+  proximity becomes `1 / (1 + km/8)`, and the explanation says "2.3 km from you" or warns
+  "18 km away, outside the 10 km they usually cover" (both engines, kept equal by the parity test).
+- **In the app.** `core/location.dart` (`Locations`) holds the search place — GPS, an area, a map
+  pin, or the profile's saved location — and the radius, remembered on the device and shared by
+  every list. `features/location/` has the picker (current location / map with a centre pin on
+  OpenStreetMap tiles / area list) and the distance filter. `ui/filters.dart` lays a filter
+  column beside the results on wide windows, and a location chip, a *Filters* sheet (applied
+  with *Show results*) and a sort menu on phones.
+
 ## REST API
 
 All paths start with `/api`. 🔒 = needs a JWT. 🌐 = also works signed out (the public website).
@@ -178,7 +203,7 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 | POST | `/auth/change-password` 🔒 | `{currentPassword, newPassword}` |
 | POST | `/auth/forgot-password` | `{email}` → always `{ok, minutes, emailed}`; outside production without SMTP also `devCode` |
 | POST | `/auth/reset-password` | `{email, code, newPassword}` → `{token, user}`; 5 attempts per code |
-| GET / PATCH | `/users/me` 🔒 | Profile; PATCH whitelists name, phone, bio, city, address, headline, skills[], hourlyRate, experienceYears, isAvailable |
+| GET / PATCH | `/users/me` 🔒 | Profile (own `geo` as `{lat, lng}`); PATCH whitelists name, phone, bio, city, address, headline, skills[], hourlyRate, experienceYears, isAvailable, serviceRadiusKm (1–100), and the location as `{lat, lng, area?}` (area defaults to the nearest known one) or `{clearLocation: true}` |
 | POST | `/users/me/avatar` 🔒 | multipart `avatar` |
 | POST / DELETE | `/users/me/portfolio` · `/users/me/portfolio/:file` 🔒 technician | Up to 8 photos of past work |
 | GET / POST | `/users/me/favorites` 🔒 | List · `{type: technician\|tool, id, saved?}` toggles |
@@ -196,20 +221,21 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/users/technicians` 🌐 | `?q=&category=&city=&minRating=&available=1&verified=1&sort=rating\|jobs\|price\|newest` |
-| GET | `/users/:id` 🌐 | Public profile + `online` (private fields only for self / admin) |
+| GET | `/users/technicians` 🌐 | `?q=&category=&city=&minRating=&available=1&verified=1&sort=distance\|rating\|jobs\|price\|newest` · near-me: `&lat=&lng=` (adds `distanceKm`, nearest first unless another sort) `&radius=km` `&covers=1` |
+| GET | `/users/:id` 🌐 | Public profile + `online` (private fields only for self / admin); `distanceKm` from `?lat=&lng=` or the viewer's saved location |
 | GET | `/reviews/technician/:id` 🌐 | Reviews · `/summary` → `{count, average, distribution}` |
 | GET | `/meta` 🌐 | Categories, stages, payment methods, fee percent |
+| GET | `/meta/areas` 🌐 | Neighbourhoods `[{city, name, lat, lng}]` for the area picker |
 | GET | `/meta/stats` · `/meta/testimonials` 🌐 | Landing-page numbers and recent 4–5★ reviews (cached) |
 
 ### Jobs
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/jobs` 🔒 | Client: own jobs. Technician: open market (`?q=&category=&city=&urgency=&matching=1&sort=`), `?view=requests`, `?view=bids`, `?mine=1&status=`. Admin: all |
-| POST | `/jobs` 🔒 client | multipart: title, description, category, budget, city, location, urgency, preferredDate, requestedTechnician?, `images` (≤ 5) |
+| GET | `/jobs` 🔒 | Client: own jobs. Technician: open market (`?q=&category=&city=&urgency=a,b&minBudget=&matching=1&sort=newest\|oldest\|budget\|distance`, `&lat=&lng=&radius=` — from their saved location by default; each job has `distanceKm`), `?view=requests`, `?view=bids`, `?mine=1&status=`. Admin: all |
+| POST | `/jobs` 🔒 client | multipart: title, description, category, budget, city, location, `lat`, `lng`, `area` (else the client's saved location), urgency, preferredDate, requestedTechnician?, `images` (≤ 5) |
 | GET | `/jobs/:id` 🔒 | Adds `bidCount`, `autoCompleteAt`; hides what the viewer may not see |
-| GET | `/jobs/:id/ranked-bids` 🔒 owner / admin | Quotes ranked by the AI: `matchPercent`, `reasons[]`, `notes[]`, `breakdown`, `engine` |
+| GET | `/jobs/:id/ranked-bids` 🔒 owner / admin | Quotes ranked by the AI: `matchPercent`, `reasons[]`, `notes[]`, `breakdown`, `engine`, `distanceKm`, `serviceRadiusKm` |
 | POST / DELETE | `/jobs/:id/bids` · `/jobs/:id/bids/me` 🔒 technician | Quote `{amount, etaDays?, message?}` · take it back |
 | POST | `/jobs/:id/decline` · `/jobs/:id/open` 🔒 | Requested technician declines · client opens the job to everyone |
 | POST | `/jobs/:id/accept/:bidId` 🔒 client | `{paymentMethod: wallet\|cash}` → hires; wallet holds the price (`402` if short) |
@@ -224,7 +250,7 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/tools` · `/tools/:id` 🌐 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&installment=1&sort=`; supplier `?mine=1` · detail includes reviews |
+| GET | `/tools` · `/tools/:id` 🌐 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&installment=1&sort=distance\|popular\|rating\|price_asc\|price_desc\|newest`, near-me `&lat=&lng=&radius=` (adds `distanceKm`); supplier `?mine=1` · detail includes reviews and the distance |
 | POST / PATCH / DELETE | `/tools` · `/tools/:id` 🔒 supplier | multipart; `images` (≤ 4) appended, `removeImages` list. Delete refunds pending requests |
 | POST | `/tools/:id/rent` 🔒 | `{days \| startDate+endDate, fulfillment, deliveryAddress?, paymentMethod, note}` |
 | POST | `/tools/:id/purchase` 🔒 | Installment request |
@@ -244,7 +270,7 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 | GET | `/ai/status` 🌐 | Is the Python service reachable? |
 | POST | `/ai/analyze` 🌐 | `{text}` → `{category, confidence, urgency, keywords[], engine, estimate}` |
 | GET | `/ai/estimate` 🌐 | `?category=&urgency=` → `{low, high, typical, basis: history\|baseline, samples}` |
-| POST | `/ai/recommend` 🔒 | `{description, category?, city?, budget?, urgency?, limit?}` → `{analysis, estimate, ranked[], engine}` |
+| POST | `/ai/recommend` 🔒 | `{description, category?, city?, budget?, urgency?, lat?, lng?, limit?}` (location defaults to the caller's saved one) → `{analysis, estimate, ranked[] with distanceKm, area, serviceRadiusKm, engine}` |
 | GET | `/admin/stats` 🔒 admin | Counts, breakdowns, platform revenue, escrow held, 7-day series |
 | GET / PATCH / DELETE | `/admin/users` · `/admin/users/:id/status` · `/admin/users/:id` 🔒 admin | Delete is refused with work in flight, otherwise cascades |
 | GET / POST | `/admin/kyc` · `/admin/kyc/:id/verify` 🔒 admin | `{decision, reason?}` |
@@ -285,7 +311,7 @@ sequenceDiagram
     participant API as Backend /api/ai/recommend
     participant AI as AI service /recommend
     App->>API: "AC is running but the room is not cold"
-    API->>API: load active technicians (stats, skills, city, availability, KYC)
+    API->>API: load active technicians (stats, skills, city, distance from the client, availability, KYC)
     API->>AI: description + candidates (2.5 s timeout)
     AI->>AI: tokenize → stem → unigrams+bigrams → Naive Bayes → hvac
     AI->>AI: urgency rules
@@ -319,27 +345,28 @@ classifier are documented in [ai-service/README.md](../ai-service/README.md).
 ```
 backend/src/
 ├── app.js / server.js     app factory (used by tests) · HTTP + Socket.IO + graceful shutdown
-├── config/                index.js (env with defaults) · catalog.js (categories, stages, enums)
+├── config/                index.js (env with defaults) · catalog.js (categories, stages, enums) · areas.js (neighbourhoods)
 ├── middleware/            auth · upload (images only) · validate · error
 ├── models/                User Job Tool Rental Transaction WalletRequest PaymentAccount Message Notification Kyc Report · payment (embedded)
 ├── routes/                auth users jobs tools rentals wallet messages kyc reviews reports ai meta admin
-├── services/              jobs · wallet · walletRequests · rentals · pricing · mailer · scoring (AI fallback)
+├── services/              jobs · wallet · walletRequests · rentals · pricing · nearby (near-me search) · mailer · scoring (AI fallback)
 ├── scripts/               seed · create-admin · check-db
-└── utils/                 ai · notify · realtime · http · files
+└── utils/                 ai · notify · realtime · http · files · geo
 
 ai-service/app/            main.py · classifier.py · training_data.py · urgency.py · scoring.py · text.py
 
 mobile/lib/
 ├── main.dart / app.dart / routes.dart   bootstrap · root gate · realtime toasts · addressable pages
 ├── kit.dart               one import for screens: tokens, components, models, services
-├── core/                  theme (design tokens) · api · session · realtime · nav · format · catalog · responsive
+├── core/                  theme (design tokens) · api · session · location (search place + GPS) · realtime · nav · format · catalog · responsive
 ├── models/                user · job · tool (+ rental) · chat · wallet · json helpers
-├── ui/                    brand · buttons · inputs · cards · pills · states · media · sheets · charts · page · icons
+├── ui/                    brand · buttons · inputs · filters · cards · pills · states · media · sheets · charts · page · icons
 └── features/
     ├── shell/             sections per role · phone tab bar · web frame + sidebar
     ├── site/              public website: header, footer, landing, how it works, help, legal
     ├── auth/              intro · log in · sign up · password reset
     ├── home/              customer · technician · supplier dashboards
     ├── jobs/              post · detail (all roles) · lists · Smart Match
+    ├── location/          location picker (GPS · map pin · area list), distance filter
     ├── technicians/  tools/  rentals/  wallet/  chat/  account/  admin/
 ```

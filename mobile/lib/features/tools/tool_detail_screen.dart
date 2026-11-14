@@ -111,7 +111,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   @override
   Widget build(BuildContext context) => AsyncView<Tool>(
         key: _view,
-        load: () async => Tool.fromJson(await Api.map('/api/tools/${widget.toolId}')),
+        load: () async => Tool.fromJson(await Api.map('/api/tools/${widget.toolId}', query: Locations.instance.query(withRadius: false))),
         loading: const AppPage(title: 'Tool', body: SkeletonList()),
         builder: (context, tool) => _body(context, tool),
       );
@@ -175,7 +175,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       Gap.h8,
       Wrap(spacing: 14, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
         Rating(tool.rating, tool.ratingCount, size: 14),
-        if (tool.city.isNotEmpty) Meta(AppIcons.pin, tool.city),
+        if (tool.distanceKm != null || tool.place.isNotEmpty) DistanceText(km: tool.distanceKm, place: tool.place),
         if (tool.rentalsCount > 0) Meta(AppIcons.rentals, 'Rented ${plural(tool.rentalsCount, 'time')}'),
       ]),
       if (tool.description.isNotEmpty) ...[Gap.h16, Text(tool.description, style: context.text.bodyLarge!.copyWith(fontSize: 15.5))],
@@ -212,7 +212,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
           (
             AppIcons.store,
             'Pickup or delivery',
-            'Collect from the supplier in ${tool.city.isEmpty ? 'their city' : tool.city}, or have it delivered. The exact address is shared once your request is approved.'
+            'Collect from the supplier in ${tool.place.isEmpty ? 'their city' : tool.place}${tool.distanceKm == null ? '' : ' (${distance(tool.distanceKm!)} from you)'}, or have it delivered. The exact address is shared once your request is approved.'
           ),
           (AppIcons.shield, 'Refundable deposit', tool.deposit > 0 ? '${money(tool.deposit)} is held with your payment and returned when the tool is back.' : 'This tool needs no deposit.'),
           (AppIcons.timer, 'Late returns', 'Each late day costs one day of rent (${money(tool.rentPricePerDay)}), taken from the deposit.'),
