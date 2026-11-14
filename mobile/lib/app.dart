@@ -100,6 +100,14 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
         if (!me.isTechnician) return;
         if (me.skills.isNotEmpty && !me.skills.contains(str(e.data['category']))) return;
         toast('New job: ${e.data['title']}', actionLabel: 'View', onAction: () => openJob(navigatorKey.currentContext!, e.jobId));
+      case 'wallet:request':
+        if (!me.isAdmin) return;
+        final deposit = str(e.data['kind']) == 'deposit';
+        toast(
+          '${str(e.data['name'], 'Someone')} ${deposit ? 'sent a deposit' : 'asked to withdraw'}: ${money(dbl(e.data['amount']))}',
+          actionLabel: 'Review',
+          onAction: () => openSection(navigatorKey.currentContext!, 'payments'),
+        );
       case 'message:new':
         final sender = str(e.data['sender']);
         if (sender == me.id) return;

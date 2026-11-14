@@ -27,7 +27,7 @@ lib/
 ├── ui/               the component library: brand, buttons, inputs, cards, pills, states,
 │                     media, sheets, charts, page scaffolding, icons
 └── features/
-    ├── shell/        sections per role, floating dock (phone), web frame + sidebar (wide)
+    ├── shell/        sections per role, tab bar (phone), web frame + sidebar (wide)
     ├── site/         public website: header, footer, landing, how it works, help, legal
     ├── auth/         introduction, log in, sign up, password reset
     ├── home/         customer, technician and supplier dashboards
@@ -35,10 +35,10 @@ lib/
     ├── technicians/  directory and profile
     ├── tools/        market, tool page, inventory, tool form
     ├── rentals/      rentals, orders, rental page
-    ├── wallet/       wallet, ledger, top-up, the "how will you pay" sheet
+    ├── wallet/       wallet, ledger, add money (transaction ID), withdraw, the "how will you pay" sheet
     ├── chat/         inbox and conversation
     ├── account/      account, profile, verification, notifications, saved, report
-    └── admin/        overview, users, verification, reports, jobs, tools, payments
+    └── admin/        overview, payments desk (deposits, withdrawals, ledger, company accounts), users, verification, reports, jobs, tools
 test/
 ├── fake_api.dart     a stand-in backend that answers every endpoint
 └── app_test.dart     models, components, every screen at phone + desktop size, key flows

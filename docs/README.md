@@ -11,5 +11,5 @@
 | [screenshots/](./screenshots/) | App screenshots (`app-*.jpg`, light and dark) and website screenshots (`web-*.jpg`) for reports and presentations |
 
 Honesty notes worth knowing up front (details in [STATUS.md](./STATUS.md#not-implemented-known-limitations)):
-the wallet is a sandbox (no real money moves), there are no push notifications while the app
+there is no payment gateway (deposits and withdrawals are checked and approved by an admin), there are no push notifications while the app
 is closed, and distance is matched by city rather than GPS.

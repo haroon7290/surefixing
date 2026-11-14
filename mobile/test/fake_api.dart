@@ -123,9 +123,25 @@ final List<Json> fakeRentals = [
   _rental('r4', 'rent', 'returned', payment: {'method': 'wallet', 'status': 'released', 'amount': 2400, 'deposit': 5000, 'fee': 240, 'net': 2160}),
 ];
 
+const Json _payout = {'method': 'mobile_wallet', 'provider': 'JazzCash', 'accountTitle': 'Sara Khan', 'accountNumber': '0300-1234501'};
+
+final List<Json> fakeAccounts = [
+  {'_id': 'pa1', 'kind': 'bank', 'provider': 'Meezan Bank', 'accountTitle': 'SureFix Services', 'accountNumber': '0101-0104567890', 'iban': 'PK36MEZN0001010104567890', 'instructions': 'Use your name as the reference.', 'active': true},
+  {'_id': 'pa2', 'kind': 'mobile_wallet', 'provider': 'JazzCash', 'accountTitle': 'SureFix Services', 'accountNumber': '0300-1112233', 'active': true},
+];
+
+final List<Json> fakeWalletRequests = [
+  {'_id': 'wr1', 'kind': 'deposit', 'amount': 5000, 'status': 'pending', 'sentTo': {'method': 'mobile_wallet', 'provider': 'JazzCash', 'accountTitle': 'SureFix Services', 'accountNumber': '0300-1112233'},
+    'transactionId': 'JC48213977', 'proofImage': '', 'note': 'Sent at 2:15 pm', 'createdAt': _ago(const Duration(hours: 2))},
+  {'_id': 'wr2', 'kind': 'withdrawal', 'amount': 3000, 'status': 'pending', 'payout': _payout, 'createdAt': _ago(const Duration(hours: 5))},
+  {'_id': 'wr3', 'kind': 'deposit', 'amount': 2000, 'status': 'rejected', 'sentTo': {'method': 'bank', 'provider': 'Meezan Bank', 'accountTitle': 'SureFix Services', 'accountNumber': '0101-0104567890'},
+    'transactionId': 'EP77001234', 'adminNote': 'Not in our statement', 'reviewedBy': {'name': 'Admin'}, 'reviewedAt': _ago(const Duration(days: 8)), 'createdAt': _ago(const Duration(days: 8))},
+  {'_id': 'wr4', 'kind': 'withdrawal', 'amount': 20000, 'status': 'approved', 'payout': _payout, 'reference': 'HBL-FT-55120931', 'reviewedBy': {'name': 'Admin'}, 'reviewedAt': _ago(const Duration(days: 6)), 'createdAt': _ago(const Duration(days: 6))},
+];
+
 final List<Json> _txns = [
   {'_id': 'x1', 'type': 'job_hold', 'amount': -2800, 'balanceAfter': 12700, 'job': {'title': 'AC not cooling'}, 'createdAt': _ago(const Duration(days: 1))},
-  {'_id': 'x2', 'type': 'topup', 'amount': 10000, 'balanceAfter': 15500, 'note': 'Demo funds added', 'createdAt': _ago(const Duration(days: 3))},
+  {'_id': 'x2', 'type': 'deposit', 'amount': 10000, 'balanceAfter': 15500, 'note': 'JazzCash · TX JC51200987', 'createdAt': _ago(const Duration(days: 3))},
   {'_id': 'x3', 'type': 'platform_fee', 'amount': 280, 'balanceAfter': 0, 'user': null, 'createdAt': _ago(const Duration(days: 9))},
 ];
 
@@ -196,7 +212,20 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
   if (path == '/api/rentals') return fakeRentals;
   if (path.startsWith('/api/rentals/')) return fakeRentals.firstWhere((r) => r['_id'] == path.split('/')[3], orElse: () => fakeRentals.first);
 
-  if (path == '/api/wallet') return {'balance': me['walletBalance'] ?? 0, 'held': 9800, 'incoming': 2520, 'feePercent': 10, 'maxTopUp': 100000, 'sandbox': true, 'recent': _txns};
+  if (path == '/api/wallet') {
+    return {
+      'balance': me['walletBalance'] ?? 0, 'held': 9800, 'incoming': 2520, 'pendingDeposits': 5000, 'pendingWithdrawals': 0, 'feePercent': 10,
+      'minDeposit': 100, 'maxDeposit': 500000, 'minWithdrawal': 500, 'payoutAccount': _payout, 'recent': _txns,
+    };
+  }
+  if (path == '/api/wallet/accounts' || (path == '/api/admin/payment-accounts' && method == 'GET')) return fakeAccounts;
+  if (path == '/api/wallet/requests' || path == '/api/admin/wallet-requests') {
+    final kind = q['kind'];
+    final admin = path.startsWith('/api/admin');
+    return [for (final r in fakeWalletRequests) if (kind == null || r['kind'] == kind) admin ? {...r, 'user': _card(_client)..addAll({'email': 'client@demo.com', 'role': 'client', 'walletBalance': 12700})} : r];
+  }
+  if (path == '/api/wallet/deposits' || path == '/api/wallet/withdrawals') return fakeWalletRequests.first;
+  if (path.startsWith('/api/admin/wallet-requests/') || path.startsWith('/api/wallet/requests/')) return fakeWalletRequests.first;
   if (path == '/api/wallet/transactions') return _txns;
   if (path.startsWith('/api/wallet/')) return {'balance': 17700};
 
@@ -235,6 +264,7 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
       'usersByRole': {'client': 7, 'technician': 8, 'supplier': 2, 'admin': 1}, 'jobsByStatus': {'pending': 4, 'in_progress': 2, 'completed': 75, 'cancelled': 1},
       'rentalsByStatus': {'active': 2}, 'topCategories': [{'category': 'hvac', 'count': 12}, {'category': 'plumbing', 'count': 12}, {'category': 'electrical', 'count': 9}],
       'jobsValue': 378000, 'rentalsValue': 17850, 'platformRevenue': 25990, 'escrowHeld': 15000, 'feePercent': 10, 'jobsPaidBy': {'wallet': 60, 'cash': 15}, 'avgTechnicianRating': 4.45,
+      'pendingDeposits': 1, 'pendingDepositsAmount': 5000, 'pendingWithdrawals': 1, 'pendingWithdrawalsAmount': 3000,
       'signupsLast7Days': week([1, 1, 2, 1, 2, 1, 0]), 'jobsLast7Days': week([0, 0, 0, 7, 1, 2, 3]), 'revenueLast7Days': week([0, 0, 0, 0, 3180, 0, 0]),
     };
   }

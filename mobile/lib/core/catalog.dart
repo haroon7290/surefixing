@@ -126,8 +126,9 @@ const stageLabels = {'hired': 'Hired', 'on_the_way': 'On the way', 'working': 'W
 
 /// Title + icon + whether money came in, for a wallet ledger row.
 (String, IconData) txnInfo(String type) => switch (type) {
-      'topup' => ('Funds added', AppIcons.topUp),
+      'deposit' => ('Money added', AppIcons.topUp),
       'withdrawal' => ('Withdrawal', AppIcons.withdraw),
+      'withdrawal_reversed' => ('Withdrawal returned', AppIcons.refresh),
       'job_hold' => ('Paid into escrow', AppIcons.lock),
       'job_refund' => ('Job refund', AppIcons.refresh),
       'job_earning' => ('Job earnings', AppIcons.work),
@@ -139,3 +140,13 @@ const stageLabels = {'hired': 'Hired', 'on_the_way': 'On the way', 'working': 'W
       'platform_fee' => ('Service fee', AppIcons.payments),
       _ => (humanize(type), AppIcons.coins),
     };
+
+(String, Tone) walletRequestStatus(String status, {bool deposit = true}) => switch (status) {
+      'pending' => ('Waiting for review', Tone.warning),
+      'approved' => deposit ? ('Added to wallet', Tone.success) : ('Sent', Tone.success),
+      'rejected' => ('Not approved', Tone.danger),
+      'cancelled' => ('Cancelled', Tone.neutral),
+      _ => (humanize(status), Tone.neutral),
+    };
+
+const payoutMethods = {'bank': 'Bank account', 'mobile_wallet': 'Mobile wallet'};

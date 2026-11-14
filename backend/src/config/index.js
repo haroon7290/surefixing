@@ -39,10 +39,13 @@ const config = {
   // After a technician marks a job done, the client has this long to confirm
   // before the technician may close it themselves.
   autoConfirmHours: num(process.env.AUTO_CONFIRM_HOURS, 72),
-  // The wallet is a sandbox: balances are demo credit, no real money moves.
+  // Wallet: money comes in by deposits to the company's accounts and goes
+  // out by withdrawals, each checked and approved by an admin.
   wallet: {
-    maxTopUp: num(process.env.WALLET_MAX_TOPUP, 100000),
-    maxBalance: num(process.env.WALLET_MAX_BALANCE, 1000000)
+    minDeposit: num(process.env.WALLET_MIN_DEPOSIT, 100),
+    maxDeposit: num(process.env.WALLET_MAX_DEPOSIT, 500000),
+    minWithdrawal: num(process.env.WALLET_MIN_WITHDRAWAL, 500),
+    maxPendingDeposits: num(process.env.WALLET_MAX_PENDING_DEPOSITS, 5)
   },
 
   // Optional SMTP (e.g. smtps://user:pass@smtp.example.com). Without it,

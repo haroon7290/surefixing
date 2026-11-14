@@ -222,7 +222,7 @@ class SiteFooter extends StatelessWidget {
               SizedBox(height: wide ? 48 : 32),
               Divider(color: c.heroLine),
               Gap.h16,
-              Text('© ${DateTime.now().year} SureFix. A final-year project — payments run in a sandbox, no real money moves.',
+              Text('© ${DateTime.now().year} SureFix. A final-year project.',
                   style: TextStyle(fontFamily: kBodyFont, fontSize: 12.5, fontWeight: FontWeight.w500, color: muted)),
             ]),
           ),

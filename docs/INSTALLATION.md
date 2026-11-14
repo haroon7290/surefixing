@@ -61,8 +61,11 @@ Set `JWT_SECRET` (and `NODE_ENV=production`) in your shell or a `.env` next to
 Useful commands (in `backend/`): `npm run dev` · `npm test` · `npm run seed` (only seeds an
 empty DB) · `npm run seed -- --force` (wipes + reseeds) · `npm run create-admin`.
 
-**Sandbox wallet**: balances are demo credit. `POST /api/wallet/topup` adds funds and no
-payment provider is involved; the escrow, fee and ledger logic is real.
+**Wallet money**: there is no payment gateway. Users transfer money to a company account
+(managed in the app under Admin → Payments → Company accounts) and submit the transaction ID;
+an admin approves it to credit the wallet. Withdrawals are requested in the app and approved
+by an admin after paying out. Limits: `WALLET_MIN_DEPOSIT` (100), `WALLET_MAX_DEPOSIT`
+(500000), `WALLET_MIN_WITHDRAWAL` (500), `WALLET_MAX_PENDING_DEPOSITS` (5).
 
 ## Mobile app
 

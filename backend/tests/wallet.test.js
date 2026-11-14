@@ -1,4 +1,5 @@
-const { connect, disconnect, makeUser } = require('./helpers');
+const { connect, disconnect, makeUser, fund } = require('./helpers');
+const Notification = require('../src/models/Notification');
 const User = require('../src/models/User');
 const Rental = require('../src/models/Rental');
 const Tool = require('../src/models/Tool');
@@ -31,30 +32,109 @@ describe('wallet, rentals in escrow and installments', () => {
     ).body;
   });
 
-  test('top up and withdraw keep an exact ledger and never overdraw', async () => {
-    await renter.api('post', '/api/wallet/topup').send({ amount: 50 }).expect(400);
-    await renter.api('post', '/api/wallet/topup').send({ amount: 5000000 }).expect(400);
-    expect((await renter.api('post', '/api/wallet/topup').send({ amount: 20000 })).body.balance).toBe(20000);
+  test('deposits are credited only when an admin approves them', async () => {
+    const admin = await makeUser('admin');
+    await renter.api('post', '/api/admin/payment-accounts').send({ provider: 'X', accountTitle: 'Y', accountNumber: '1234' }).expect(403);
+    const account = (
+      await admin.api('post', '/api/admin/payment-accounts').send({ kind: 'bank', provider: 'Meezan Bank', accountTitle: 'SureFix', accountNumber: '0101-0104567890' })
+    ).body;
+    const hidden = (await admin.api('post', '/api/admin/payment-accounts').send({ provider: 'Old Bank', accountTitle: 'SureFix', accountNumber: '9999', active: false })).body;
+    const listed = (await renter.api('get', '/api/wallet/accounts')).body.map((a) => a._id);
+    expect(listed).toContain(account._id);
+    expect(listed).not.toContain(hidden._id);
 
-    const over = await renter.api('post', '/api/wallet/withdraw').send({ amount: 25000 });
-    expect(over.status).toBe(402);
-    expect(over.body.code).toBe('insufficient_funds');
-    expect((await renter.api('post', '/api/wallet/withdraw').send({ amount: 5000 })).body.balance).toBe(15000);
+    const send = (amount, transactionId, accountId = account._id) => renter.api('post', '/api/wallet/deposits').send({ accountId, amount, transactionId });
+    await send(50, 'TX-1001').expect(400); // below the minimum
+    await send(1000, '').expect(400); // no transaction ID
+    await send(1000, 'TX-2000', hidden._id).expect(400); // hidden account
 
-    const history = await renter.api('get', '/api/wallet/transactions');
-    expect(history.body.map((t) => [t.type, t.amount, t.balanceAfter])).toEqual([
-      ['withdrawal', -5000, 15000],
-      ['topup', 20000, 20000]
+    const sent = await send(20000, 'TX-1001');
+    expect(sent.status).toBe(201);
+    expect(sent.body).toMatchObject({ kind: 'deposit', status: 'pending', amount: 20000, transactionId: 'TX-1001' });
+    expect(sent.body.sentTo).toMatchObject({ provider: 'Meezan Bank', accountNumber: '0101-0104567890' });
+    expect(await balance(renter)).toBe(0);
+    expect((await renter.api('get', '/api/wallet')).body).toMatchObject({ balance: 0, pendingDeposits: 20000 });
+    // The same transfer can't be claimed twice, however it is typed.
+    expect((await send(20000, 'tx 1001')).status).toBe(409);
+
+    await renter.api('post', `/api/admin/wallet-requests/${sent.body._id}/approve`).expect(403);
+    const queue = (await admin.api('get', '/api/admin/wallet-requests?kind=deposit')).body;
+    expect(queue.map((r) => r._id)).toContain(sent.body._id);
+    expect(queue[0].user.name).toBeTruthy();
+
+    // Two admins clicking at once: credited exactly once.
+    const clicks = await Promise.all([
+      admin.api('post', `/api/admin/wallet-requests/${sent.body._id}/approve`).send({}),
+      admin.api('post', `/api/admin/wallet-requests/${sent.body._id}/approve`).send({})
     ]);
-    expect(history.headers['x-total-count']).toBe('2');
+    expect(clicks.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(await balance(renter)).toBe(20000);
+    expect(await Notification.exists({ user: renter.id, type: 'wallet', title: 'Deposit approved' })).toBeTruthy();
+
+    // A rejected deposit adds nothing and frees nothing; a pending one can be taken back.
+    const fake = (await send(9000, 'TX-FAKE')).body;
+    await admin.api('post', `/api/admin/wallet-requests/${fake._id}/reject`).send({}).expect(400); // needs a reason
+    const rejected = await admin.api('post', `/api/admin/wallet-requests/${fake._id}/reject`).send({ reason: 'Not in our statement' });
+    expect(rejected.body).toMatchObject({ status: 'rejected', adminNote: 'Not in our statement' });
+    const mistake = (await send(700, 'TX-OOPS')).body;
+    await renter.api('post', `/api/wallet/requests/${mistake._id}/cancel`).expect(200);
+    await renter.api('post', `/api/wallet/requests/${mistake._id}/cancel`).expect(409);
+    // An admin can correct the amount to what actually arrived.
+    const short = (await send(3000, 'TX-SHORT')).body;
+    const corrected = await admin.api('post', `/api/admin/wallet-requests/${short._id}/approve`).send({ amount: 2500 });
+    expect(corrected.body.amount).toBe(2500);
+    expect(await balance(renter)).toBe(22500);
+    expect((await admin.api('get', '/api/admin/stats')).body.pendingDeposits).toBe(0);
   });
 
-  test('two debits racing for the same money: only one wins', async () => {
+  test('withdrawals leave the wallet at once and come back if rejected', async () => {
+    const admin = await makeUser('admin');
+    const payout = { method: 'mobile_wallet', provider: 'JazzCash', accountTitle: 'Renter', accountNumber: '0300-1234567' };
+    await renter.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 100 }).expect(400); // below the minimum
+    await renter.api('post', '/api/wallet/withdrawals').send({ amount: 1000 }).expect(400); // no account
+    const over = await renter.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 50000 });
+    expect(over.status).toBe(402);
+    expect(over.body.code).toBe('insufficient_funds');
+
+    const big = await renter.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 6500 });
+    expect(big.status).toBe(201);
+    expect(big.body).toMatchObject({ kind: 'withdrawal', status: 'pending', amount: 6500 });
+    expect(await balance(renter)).toBe(16000);
+    expect((await renter.api('get', '/api/users/me')).body.payoutAccount).toMatchObject(payout);
+    expect((await admin.api('get', '/api/admin/stats')).body).toMatchObject({ pendingWithdrawals: 1, pendingWithdrawalsAmount: 6500 });
+
+    const small = (await renter.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 1000 })).body;
+    expect(await balance(renter)).toBe(15000);
+    await admin.api('post', `/api/admin/wallet-requests/${small._id}/reject`).send({ reason: 'Account title does not match' }).expect(200);
+    expect(await balance(renter)).toBe(16000);
+
+    const paid = await admin.api('post', `/api/admin/wallet-requests/${big.body._id}/approve`).send({ reference: 'JC-REF-77' });
+    expect(paid.body).toMatchObject({ status: 'approved', reference: 'JC-REF-77' });
+    expect(await balance(renter)).toBe(16000); // already taken when requested
+    await renter.api('post', `/api/wallet/requests/${big.body._id}/cancel`).expect(409);
+
+    // Back to a round 15000 for the rental tests below.
+    const last = (await renter.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 1000 })).body;
+    await admin.api('post', `/api/admin/wallet-requests/${last._id}/approve`).send({}).expect(200);
+    expect(await balance(renter)).toBe(15000);
+
+    const history = (await renter.api('get', '/api/wallet/transactions')).body.map((t) => [t.type, t.amount]);
+    expect(history.slice(0, 4)).toEqual([
+      ['withdrawal', -1000],
+      ['withdrawal_reversed', 1000],
+      ['withdrawal', -1000],
+      ['withdrawal', -6500]
+    ]);
+    expect((await renter.api('get', '/api/wallet/requests?kind=withdrawal')).body).toHaveLength(3);
+  });
+
+  test('two withdrawals racing for the same money: only one wins', async () => {
     const racer = await makeUser('client');
-    await racer.api('post', '/api/wallet/topup').send({ amount: 1000 }).expect(201);
+    await fund(racer, 1000);
+    const payout = { method: 'bank', provider: 'HBL', accountTitle: 'Racer', accountNumber: '00420001' };
     const results = await Promise.all([
-      racer.api('post', '/api/wallet/withdraw').send({ amount: 800 }),
-      racer.api('post', '/api/wallet/withdraw').send({ amount: 800 })
+      racer.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 800 }),
+      racer.api('post', '/api/wallet/withdrawals').send({ ...payout, amount: 800 })
     ]);
     expect(results.map((r) => r.status).sort()).toEqual([201, 402]);
     expect(await balance(racer)).toBe(200);
@@ -145,7 +225,7 @@ describe('wallet, rentals in escrow and installments', () => {
     const short = await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`);
     expect(short.status).toBe(402);
     expect((await renter.api('get', `/api/rentals/${plan.body._id}`)).body.monthsPaid).toBe(2);
-    await renter.api('post', '/api/wallet/topup').send({ amount: 5000 }).expect(201);
+    await fund(renter, 5000);
     const last = await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`);
     expect(last.body).toMatchObject({ monthsPaid: 3, monthsRemaining: 0, status: 'completed' });
     await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`).expect(400);

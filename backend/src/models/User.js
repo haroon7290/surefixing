@@ -37,8 +37,15 @@ const userSchema = new mongoose.Schema(
     avgResponseMinutes: { type: Number, default: 60 },
     responseSamples: { type: Number, default: 0 },
 
-    // Sandbox wallet balance; every change has a Transaction row.
+    // Wallet balance; every change has a Transaction row.
     walletBalance: { type: Number, default: 0, min: 0 },
+    // Where withdrawals are sent (remembered from the last request).
+    payoutAccount: {
+      method: { type: String, enum: ['bank', 'mobile_wallet'], default: 'bank' },
+      provider: { type: String, default: '', trim: true },
+      accountTitle: { type: String, default: '', trim: true },
+      accountNumber: { type: String, default: '', trim: true }
+    },
 
     favoriteTechnicians: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     favoriteTools: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tool' }],
@@ -108,6 +115,7 @@ userSchema.methods.toPrivateJSON = function () {
     address: this.address,
     status: this.status,
     walletBalance: this.walletBalance,
+    payoutAccount: this.payoutAccount,
     favoriteTechnicians: this.favoriteTechnicians,
     favoriteTools: this.favoriteTools
   };

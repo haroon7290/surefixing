@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../kit.dart';
 import '../../routes.dart';
 import '../jobs/job_widgets.dart';
-import '../wallet/wallet_screen.dart';
 
 // ------------------------------------------------------------------- KYC
 
@@ -392,55 +391,4 @@ class _AdminToolsScreenState extends State<AdminToolsScreen> {
       ]),
     );
   }
-}
-
-// -------------------------------------------------------------- payments
-
-/// Every wallet movement on the platform.
-class AdminPaymentsScreen extends StatefulWidget {
-  const AdminPaymentsScreen({super.key});
-
-  @override
-  State<AdminPaymentsScreen> createState() => _AdminPaymentsScreenState();
-}
-
-class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
-  String _type = 'all';
-
-  static const _types = {
-    'all': 'Everything',
-    'platform_fee': 'Fees earned',
-    'job_hold': 'Into escrow',
-    'job_earning': 'Paid to technicians',
-    'job_refund': 'Refunds',
-    'rental_earning': 'Rental income',
-    'topup': 'Top-ups',
-    'withdrawal': 'Withdrawals',
-  };
-
-  @override
-  Widget build(BuildContext context) => AppPage(
-        title: 'Payments',
-        subtitle: 'The full ledger: escrow holds, payouts, refunds and SureFix fees.',
-        maxWidth: 900,
-        body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          PagePad(child: Pills<String>(scroll: true, values: _types.keys.toList(), label: (k) => _types[k]!, selected: _type, onTap: (k) => setState(() => _type = k))),
-          Expanded(
-            child: AsyncView<List<Txn>>(
-              token: _type,
-              load: () async => (await Api.list('/api/admin/transactions', query: {'type': _type == 'all' ? null : _type, 'limit': 150})).map(Txn.fromJson).toList(),
-              events: Live.wallet,
-              builder: (context, items) => items.isEmpty
-                  ? const EmptyState(icon: AppIcons.payments, title: 'No transactions yet')
-                  : PageList(children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text('${plural(items.length, 'movement')}  ·  net ${signedMoney(items.fold<double>(0, (a, t) => a + t.amount))}', style: context.text.bodySmall),
-                      ),
-                      TxnList(items, showUser: true),
-                    ]),
-            ),
-          ),
-        ]),
-      );
 }

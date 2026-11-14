@@ -4,7 +4,7 @@ SureFix has four kinds of member. Customers, technicians and suppliers sign up f
 (**Create an account** → choose how you will use SureFix); admin accounts are created with
 `npm run create-admin` in `backend/`.
 
-**On a phone** each role has a floating dock with five tabs; **Account** is always the last
+**On a phone** each role has a tab bar with five tabs at the bottom; **Account** is always the last
 one. **On a computer** (any window wider than 1000 px) SureFix is a website: a sidebar lists
 every section, your wallet balance and the account menu (dark mode, sign out). Visitors who
 are not signed in can browse the landing page, technicians and tools.
@@ -20,7 +20,7 @@ are not signed in can browse the landing page, technicians and tools.
 | `tech3@demo.com` | Usman Ali — AC specialist, hired on Sara's AC job (payment in escrow) |
 | `tech2`, `tech4`…`tech8@demo.com` | Other trades: one with verification pending, one brand new, one marked busy |
 | `supplier@demo.com` | ToolCo Rentals — tools, requests to approve, a rental out, an overdue rental, an installment plan |
-| `admin@demo.com` | Admin — a verification to review, an open report, revenue from fees |
+| `admin@demo.com` | Admin — a deposit and a withdrawal to review, a verification, an open report, revenue from fees |
 
 ---
 
@@ -41,7 +41,7 @@ are not signed in can browse the landing page, technicians and tools.
 3. **Compare quotes.** Quotes arrive live, ranked by match score with the reasons. Tap
    **Message** to ask a question before hiring.
 4. **Hire.** Choose **SureFix Wallet** (the price is held in escrow — if your balance is
-   short you can add funds right there) or **Cash** (you pay in person; not protected).
+   short you can add money right there) or **Cash** (you pay in person; not protected).
 5. **Follow the job.** *Hired → On the way → Working → Finished* updates live. You can cancel
    until work starts and your money comes straight back.
 6. **Confirm.** When the technician marks the work finished you see their note and photos.
@@ -58,6 +58,7 @@ are not signed in can browse the landing page, technicians and tools.
   <img src="screenshots/app-tools.jpg" width="190" alt="Tool market">
   <img src="screenshots/app-tool.jpg" width="190" alt="Tool page">
   <img src="screenshots/app-wallet.jpg" width="190" alt="Wallet">
+  <img src="screenshots/app-add-money.jpg" width="190" alt="Add money with a transaction ID">
 </p>
 
 1. **Rent tools** → pick a tool → choose the days, the start date, and **pickup** or
@@ -70,7 +71,15 @@ are not signed in can browse the landing page, technicians and tools.
 
 ### Wallet
 
-**Add funds** (demo money), see what is **held in escrow**, and every movement in the ledger.
+- **Add money:** Wallet → **Add money** lists SureFix's bank and mobile-wallet accounts (tap a
+  number to copy it). Send the money from your banking app, then enter the amount and the
+  **transaction ID** from the confirmation message, and attach a screenshot if you like. It shows
+  as *Waiting for review* until an admin checks it; then it is added to your wallet. If it can't
+  be matched you are told why.
+- **Withdraw:** Wallet → **Withdraw**, enter the amount and your bank or JazzCash/Easypaisa
+  account (remembered for next time). The amount is set aside at once and sent after a check;
+  if it is rejected the money comes back. You can cancel a request while it is waiting.
+- See what is **held in escrow**, and every movement in the ledger.
 Wallet payments are protected; cash is not.
 
 ---
@@ -130,7 +139,20 @@ Use the switch on Home to mark yourself **busy**.
 - **Verify** — compare each ID with the selfie; approve or reject with a reason.
 - **Reports** — open the reported job, tool or profile; resolve, dismiss, or suspend the user.
 - **Disputes** — open any job in progress → **Refund client** or **Release to technician**.
-- **Payments** — every wallet movement, filterable by type.
+- **Payments** — the payments desk:
+  - **Deposits:** each shows who sent it, the amount, the transaction ID (tap to copy), which
+    company account it went to and the screenshot if attached. Check your bank or wallet
+    statement, then **Approve** (correct the amount if a different amount arrived) or
+    **Reject** with a reason.
+  - **Withdrawals:** send the money to the account shown, then **Mark as sent** (add your
+    transfer reference), or **Reject** with a reason — the money returns to their wallet.
+  - **Ledger:** every wallet movement, filterable by type.
+  - **Company accounts:** add, edit, hide or show the accounts users send money to. **Replace
+    the demo accounts with your real ones before going live.**
+
+<p>
+  <img src="screenshots/web-admin-payments.jpg" width="620" alt="Admin payments desk">
+</p>
 
 ---
 

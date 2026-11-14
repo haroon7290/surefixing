@@ -70,6 +70,22 @@ class _AdminOverviewState extends State<AdminOverview> {
 
           final attention = [
             StatCard(
+              label: 'Deposits to check',
+              value: '${integer(s['pendingDeposits'])}',
+              icon: AppIcons.topUp,
+              tone: integer(s['pendingDeposits']) > 0 ? Tone.warning : Tone.success,
+              caption: integer(s['pendingDeposits']) > 0 ? money(dbl(s['pendingDepositsAmount'])) : 'All clear',
+              onTap: () => openSection(context, 'payments'),
+            ),
+            StatCard(
+              label: 'Withdrawals to pay',
+              value: '${integer(s['pendingWithdrawals'])}',
+              icon: AppIcons.withdraw,
+              tone: integer(s['pendingWithdrawals']) > 0 ? Tone.warning : Tone.success,
+              caption: integer(s['pendingWithdrawals']) > 0 ? money(dbl(s['pendingWithdrawalsAmount'])) : 'All clear',
+              onTap: () => openSection(context, 'payments'),
+            ),
+            StatCard(
                 label: 'IDs to verify',
                 value: '${integer(s['pendingKyc'])}',
                 icon: AppIcons.verify,

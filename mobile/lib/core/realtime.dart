@@ -31,6 +31,7 @@ const _subscribed = [
   'message:read',
   'typing',
   'wallet:update',
+  'wallet:request',
   'kyc:new',
   'report:new',
 ];
@@ -42,7 +43,7 @@ abstract final class Live {
   static const messages = {'message:new', 'message:read'};
   static const wallet = {'wallet:update'};
   static const notifications = {'notification'};
-  static const admin = {'kyc:new', 'report:new'};
+  static const admin = {'kyc:new', 'report:new', 'wallet:request'};
 }
 
 /// Socket.IO connection to the backend. Screens subscribe to [events] to

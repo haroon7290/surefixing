@@ -10,6 +10,9 @@ const Report = require('../models/Report');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
 const Transaction = require('../models/Transaction');
+const WalletRequest = require('../models/WalletRequest');
+const PaymentAccount = require('../models/PaymentAccount');
+const walletRequests = require('../services/walletRequests');
 const config = require('../config');
 const { authRequired, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -78,7 +81,8 @@ router.get('/stats', async (_req, res) => {
     revenueDaily,
     jobsEscrow,
     rentalsEscrow,
-    paidBy
+    paidBy,
+    walletQueue
   ] = await Promise.all([
     User.countDocuments(),
     Job.countDocuments(),
@@ -100,8 +104,10 @@ router.get('/stats', async (_req, res) => {
     Transaction.aggregate([{ $match: { type: 'platform_fee', createdAt: { $gte: start } } }, { $group: { _id: day, total: { $sum: '$amount' } } }]),
     Job.aggregate([{ $match: { 'payment.status': 'held' } }, { $group: { _id: null, total: { $sum: '$payment.amount' } } }]),
     Rental.aggregate([{ $match: { 'payment.status': 'held' } }, { $group: { _id: null, total: { $sum: { $add: ['$payment.amount', '$payment.deposit'] } } } }]),
-    Job.aggregate([{ $match: { status: 'completed' } }, { $group: { _id: '$payment.method', n: { $sum: 1 } } }])
+    Job.aggregate([{ $match: { status: 'completed' } }, { $group: { _id: '$payment.method', n: { $sum: 1 } } }]),
+    WalletRequest.aggregate([{ $match: { status: 'pending' } }, { $group: { _id: '$kind', n: { $sum: 1 }, total: { $sum: '$amount' } } }])
   ]);
+  const queue = (kind) => walletQueue.find((r) => r._id === kind) || { n: 0, total: 0 };
 
   res.json({
     users,
@@ -121,6 +127,10 @@ router.get('/stats', async (_req, res) => {
     escrowHeld: total(jobsEscrow) + total(rentalsEscrow),
     feePercent: config.platformFeePercent,
     jobsPaidBy: toMap(paidBy),
+    pendingDeposits: queue('deposit').n,
+    pendingDepositsAmount: queue('deposit').total,
+    pendingWithdrawals: queue('withdrawal').n,
+    pendingWithdrawalsAmount: queue('withdrawal').total,
     avgTechnicianRating: techRating[0] ? Math.round(techRating[0].avg * 100) / 100 : 0,
     signupsLast7Days: dailySeries(signups, start, 7),
     jobsLast7Days: dailySeries(jobsDaily, start, 7),
@@ -167,13 +177,15 @@ router.delete('/users/:id', async (req, res) => {
   const user = await loadById(User, req.params.id, 'User');
   const id = user._id;
 
-  const [activeJobs, activeRentals] = await Promise.all([
+  const [activeJobs, activeRentals, walletWaiting] = await Promise.all([
     Job.countDocuments({ status: 'in_progress', $or: [{ client: id }, { assignedTechnician: id }] }),
-    Rental.countDocuments({ status: 'active', $or: [{ renter: id }, { supplier: id }] })
+    Rental.countDocuments({ status: 'active', $or: [{ renter: id }, { supplier: id }] }),
+    WalletRequest.countDocuments({ user: id, status: 'pending' })
   ]);
   if (activeJobs || activeRentals) {
     throw badRequest('This account has a job in progress or a tool out on rent. Resolve those first, or suspend the account instead.');
   }
+  if (walletWaiting) throw badRequest('This account has a deposit or withdrawal waiting for review. Approve or reject it first.');
 
   realtime.disconnectUser(id);
   for (const job of await Job.find({ client: id, status: 'pending' })) {
@@ -195,6 +207,7 @@ router.delete('/users/:id', async (req, res) => {
   [user.avatar, ...user.portfolio, kyc?.idFrontImage, kyc?.idBackImage, kyc?.selfieImage].forEach(removeUpload);
   await Promise.all([
     Notification.deleteMany({ user: id }),
+    WalletRequest.deleteMany({ user: id }),
     Message.deleteMany({ $or: [{ sender: id }, { recipient: id }] }),
     User.updateMany({}, { $pull: { favoriteTechnicians: id } })
   ]);
@@ -296,6 +309,103 @@ router.get('/transactions', async (req, res) => {
   ]);
   setTotal(res, count);
   res.json(items);
+});
+
+// ------------------------------------------------- deposits & withdrawals
+
+// ?kind=deposit|withdrawal ?status=pending (default) | approved | rejected | all
+router.get('/wallet-requests', async (req, res) => {
+  const q = {};
+  if (['deposit', 'withdrawal'].includes(req.query.kind)) q.kind = req.query.kind;
+  const status = req.query.status || 'pending';
+  if (status !== 'all') q.status = { $in: String(status).split(',') };
+  const { limit, skip } = paginate(req, { defaultLimit: 100, maxLimit: 200 });
+  const [items, count] = await Promise.all([
+    WalletRequest.find(q)
+      .sort(status === 'pending' ? { createdAt: 1 } : { reviewedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', 'name email phone role avatar walletBalance')
+      .populate('reviewedBy', 'name'),
+    WalletRequest.countDocuments(q)
+  ]);
+  setTotal(res, count);
+  res.json(items);
+});
+
+// Deposit: { amount? (what actually arrived), note? } · Withdrawal: { reference?, note? }
+router.post(
+  '/wallet-requests/:id/approve',
+  [
+    body('amount').optional({ values: 'falsy' }).isFloat({ min: 1, max: 10000000 }).withMessage('Enter a valid amount').toFloat(),
+    body('reference').optional().isString().trim().isLength({ max: 80 }),
+    body('note').optional().isString().trim().isLength({ max: 300 })
+  ],
+  validate,
+  async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Request not found');
+    const request = await walletRequests.approve(req.user, req.params.id, req.body);
+    res.json(await request.populate('user', 'name email phone role avatar walletBalance'));
+  }
+);
+
+router.post(
+  '/wallet-requests/:id/reject',
+  [body('reason').isString().trim().isLength({ min: 3, max: 300 }).withMessage('Tell the user why')],
+  validate,
+  async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Request not found');
+    const request = await walletRequests.reject(req.user, req.params.id, req.body.reason);
+    res.json(await request.populate('user', 'name email phone role avatar walletBalance'));
+  }
+);
+
+// Company accounts users send deposits to.
+const accountFields = [
+  body('kind').optional().isIn(['bank', 'mobile_wallet']).withMessage('Choose bank or mobile wallet'),
+  body('provider').optional().isString().trim().isLength({ min: 2, max: 60 }).withMessage('Enter the bank or wallet name'),
+  body('accountTitle').optional().isString().trim().isLength({ min: 2, max: 80 }).withMessage('Enter the account title'),
+  body('accountNumber').optional().isString().trim().isLength({ min: 4, max: 40 }).withMessage('Enter the account number'),
+  body('iban').optional().isString().trim().isLength({ max: 40 }),
+  body('instructions').optional().isString().trim().isLength({ max: 300 }),
+  body('active').optional().isBoolean().toBoolean(),
+  body('order').optional().isInt({ min: 0, max: 1000 }).toInt()
+];
+const ACCOUNT_KEYS = ['kind', 'provider', 'accountTitle', 'accountNumber', 'iban', 'instructions', 'active', 'order'];
+const pickAccount = (src) => Object.fromEntries(ACCOUNT_KEYS.filter((k) => src[k] !== undefined).map((k) => [k, src[k]]));
+
+router.get('/payment-accounts', async (_req, res) => res.json(await PaymentAccount.find().sort({ order: 1, createdAt: 1 })));
+
+router.post(
+  '/payment-accounts',
+  [
+    body('provider').exists().withMessage('Enter the bank or wallet name'),
+    body('accountTitle').exists().withMessage('Enter the account title'),
+    body('accountNumber').exists().withMessage('Enter the account number'),
+    ...accountFields
+  ],
+  validate,
+  async (req, res) => res.status(201).json(await PaymentAccount.create(pickAccount(req.body)))
+);
+
+router.patch('/payment-accounts/:id', accountFields, validate, async (req, res) => {
+  const account = await loadById(PaymentAccount, req.params.id, 'Account');
+  Object.assign(account, pickAccount(req.body));
+  await account.save();
+  res.json(account);
+});
+
+// Accounts already used by deposits are hidden rather than deleted, so the
+// history keeps making sense.
+router.delete('/payment-accounts/:id', async (req, res) => {
+  const account = await loadById(PaymentAccount, req.params.id, 'Account');
+  if (await WalletRequest.exists({ companyAccount: account._id })) {
+    account.active = false;
+    await account.save();
+    return res.json({ ok: true, hidden: true });
+  }
+  await account.deleteOne();
+  res.json({ ok: true, hidden: false });
 });
 
 // ---------------------------------------------------------------- reports

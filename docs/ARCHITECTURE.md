@@ -59,7 +59,7 @@ flowchart LR
   back to `services/scoring.js`, a port of the same scorer (kept identical by a parity test in
   `ai-service/tests/test_scoring.py`). Every AI response carries `engine: "ai-service" | "fallback"`.
 - **One Flutter codebase, two layouts.** Below 1000 px wide the app uses the phone layout: a
-  floating dock and stacked screens. On wider windows `features/shell/web_frame.dart` wraps the
+  bottom tab bar and stacked screens. On wider windows `features/shell/web_frame.dart` wraps the
   navigator in persistent chrome — a sidebar when signed in, the site header when signed out —
   and pages switch to multi-column layouts. The current section lives in `SiteNav` and is
   mirrored in the address bar (`#/tools`, `#/wallet` …); jobs, tools and technicians have their
@@ -94,7 +94,9 @@ erDiagram
 | **User** | role (client/technician/supplier/admin), status (active/suspended), kycStatus, avatar, city, address (private), bio · technician profile: headline, skills[], hourlyRate, experienceYears, isAvailable, portfolio[] · stats: rating, ratingCount, jobsCompleted, jobsAssigned, avgResponseMinutes · **walletBalance** · favoriteTechnicians[], favoriteTools[] · password-reset code hash, expiry and attempt counter |
 | **Job** | client, title, description, category, budget, city, location, urgency, preferredDate, images[], **status** (pending / in_progress / completed / cancelled), **stage** (hired / on_the_way / working / done), requestedTechnician + requestDeclined, assignedTechnician, agreedPrice, bids[] {technician, amount, etaDays, message, status}, history[] {event, note, by, at}, completionNote, completionImages[], **payment**, rating, review |
 | **Payment** (embedded) | method (wallet / cash), status (none / held / released / refunded / cash_due / cash_paid), amount, deposit, fee, net |
-| **Transaction** | user (null = the platform), type (topup, withdrawal, job_hold, job_refund, job_earning, rental_hold, rental_refund, rental_earning, installment_payment, installment_earning, platform_fee), signed amount, balanceAfter, job / rental, note |
+| **WalletRequest** | user, kind (deposit / withdrawal), amount, status (pending / approved / rejected / cancelled), deposit: companyAccount + sentTo snapshot, transactionId (normalised key for duplicate checks), proofImage · withdrawal: payout {method, provider, accountTitle, accountNumber} · adminNote, reference, reviewedBy, reviewedAt |
+| **PaymentAccount** | kind (bank / mobile_wallet), provider, accountTitle, accountNumber, iban, instructions, active |
+| **Transaction** | user (null = the platform), type (deposit, withdrawal, withdrawal_reversed, job_hold, job_refund, job_earning, rental_hold, rental_refund, rental_earning, installment_payment, installment_earning, platform_fee), signed amount, balanceAfter, job / rental, note |
 | **Tool** | supplier, name, description, category, condition, city, images[], rentPricePerDay, deposit, purchasePrice, installmentMonths / Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
 | **Rental** | tool, renter, supplier, type (rent / installment), startDate, endDate, days, dailyRate, deposit, lateDays, lateFee, monthsTotal / monthsPaid / monthlyAmount, totalCost, **payment**, fulfillment (pickup / delivery), deliveryAddress, status (requested / active / returned / completed / rejected / cancelled) · computed in responses: overdue, daysLeft, monthsRemaining, handover `{method, address, city, revealed}` |
 | **Message** | job *or* tool, sender, recipient, text, image, readAt |
@@ -184,7 +186,11 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 | GET | `/users/me/notifications` 🔒 | Also `/unread-count`, `POST /read-all`, `POST /:id/read` |
 | GET | `/wallet` 🔒 | `{balance, held, incoming, feePercent, recent[]}` |
 | GET | `/wallet/transactions` 🔒 | Full ledger |
-| POST | `/wallet/topup` · `/wallet/withdraw` 🔒 | `{amount}` (sandbox) |
+| GET | `/wallet/accounts` 🔒 | Company accounts to send deposits to |
+| GET | `/wallet/requests` 🔒 | My deposits and withdrawals (`?kind=&status=`) |
+| POST | `/wallet/deposits` 🔒 | multipart `{accountId, amount, transactionId, note?, proof?}` → pending; `409` for a transaction ID already used |
+| POST | `/wallet/withdrawals` 🔒 | `{amount, method: bank\|mobile_wallet, provider, accountTitle, accountNumber}` → amount set aside, pending; `402` if short |
+| POST | `/wallet/requests/:id/cancel` 🔒 | While pending; a withdrawal's money returns |
 
 ### Discovery
 
@@ -245,6 +251,10 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 | GET / POST | `/admin/reports` · `/admin/reports/:id/resolve` 🔒 admin | `{status, note?, suspendUser?}` |
 | GET / POST | `/admin/jobs` · `/admin/jobs/:id/resolve` 🔒 admin | `{action: refund\|release, note?, technicianAtFault?}` |
 | GET | `/admin/tools` · `/admin/transactions` 🔒 admin | Oversight · the whole ledger (`?type=`) |
+| GET | `/admin/wallet-requests` 🔒 admin | `?kind=deposit\|withdrawal&status=pending (default)\|approved\|rejected\|all` |
+| POST | `/admin/wallet-requests/:id/approve` 🔒 admin | Deposit `{amount?}` credits the wallet · withdrawal `{reference?}` marks it sent. Each request is decided once (`409` after) |
+| POST | `/admin/wallet-requests/:id/reject` 🔒 admin | `{reason}`; a withdrawal's money returns |
+| GET / POST / PATCH / DELETE | `/admin/payment-accounts` 🔒 admin | Company accounts; delete hides an account already used by deposits |
 | GET | `/health` | `{ok, db, uptime}` |
 
 ## Realtime (Socket.IO)
@@ -263,6 +273,7 @@ green "online" dots.
 | `rental:new` | supplier | Rental or purchase requested |
 | `rental:update` | renter + supplier | Any rental status change |
 | `wallet:update` | user | Any wallet movement `{balance, type, amount}` |
+| `wallet:request` | role:admin | New deposit or withdrawal to review |
 | `message:new` · `message:read` · `typing` | the thread's people | Chat |
 | `kyc:new`, `report:new` | role:admin | New submission / report |
 
@@ -310,9 +321,9 @@ backend/src/
 ├── app.js / server.js     app factory (used by tests) · HTTP + Socket.IO + graceful shutdown
 ├── config/                index.js (env with defaults) · catalog.js (categories, stages, enums)
 ├── middleware/            auth · upload (images only) · validate · error
-├── models/                User Job Tool Rental Transaction Message Notification Kyc Report · payment (embedded)
+├── models/                User Job Tool Rental Transaction WalletRequest PaymentAccount Message Notification Kyc Report · payment (embedded)
 ├── routes/                auth users jobs tools rentals wallet messages kyc reviews reports ai meta admin
-├── services/              jobs · wallet · rentals · pricing · mailer · scoring (AI fallback)
+├── services/              jobs · wallet · walletRequests · rentals · pricing · mailer · scoring (AI fallback)
 ├── scripts/               seed · create-admin · check-db
 └── utils/                 ai · notify · realtime · http · files
 
@@ -325,7 +336,7 @@ mobile/lib/
 ├── models/                user · job · tool (+ rental) · chat · wallet · json helpers
 ├── ui/                    brand · buttons · inputs · cards · pills · states · media · sheets · charts · page · icons
 └── features/
-    ├── shell/             sections per role · floating dock · web frame + sidebar
+    ├── shell/             sections per role · phone tab bar · web frame + sidebar
     ├── site/              public website: header, footer, landing, how it works, help, legal
     ├── auth/              intro · log in · sign up · password reset
     ├── home/              customer · technician · supplier dashboards

@@ -22,7 +22,11 @@ technician withdrawal (refund, job reopens); ratings and reviews; activity log; 
 filters and sorting; contact details only after hire; technicians never see competitors'
 prices.
 
-**Wallet & payments (sandbox)** — balance with a full ledger; top-up and withdraw; escrow
+**Wallet & payments** — balance with a full ledger; **deposits by bank / mobile-wallet
+transfer** (the user submits the amount, transaction ID and an optional screenshot; an admin
+approves or rejects; duplicate transaction IDs refused; a deposit can't be approved twice);
+**withdrawals by request** (amount set aside at once, admin pays out and approves, or rejects
+and the money returns); admin-managed company accounts; escrow
 hold, release and refund for jobs and rentals; platform fee on release; atomic debits that
 cannot overdraw; live balance updates; admin ledger and revenue reporting.
 
@@ -45,20 +49,20 @@ event; online presence.
 verification queue; reports queue; **dispute resolution** on any job in progress (refund or
 release); all jobs and tools; payments ledger; AI engine status.
 
-**App & website** — one Flutter codebase. Phones: floating dock, dashboards per role, light
+**App & website** — one Flutter codebase. Phones: bottom tab bar, dashboards per role, light
 and dark themes, first-launch introduction. Wide windows: a public marketing site (landing
 page with a live AI estimate box, directories, how it works, help, terms, privacy) and a
 sidebar web app for every role, two-pane messages, addresses for jobs, tools and technicians.
 
-**Engineering** — 86 backend tests (real MongoDB), 33 AI tests, 34 app tests (every screen
+**Engineering** — 87 backend tests (real MongoDB), 33 AI tests, 37 app tests (every screen
 rendered at phone and desktop size), GitHub Actions CI, Dockerfiles and docker-compose,
 Windows scripts that keep dependencies in sync and detect old data, rich demo seed,
 analyzer-clean Flutter code.
 
 ## Not implemented (known limitations)
 
-- **Real payments** — the wallet is a sandbox: top-ups add demo funds and withdrawals only
-  lower the balance. The escrow logic is real; a payment gateway is not connected.
+- **Payment gateway** — money moves by manual bank / mobile-wallet transfer, checked by an
+  admin. Nothing is charged automatically and payouts are sent by hand.
 - **Push notifications when the app is closed** — delivery is Socket.IO only (works while
   the app is open). FCM / APNs would be the next step.
 - **Automatic job closing** — after the confirmation window the technician can close the job
@@ -85,6 +89,12 @@ does not carry over**:
    uninstall the old "SureFix" first.
 
 ## Changelog
+
+- **v3.1** — Navigation fixes: working account menu and Account link on the website; attached
+  phone tab bar (taps no longer land on tabs); hidden tabs can't take focus; Android and
+  browser back return to Home; no double-opened pages; mouse-draggable rows and wrapping
+  filters on the website. New payments: deposits by transaction ID and withdrawals by request,
+  both approved by an admin; company accounts managed in the app; the sandbox top-up is gone.
 
 - **v3.0** — Rebuilt app and website on a new design system (ink + safety orange,
   Bricolage Grotesque, Phosphor icons, new brand mark). Escrow wallet with ledger and fees;

@@ -1,4 +1,4 @@
-const { connect, disconnect, makeUser } = require('./helpers');
+const { connect, disconnect, makeUser, fund } = require('./helpers');
 const User = require('../src/models/User');
 const Job = require('../src/models/Job');
 
@@ -146,7 +146,7 @@ describe('job lifecycle', () => {
     expect(short.body).toMatchObject({ code: 'insufficient_funds', details: { needed: 3000, balance: 0 } });
     expect((await Job.findById(job._id)).status).toBe('pending');
 
-    await client.api('post', '/api/wallet/topup').send({ amount: 5000 }).expect(201);
+    await fund(client, 5000);
     const hiredJob = await client.api('post', `/api/jobs/${job._id}/accept/${bidId}`).send({ paymentMethod: 'wallet' });
     expect(hiredJob.body.payment).toMatchObject({ method: 'wallet', status: 'held', amount: 3000, fee: 300, net: 2700 });
     expect((await stats(client)).walletBalance).toBe(2000);
@@ -176,7 +176,7 @@ describe('job lifecycle', () => {
   });
 
   test('cancelling: free before work starts (refunded, no penalty), blocked after', async () => {
-    await client.api('post', '/api/wallet/topup').send({ amount: 4000 }).expect(201);
+    await fund(client, 4000);
     const balance = (await stats(client)).walletBalance;
     const assigned = (await stats(plumber)).jobsAssigned;
 
@@ -210,7 +210,7 @@ describe('job lifecycle', () => {
   });
 
   test('a hired technician can withdraw before starting: refund, and the job reopens', async () => {
-    await client.api('post', '/api/wallet/topup').send({ amount: 3000 }).expect(201);
+    await fund(client, 3000);
     const balance = (await stats(client)).walletBalance;
     const job = await postJob(client, { title: 'Repair garden tap' });
     const a = await plumber.api('post', `/api/jobs/${job._id}/bids`).send({ amount: 1500 });

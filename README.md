@@ -57,12 +57,15 @@ with skills, rates and a **portfolio** · identity verification for the blue sea
 terms · approve / decline requests (stock reserved atomically) · take tools back with
 automatic late fees · record installment payments · chat with customers.
 
-**Admin** — platform revenue and escrow · 7-day charts · user search with suspend and safe
-delete · identity verification queue · reports queue · **dispute resolution** (refund the
-customer or release to the technician) · full payments ledger.
+**Admin** — **payments desk**: check deposits against the statement and approve or reject
+them, pay out withdrawals, manage the company accounts users send money to · platform revenue
+and escrow · 7-day charts · user search with suspend and safe delete · identity verification
+queue · reports queue · **dispute resolution** (refund the customer or release to the
+technician) · full payments ledger.
 
 **Everyone** — realtime notifications that open the right screen, chat with read receipts,
-typing and photos, a sandbox **wallet** with a full ledger, password reset by emailed code,
+typing and photos, a **wallet** with a full ledger (money in by bank or mobile-wallet transfer,
+checked by an admin; money out by withdrawal request), password reset by emailed code,
 report a problem, dark mode.
 
 ---
@@ -122,9 +125,9 @@ docker compose exec backend npm run seed -- --force   # optional demo data
 
 | Suite | Command | What it covers |
 |---|---|---|
-| Backend (86) | `cd backend && npm test` | Auth and password reset, the job lifecycle, escrow hold / release / refund, fees, wallet limits, rentals, late fees, installments, chat, privacy, admin disputes and cascading delete, uploads, AI fallback — against a real MongoDB |
+| Backend (87) | `cd backend && npm test` | Auth and password reset, the job lifecycle, escrow hold / release / refund, fees, deposits and withdrawals with admin approval (duplicate transaction IDs, double approval, held payouts), rentals, late fees, installments, chat, privacy, admin disputes and cascading delete, uploads, AI fallback — against a real MongoDB |
 | AI service (33) | `cd ai-service && pytest` | Stemming, held-out classifier accuracy, urgency, scoring properties, API contract, **JS ↔ Python parity** |
-| App (34) | `cd mobile && flutter test` | Models and formatting; **every screen rendered at phone and desktop size** against a fake backend to catch layout overflows; hiring, confirming, quoting and approving flows |
+| App (37) | `cd mobile && flutter test` | Models and formatting; **every screen rendered at phone and desktop size** against a fake backend to catch layout overflows; hiring, confirming, quoting, approving, deposit, withdrawal and payment-review flows |
 
 GitHub Actions runs all three on every push (`.github/workflows/ci.yml`).
 
@@ -183,9 +186,13 @@ docs/         Architecture, installation, user guide, status, screenshots
 
 ## Good to know
 
-- **The wallet is a sandbox.** Top-ups add demo funds and withdrawals just lower the
-  balance; no real money moves. The escrow rules, fees and ledger work as they would with a
-  real payment provider.
+- **How money gets into and out of the wallet.** There is no payment gateway. Customers send
+  money to one of the company accounts listed in the app (bank or JazzCash/Easypaisa), then
+  enter the amount and the transaction ID; an admin checks the statement and approves it,
+  which credits the wallet. Withdrawals work the other way round: the user enters their
+  account, the amount is set aside at once, and the admin approves after sending it (or
+  rejects, which returns the money). **Replace the demo company accounts** in
+  Admin → Payments → Company accounts before real use.
 - **Password reset codes** are emailed when `SMTP_URL` is set in `backend/.env`. Without it
   the code is printed in the backend console and shown on screen, so the flow can be demoed.
 - Prices are in Pakistani rupees (Rs).

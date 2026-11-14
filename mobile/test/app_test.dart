@@ -341,6 +341,53 @@ void main() {
       expect(sent, contains('POST /api/rentals/r1/approve'));
     });
 
+    testWidgets('customer adds money with a transaction ID', (tester) async {
+      await pumpApp(tester, role: 'client', size: desktop);
+      SiteNav.select('wallet');
+      await settle(tester);
+      expect(find.text('Waiting for review (2)'), findsOneWidget);
+      await tapOn(tester, find.text('Add money').first);
+      expect(find.text('Meezan Bank'), findsWidgets);
+      expect(find.text('0101-0104567890'), findsWidgets);
+      await tapOn(tester, find.text('JazzCash').last);
+      await tester.enterText(find.widgetWithText(TextFormField, '5000'), '7500');
+      await tester.enterText(find.byType(TextFormField).at(1), 'JC-99887766');
+      await tapOn(tester, find.text('Submit for review'));
+      expect(sent, contains('POST /api/wallet/deposits'));
+    });
+
+    testWidgets('withdrawal asks for an account and the amount', (tester) async {
+      await pumpApp(tester, role: 'client', size: desktop);
+      SiteNav.select('wallet');
+      await settle(tester);
+      await tapOn(tester, find.text('Withdraw').first);
+      expect(find.text('Send it to'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '0300-1234501'), findsOneWidget); // saved account prefilled
+      await tester.enterText(find.byType(TextFormField).first, '2000');
+      await tapOn(tester, find.text('Request withdrawal'));
+      expect(sent, contains('POST /api/wallet/withdrawals'));
+      expect(sentBodies['POST /api/wallet/withdrawals'], containsPair('amount', 2000));
+      expect(sentBodies['POST /api/wallet/withdrawals'], containsPair('provider', 'JazzCash'));
+    });
+
+    testWidgets('admin approves a deposit and rejects a withdrawal', (tester) async {
+      await pumpApp(tester, role: 'admin', size: desktop);
+      expect(find.text('Deposits to check'), findsOneWidget);
+      SiteNav.select('payments');
+      await settle(tester);
+      expect(find.text('JC48213977'), findsOneWidget);
+      await tapOn(tester, find.text('Approve').first);
+      await tapOn(tester, find.text('Approve and add to wallet'));
+      expect(sent, contains('POST /api/admin/wallet-requests/wr1/approve'));
+      expect(sentBodies['POST /api/admin/wallet-requests/wr1/approve'], {'amount': 5000});
+
+      await tapOn(tester, find.text('Withdrawals').first);
+      await tapOn(tester, find.text('Reject').first);
+      await tester.enterText(find.byType(TextFormField).last, 'Account title does not match');
+      await tapOn(tester, find.text('Reject').last);
+      expect(sent, contains('POST /api/admin/wallet-requests/wr2/reject'));
+    });
+
     testWidgets('the dock switches sections', (tester) async {
       await pumpApp(tester, role: 'client');
       await tester.tap(find.bySemanticsLabel('My jobs'));

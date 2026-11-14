@@ -131,7 +131,7 @@ Backend (needs MongoDB running), AI service and Flutter.
 | Smart Match says "Built-in engine" | Start `scripts\start-ai.bat` — results still work meanwhile. |
 | Backend warns about data from an older version | Run `scripts\reset-demo-data.bat` once. |
 | Forgot-password code never arrives | No email server is set: the code is shown on screen and printed in the backend window. Set `SMTP_URL` in `backend\.env` for real emails. |
-| "Your wallet balance is too low" | Wallet → **Add funds** (demo money), or choose cash. |
+| "Your wallet balance is too low" | Wallet → **Add money**: send money to a listed account, enter the transaction ID, and an admin approves it (demo admin: `admin@demo.com` → Payments). Or choose cash. |
 | `setup.bat` is not recognized (PowerShell) | Type `.\setup.bat`. |
 | `npm run seed` says the database already has users | That's the safety guard. Use `scripts\reset-demo-data.bat` to wipe and reseed. |
 | Port 4000 / 5001 / 27017 already in use | Close the other process or change `PORT` in `backend\.env`. |

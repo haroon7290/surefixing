@@ -15,6 +15,8 @@ const Notification = require('../models/Notification');
 const Kyc = require('../models/Kyc');
 const Report = require('../models/Report');
 const Transaction = require('../models/Transaction');
+const PaymentAccount = require('../models/PaymentAccount');
+const WalletRequest = require('../models/WalletRequest');
 
 const DAY = 24 * 3600 * 1000;
 const HOUR = 3600 * 1000;
@@ -46,7 +48,7 @@ async function run() {
   }
 
   console.log('Wiping SureFix collections…');
-  await Promise.all([User, Job, Tool, Rental, Message, Notification, Kyc, Report, Transaction].map((M) => M.deleteMany({})));
+  await Promise.all([User, Job, Tool, Rental, Message, Notification, Kyc, Report, Transaction, PaymentAccount, WalletRequest].map((M) => M.deleteMany({})));
 
   // ----------------------------------------------------------------- users
   const u = (o) => ({ password: PASSWORD, ...o });
@@ -248,11 +250,11 @@ async function run() {
   });
 
   // Sara's wallet history for the jobs above (her rentals are added below).
-  move(sara, 'topup', 20000, ago(30 * DAY), { note: 'Demo funds added' });
+  move(sara, 'deposit', 20000, ago(30 * DAY), { note: 'Meezan Bank · TX MZ88120345' });
   move(sara, 'job_hold', -1800, ago(11 * DAY), { job: tap._id, note: tap.title });
   move(ahmad, 'job_earning', 1800 - fee(1800), ago(10 * DAY), { job: tap._id, note: tap.title });
   move(null, 'platform_fee', fee(1800), ago(10 * DAY), { job: tap._id, note: tap.title });
-  move(sara, 'topup', 10000, ago(3 * DAY), { note: 'Demo funds added' });
+  move(sara, 'deposit', 10000, ago(3 * DAY), { note: 'JazzCash · TX JC51200987' });
   move(sara, 'job_hold', -6000, ago(DAY + 20 * HOUR), { job: ac._id, note: ac.title });
 
   // Past, reviewed jobs so each technician's rating, review count, earnings
@@ -403,12 +405,14 @@ async function run() {
   move(ahmad, 'installment_payment', -4200, ago(31 * DAY), { note: grinder.name });
   move(toolco, 'installment_earning', 4200 - fee(4200), ago(31 * DAY), { note: grinder.name });
   move(null, 'platform_fee', fee(4200), ago(31 * DAY), { note: grinder.name });
-  move(usman, 'withdrawal', -20000, ago(6 * DAY), { note: 'Demo payout to bank' });
+  move(usman, 'withdrawal', -20000, ago(6 * DAY), { note: 'Withdrawal to HBL · 0042-79118812-01' });
+  move(ahmad, 'withdrawal', -3000, ago(5 * HOUR), { note: 'Withdrawal to Easypaisa · 0300-1234503' });
   console.log('Seeded 6 rentals and installment plans');
 
   // ---------------------------------------------------------------- wallets
   ledger.sort((a, b) => a.createdAt - b.createdAt);
   const balances = new Map();
+  const autoDeposits = [];
   for (const row of ledger) {
     if (!row.user) continue;
     const key = String(row.user);
@@ -416,7 +420,10 @@ async function run() {
     if ((balances.get(key) || 0) + row.amount < 0) {
       const short = Math.ceil(-((balances.get(key) || 0) + row.amount) / 5000) * 5000;
       balances.set(key, (balances.get(key) || 0) + short);
-      await Transaction.create({ user: row.user, type: 'topup', amount: short, balanceAfter: balances.get(key), note: 'Demo funds added', createdAt: new Date(row.createdAt.getTime() - HOUR) });
+      const at = new Date(row.createdAt.getTime() - HOUR);
+      const tx = `MZ${String(at.getTime()).slice(-8)}`;
+      await Transaction.create({ user: row.user, type: 'deposit', amount: short, balanceAfter: balances.get(key), note: `Meezan Bank · TX ${tx}`, createdAt: at });
+      autoDeposits.push({ user: row.user, amount: short, at, tx });
     }
     balances.set(key, (balances.get(key) || 0) + row.amount);
     row.balanceAfter = balances.get(key);
@@ -424,6 +431,38 @@ async function run() {
   await Transaction.insertMany(ledger);
   await Promise.all([...balances].map(([id, balance]) => User.updateOne({ _id: id }, { $set: { walletBalance: balance } })));
   console.log(`Seeded ${ledger.length} wallet transactions`);
+
+  // ---------------------------------------- company accounts & wallet requests
+  // Demo details: an admin replaces them in Payments → Company accounts.
+  const [meezan, jazzcash, easypaisa] = await PaymentAccount.create([
+    { kind: 'bank', provider: 'Meezan Bank', accountTitle: 'SureFix Services', accountNumber: '0101-0104567890', iban: 'PK36MEZN0001010104567890',
+      instructions: 'Demo account. Use your name as the transfer reference.', order: 1 },
+    { kind: 'mobile_wallet', provider: 'JazzCash', accountTitle: 'SureFix Services', accountNumber: '0300-1112233', order: 2 },
+    { kind: 'mobile_wallet', provider: 'Easypaisa', accountTitle: 'SureFix Services', accountNumber: '0345-4445566', order: 3 }
+  ]);
+  const snap = (a) => ({ method: a.kind, provider: a.provider, accountTitle: a.accountTitle, accountNumber: a.accountNumber });
+  const dep = (user, account, amount, tx, at, extra = {}) => ({
+    user: user._id || user, kind: 'deposit', amount, companyAccount: account._id, sentTo: snap(account), transactionId: tx,
+    transactionKey: WalletRequest.normalizeTx(tx), createdAt: at, ...extra
+  });
+  const approved = (at) => ({ status: 'approved', reviewedBy: admin._id, reviewedAt: new Date(at.getTime() + 2 * HOUR) });
+  const usmanPayout = { method: 'bank', provider: 'HBL', accountTitle: 'Usman Ali', accountNumber: '0042-79118812-01' };
+  const ahmadPayout = { method: 'mobile_wallet', provider: 'Easypaisa', accountTitle: 'Ahmad Raza', accountNumber: '0300-1234503' };
+  await WalletRequest.create([
+    dep(sara, meezan, 20000, 'MZ88120345', ago(30 * DAY), approved(ago(30 * DAY))),
+    dep(sara, jazzcash, 10000, 'JC51200987', ago(3 * DAY), approved(ago(3 * DAY))),
+    ...autoDeposits.map((d) => dep(d.user, meezan, d.amount, d.tx, d.at, approved(d.at))),
+    dep(sara, easypaisa, 2000, 'EP77001234', ago(8 * DAY), {
+      status: 'rejected', adminNote: 'We could not find this transaction ID in our statement.', reviewedBy: admin._id, reviewedAt: ago(8 * DAY - 3 * HOUR)
+    }),
+    // Waiting for the admin:
+    dep(bilal, jazzcash, 5000, 'JC48213977', ago(2 * HOUR), { note: 'Sent from my JazzCash at 2:15 pm' }),
+    { user: ahmad._id, kind: 'withdrawal', amount: 3000, payout: ahmadPayout, createdAt: ago(5 * HOUR) },
+    { user: usman._id, kind: 'withdrawal', amount: 20000, payout: usmanPayout, reference: 'HBL-FT-55120931', createdAt: ago(6 * DAY), ...approved(ago(6 * DAY)) }
+  ]);
+  await User.updateOne({ _id: usman._id }, { $set: { payoutAccount: usmanPayout } });
+  await User.updateOne({ _id: ahmad._id }, { $set: { payoutAccount: ahmadPayout } });
+  console.log('Seeded company accounts, deposits and withdrawals (1 deposit + 1 withdrawal waiting for review)');
 
   await User.updateOne({ _id: sara._id }, { $set: { favoriteTechnicians: [usman._id, ayesha._id], favoriteTools: [drill._id, washer._id] } });
 

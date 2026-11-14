@@ -7,6 +7,7 @@ import '../account/notifications_screen.dart';
 import '../account/saved_screen.dart';
 import '../admin/admin_lists.dart';
 import '../admin/admin_overview.dart';
+import '../admin/admin_payments.dart';
 import '../admin/admin_users.dart';
 import '../chat/inbox_screen.dart';
 import '../home/client_home.dart';
@@ -63,12 +64,12 @@ List<Dest> destinationsFor(String role) {
       ],
     'admin' => [
         Dest('home', 'Overview', AppIcons.dashboard, AppIcons.dashboardFill, (_) => const AdminOverview(), dock: true),
+        Dest('payments', 'Payments', AppIcons.payments, AppIcons.paymentsFill, (_) => const AdminPaymentsScreen(), dock: true),
         Dest('users', 'Users', AppIcons.users, AppIcons.usersFill, (_) => const AdminUsersScreen(), dock: true),
         Dest('verify', 'Verify', AppIcons.verify, AppIcons.verifyFill, (_) => const AdminKycScreen(), dock: true),
-        Dest('reports', 'Reports', AppIcons.reports, AppIcons.reportsFill, (_) => const AdminReportsScreen(), dock: true),
+        Dest('reports', 'Reports', AppIcons.reports, AppIcons.reportsFill, (_) => const AdminReportsScreen(), group: 'Trust'),
         Dest('all-jobs', 'Jobs', AppIcons.jobs, AppIcons.jobsFill, (_) => const AdminJobsScreen(), group: 'Marketplace'),
         Dest('all-tools', 'Tools', AppIcons.tools, AppIcons.toolsFill, (_) => const AdminToolsScreen(), group: 'Marketplace'),
-        Dest('payments', 'Payments', AppIcons.payments, AppIcons.paymentsFill, (_) => const AdminPaymentsScreen(), group: 'Marketplace'),
         alerts,
         account,
       ],

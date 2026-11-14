@@ -4,8 +4,9 @@ const mongoose = require('mongoose');
 // `balanceAfter` is the user's wallet right after it. Rows with no user are
 // the platform's own commission income.
 const TYPES = [
-  'topup', // demo funds added
-  'withdrawal', // demo payout to bank
+  'deposit', // money sent to a company account, approved by an admin
+  'withdrawal', // payout requested (taken from the wallet at once)
+  'withdrawal_reversed', // payout rejected or cancelled: the money comes back
   'job_hold', // client → escrow when hiring
   'job_refund', // escrow → client (cancelled / technician withdrew)
   'job_earning', // escrow → technician on completion

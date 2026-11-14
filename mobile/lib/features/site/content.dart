@@ -34,8 +34,9 @@ const faqs = [
         'Ratings and reviews come only from customers whose job was completed through SureFix.'
   ),
   (
-    'Is the money real?',
-    'No. This is a final-year project: the wallet is a sandbox, top-ups add demo funds and withdrawals simply reduce the balance. The escrow rules, fees and ledger work exactly as they would with a real payment provider.'
+    'How do I add money or withdraw it?',
+    'Wallet → Add money shows SureFix\'s bank and mobile-wallet accounts. Send the money from your banking app, then enter the amount and the transaction ID (a screenshot helps). Our team checks it against the statement and adds it to your wallet. '
+        'To withdraw, enter your own account and the amount: it is set aside at once and sent to you after a quick check. If anything is wrong you are told why and the money comes back.'
   ),
 ];
 
@@ -50,7 +51,7 @@ const termsSections = [
   ),
   (
     'Payments',
-    'Wallet payments are held in escrow and released when the customer confirms completion, when an admin resolves a dispute, or when the customer has not responded 72 hours after the work was marked finished. SureFix keeps a service fee from released payments. In this project build all funds are simulated.'
+    'Wallet payments are held in escrow and released when the customer confirms completion, when an admin resolves a dispute, or when the customer has not responded 72 hours after the work was marked finished. SureFix keeps a service fee from released payments. Money enters the wallet when an admin confirms a transfer to a SureFix account, and leaves it by withdrawal to the user\'s own account.'
   ),
   (
     'Tool rentals',
