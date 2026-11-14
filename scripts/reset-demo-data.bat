@@ -6,7 +6,7 @@ setlocal
 cd /d "%~dp0..\backend"
 
 echo.
-echo  This DELETES all users, jobs, tools, rentals and messages in the
+echo  This DELETES all users, jobs, tools, rentals, wallets and messages in the
 echo  database configured in backend\.env and replaces them with demo data.
 echo.
 set /p CONFIRM=Type YES to continue: 

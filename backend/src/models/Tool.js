@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { TOOL_CONDITIONS } = require('../config/catalog');
+const { pointSchema } = require('../utils/geo');
 
 const toolSchema = new mongoose.Schema(
   {
@@ -9,12 +10,15 @@ const toolSchema = new mongoose.Schema(
     category: { type: String, default: 'general' },
     condition: { type: String, enum: TOOL_CONDITIONS, default: 'good' },
     city: { type: String, default: '', trim: true },
-    image: { type: String, default: '' }, // cover image (kept for older clients)
+    // Copied from the supplier's shop location; used for "near me" search
+    // and never sent to the app (only the distance and area are).
+    geo: { type: pointSchema, default: undefined },
+    area: { type: String, default: '', trim: true },
     images: { type: [String], default: [] },
     rentPricePerDay: { type: Number, default: 0, min: 0 },
     deposit: { type: Number, default: 0, min: 0 },
     purchasePrice: { type: Number, default: 0, min: 0 },
-    installmentMonths: { type: Number, default: 0, min: 0 }, // 0 = not available on installment
+    installmentMonths: { type: Number, default: 0, min: 0 }, // 0 = not sold on installments
     installmentMonthly: { type: Number, default: 0, min: 0 },
     // Supplier-controlled "listed" switch. Stock is tracked separately.
     available: { type: Boolean, default: true },
@@ -23,10 +27,19 @@ const toolSchema = new mongoose.Schema(
     ratingCount: { type: Number, default: 0 },
     rentalsCount: { type: Number, default: 0 }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (_doc, ret) => {
+        delete ret.geo;
+        return ret;
+      }
+    }
+  }
 );
 
 toolSchema.index({ available: 1, category: 1, createdAt: -1 });
+toolSchema.index({ geo: '2dsphere' });
 
 // Fields a supplier may set through the API (everything else is managed by
 // the server — e.g. supplier, rating, rentalsCount).

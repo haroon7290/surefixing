@@ -5,11 +5,11 @@
 | [INSTALLATION.md](./INSTALLATION.md) | All platforms, Docker, environment variables, mobile build flags, tests, troubleshooting |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Components, data model, lifecycles, full REST API, Socket.IO events, AI pipeline, security, file map |
 | [USER_GUIDE.md](./USER_GUIDE.md) | Walkthrough for clients, technicians, suppliers and admins, plus the demo accounts |
-| [STATUS.md](./STATUS.md) | What's implemented, known limitations, upgrading from v1, changelog |
+| [STATUS.md](./STATUS.md) | What is implemented, known limitations, upgrading from v2, changelog |
 | [../ai-service/README.md](../ai-service/README.md) | How the classifier and the explainable ranking work, accuracy, how to retrain |
 | [../WINDOWS_SETUP.md](../WINDOWS_SETUP.md) | Step-by-step Windows setup |
-| [screenshots/](./screenshots/) | App screenshots (light and dark) and website screenshots (`web-*.jpg`) for reports and presentations |
+| [screenshots/](./screenshots/) | App screenshots (`app-*.jpg`, light and dark) and website screenshots (`web-*.jpg`) for reports and presentations |
 
 Honesty notes worth knowing up front (details in [STATUS.md](./STATUS.md#not-implemented-known-limitations)):
-no real payments, no push notifications while the app is closed, no email-based password
-reset.
+there is no payment gateway (deposits and withdrawals are checked and approved by an admin), there are no push notifications while the app
+is closed, and distance is matched by city rather than GPS.

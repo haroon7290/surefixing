@@ -82,6 +82,38 @@ describe('admin & trust and safety', () => {
       .expect(400);
   });
 
+  test('deleting a user cleans up after them, but not while work is in flight', async () => {
+    const Job = require('../src/models/Job');
+    const Tool = require('../src/models/Tool');
+    const owner = await makeUser('client');
+    const worker = await makeUser('technician');
+    const shop = await makeUser('supplier');
+    const tool = (await shop.api('post', '/api/tools').send({ name: 'Drill', rentPricePerDay: 500 })).body;
+
+    const post = (title) => owner.api('post', '/api/jobs').send({ title, description: 'A long enough description here.' });
+    const open = (await post('Open job')).body;
+    const busy = (await post('Busy job')).body;
+    await worker.api('post', `/api/jobs/${open._id}/bids`).send({ amount: 900 }).expect(201);
+    const quote = await worker.api('post', `/api/jobs/${busy._id}/bids`).send({ amount: 1000 });
+    await owner.api('post', `/api/jobs/${busy._id}/accept/${quote.body.bids[0]._id}`).expect(200);
+
+    // A hired job blocks deleting either side.
+    await admin.api('delete', `/api/admin/users/${owner.id}`).expect(400);
+    await admin.api('delete', `/api/admin/users/${worker.id}`).expect(400);
+    await admin.api('post', `/api/admin/jobs/${busy._id}/resolve`).send({ action: 'release' }).expect(200);
+
+    await admin.api('delete', `/api/admin/users/${worker.id}`).expect(200);
+    expect((await Job.findById(open._id)).bids).toHaveLength(0); // their quote is gone
+
+    await admin.api('delete', `/api/admin/users/${owner.id}`).expect(200);
+    expect((await Job.findById(open._id)).status).toBe('cancelled');
+    await owner.api('get', '/api/users/me').expect(401);
+
+    await admin.api('delete', `/api/admin/users/${shop.id}`).expect(200);
+    expect(await Tool.findById(tool._id)).toBeNull();
+    await admin.api('delete', `/api/admin/users/${admin.id}`).expect(400);
+  });
+
   test('non-image uploads are refused', async () => {
     const supplier = await makeUser('supplier');
     const res = await supplier

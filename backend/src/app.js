@@ -24,6 +24,9 @@ const reviewRoutes = require('./routes/reviews');
 const reportRoutes = require('./routes/reports');
 const aiRoutes = require('./routes/ai');
 const metaRoutes = require('./routes/meta');
+const walletRoutes = require('./routes/wallet');
+
+const { version } = require('../package.json');
 
 function createApp() {
   const app = express();
@@ -43,6 +46,12 @@ function createApp() {
   );
   app.use(compression());
   app.use(express.json({ limit: '1mb' }));
+  // Express 5 leaves req.body undefined when a request has no body; handlers
+  // can then read optional fields without guarding every access.
+  app.use((req, _res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+  });
   if (!config.isTest) app.use(morgan('dev'));
 
   if (!config.isTest) {
@@ -51,7 +60,7 @@ function createApp() {
       rateLimit({ windowMs: config.rateLimit.windowMs, limit: config.rateLimit.max, standardHeaders: 'draft-7', legacyHeaders: false })
     );
     app.use(
-      ['/api/auth/login', '/api/auth/register'],
+      ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password'],
       rateLimit({
         windowMs: config.rateLimit.windowMs,
         limit: config.rateLimit.authMax,
@@ -64,9 +73,9 @@ function createApp() {
 
   app.use('/uploads', express.static(uploadDir, { maxAge: '7d' }));
 
-  app.get('/', (_req, res) => res.json({ ok: true, service: 'surefix-backend', version: '2.0.0' }));
+  app.get('/', (_req, res) => res.json({ ok: true, service: 'surefix-backend', version }));
   app.get('/api/health', (_req, res) =>
-    res.json({ ok: true, db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uptime: process.uptime() })
+    res.json({ ok: true, version, db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uptime: process.uptime() })
   );
 
   app.use('/api/auth', authRoutes);
@@ -81,6 +90,7 @@ function createApp() {
   app.use('/api/reports', reportRoutes);
   app.use('/api/ai', aiRoutes);
   app.use('/api/meta', metaRoutes);
+  app.use('/api/wallet', walletRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

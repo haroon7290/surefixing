@@ -1,38 +1,68 @@
-# SureFix mobile app (Flutter)
+# SureFix app and website (Flutter)
 
 ```bash
 flutter pub get
-flutter run                     # pick a device
-flutter run -d chrome --web-port 8080   # the website (window > 1000 px wide)
-flutter test && flutter analyze
+flutter run                               # pick a device
+flutter run -d chrome --web-port 8080     # the website (window wider than 1000 px)
+flutter analyze && flutter test
 ```
 
-Requires Flutter 3.35+ (Dart 3.9). Runs on Android, iOS, web and desktop. Windows wider than
-1000 px get the website layout (see `lib/screens/web/` and `lib/core/responsive.dart`).
+Requires Flutter 3.35+ (Dart 3.9). Targets Android, iOS, web and Windows from one codebase.
+
+**Location**: "Use my current location" asks for permission the first time (declared in
+`AndroidManifest.xml` and `Info.plist`). In a browser it works on `localhost` or HTTPS only. The
+map picker loads OpenStreetMap tiles, so it needs internet access; the area list works without.
 
 ## Build-time options
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--dart-define=API_BASE_URL=http://host:4000` | `http://localhost:4000` | Backend URL (`10.0.2.2` for the Android emulator; `adb reverse tcp:4000 tcp:4000` for a USB phone) |
-| `--dart-define=CURRENCY=$` | `Rs` | Currency symbol |
-| `--dart-define=DEMO=true` | off in release | Show demo-account buttons on the login screen |
+| `--dart-define=API_BASE_URL=http://host:4000` | `http://localhost:4000` | Backend address (`10.0.2.2` for the Android emulator; `adb reverse tcp:4000 tcp:4000` for a USB phone) |
+| `--dart-define=DEMO=false` | `true` | Hide the one-tap demo accounts on the log-in screen |
 
 ## Structure
 
 ```
 lib/
-├── main.dart, app.dart   bootstrap, themes, root gate, global realtime toasts
-├── core/                 theme.dart (design system, light/dark), catalog.dart, format.dart
-├── services/             api_client, auth (ChangeNotifier), realtime (Socket.IO), badges, settings, navigation
-├── models/               user, job, tool, rental, message, app_notification, recommendation
-├── widgets/              cards, match_card, pills, states (empty/error/skeleton), media, visuals, dialogs, async_list
-└── screens/
-    ├── shells.dart       bottom navigation per role
-    ├── routes.dart       notification deep links
-    ├── auth/  client/  technician/  supplier/  admin/  shared/
-    └── web/              website frame + header, public site, landing, about, web widgets
+├── main.dart · app.dart · routes.dart   start-up, root gate, realtime toasts, addressable pages
+├── kit.dart          the one import a screen needs (tokens, components, models, services)
+├── core/             theme · api · session · location · realtime · nav · format · catalog · responsive
+├── models/           user · job · tool (+ rental) · chat · wallet · json
+├── ui/               the component library: brand, buttons, inputs, filters, cards, pills,
+│                     states, media, sheets, charts, page scaffolding, icons
+└── features/
+    ├── shell/        sections per role, tab bar (phone), web frame + sidebar (wide)
+    ├── site/         public website: header, footer, landing, how it works, help, legal
+    ├── auth/         introduction, log in, sign up, password reset
+    ├── home/         customer, technician and supplier dashboards
+    ├── jobs/         post a job, job page (all roles), lists, Smart Match
+    ├── location/     location picker (GPS, map pin, area list) and the distance filter
+    ├── technicians/  directory and profile
+    ├── tools/        market, tool page, inventory, tool form
+    ├── rentals/      rentals, orders, rental page
+    ├── wallet/       wallet, ledger, add money (transaction ID), withdraw, the "how will you pay" sheet
+    ├── chat/         inbox and conversation
+    ├── account/      account, profile, verification, notifications, saved, report
+    └── admin/        overview, payments desk (deposits, withdrawals, ledger, company accounts), users, verification, reports, jobs, tools
+test/
+├── fake_api.dart     a stand-in backend that answers every endpoint
+└── app_test.dart     models, components, every screen at phone + desktop size, key flows
 ```
 
-Design system: brand blue `#2F54EB` + tool orange `#FF8A00`, Plus Jakarta Sans (bundled, OFL —
-see `assets/fonts/OFL.txt`), semantic palette via `context.palette`, light and dark themes.
+## Design system
+
+- **Identity**: ink `#14161B` and safety orange `#FF5A1F` on warm paper `#F6F3EE`; blue is
+  reserved for the verified seal. The mark is a hex nut with a tick (`ui/brand.dart`).
+- **Type**: Bricolage Grotesque for headings and numbers, Plus Jakarta Sans for text. Both
+  are bundled under the SIL Open Font License (`assets/fonts/OFL-*.txt`).
+- **Icons**: Phosphor, referenced by meaning through `ui/icons.dart`.
+- **Tokens**: colours via `context.colors` (`AppColors`, light and dark), text via
+  `context.text`, radii in `R`, spacers in `Gap`, tones (`Tone.success`, …) for pills and
+  notices. Screens never hard-code colours.
+- **Layout**: `AppPage` + `PageList` give every screen its frame: an app bar on phones, a
+  large heading and centred content on wide windows. `TwoCol` and `AutoGrid` handle columns.
+- **Search pages**: `FilterLayout` puts a `FilterPanel` beside the results on wide windows and
+  a location chip, a *Filters* sheet and a sort menu above them on phones. `Locations`
+  (`core/location.dart`) is the shared "search near" place and radius.
+- **Data**: `AsyncView` loads, shows a skeleton, an error with retry, and reloads on the
+  realtime events you list.

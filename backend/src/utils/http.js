@@ -17,8 +17,8 @@ function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Reads ?page=&limit= and returns mongoose-ready skip/limit. Responses stay
-// plain arrays (backwards compatible); the total goes in X-Total-Count.
+// Reads ?page=&limit= and returns mongoose-ready skip/limit. Lists are plain
+// arrays; the total goes in the X-Total-Count header.
 function paginate(req, { defaultLimit = 50, maxLimit = 100 } = {}) {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(maxLimit, Math.max(1, parseInt(req.query.limit, 10) || defaultLimit));

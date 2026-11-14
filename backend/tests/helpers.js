@@ -41,4 +41,10 @@ async function makeUser(role = 'client', extra = {}) {
   return { token, user, id: user.id, email, password, api };
 }
 
-module.exports = { app, request, connect, disconnect, clearDb, makeUser };
+// Puts money in a user's wallet as if an admin had approved a deposit.
+async function fund(user, amount) {
+  const wallet = require('../src/services/wallet');
+  await wallet.credit(user.id, amount, 'deposit', { note: 'Test deposit' });
+}
+
+module.exports = { app, request, connect, disconnect, clearDb, makeUser, fund };

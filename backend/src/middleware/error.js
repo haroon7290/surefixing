@@ -35,6 +35,8 @@ function errorHandler(err, _req, res, _next) {
     if (config.isProd) message = 'Server error';
   }
   const body = { error: message };
+  // Machine-readable reason the app can act on, e.g. 'insufficient_funds'.
+  if (typeof err.code === 'string' && status < 500) body.code = err.code;
   if (err.details) body.details = err.details;
   res.status(status).json(body);
 }

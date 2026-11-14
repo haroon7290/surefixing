@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fixit</string>
+	<string>SureFix</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>SureFix uses the camera to photograph repair problems, tools and ID documents.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SureFix uses your location to show technicians and tools near you and how far away they are. Your exact position is never shown to anyone.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SureFix lets you attach photos of repair problems, tools and ID documents.</string>
 	<key>NSAppTransportSecurity</key>

@@ -1,7 +1,7 @@
 name: surefix
 description: SureFix — the marketplace for home repairs and tool rentals.
 publish_to: 'none'
-version: 2.0.0+2
+version: 3.0.0+3
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -13,9 +13,12 @@ dependencies:
   http: ^1.1.2
   shared_preferences: ^2.2.2
   intl: ^0.19.0
-  cupertino_icons: ^1.0.6
   socket_io_client: ^2.0.3+1
   image_picker: ^1.1.2
+  phosphor_flutter: ^2.1.0
+  geolocator: ^14.0.2
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:
@@ -25,7 +28,19 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   fonts:
-    - family: PlusJakartaSans
+    # Display face for headings and numbers.
+    - family: Bricolage
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-500.ttf
+          weight: 500
+        - asset: assets/fonts/BricolageGrotesque-600.ttf
+          weight: 600
+        - asset: assets/fonts/BricolageGrotesque-700.ttf
+          weight: 700
+        - asset: assets/fonts/BricolageGrotesque-800.ttf
+          weight: 800
+    # Text face for everything else.
+    - family: Jakarta
       fonts:
         - asset: assets/fonts/PlusJakartaSans-400.ttf
           weight: 400

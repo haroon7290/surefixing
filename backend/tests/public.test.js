@@ -63,6 +63,40 @@ describe('public (signed-out) access', () => {
     expect(Object.keys(res.body)).toEqual(['online']);
   });
 
+  test('price estimates: baseline first, then learned from completed jobs', async () => {
+    const Job = require('../src/models/Job');
+    const base = await request(app).get('/api/ai/estimate?category=plumbing').expect(200);
+    expect(base.body).toMatchObject({ category: 'plumbing', basis: 'baseline', low: 1500, high: 4500, samples: 0 });
+    const urgent = await request(app).get('/api/ai/estimate?category=plumbing&urgency=emergency');
+    expect(urgent.body.low).toBeGreaterThan(base.body.low);
+    await request(app).get('/api/ai/estimate?category=spaceships').expect(400);
+
+    await Job.insertMany(
+      [2000, 2200, 2400, 2600, 2800, 3000, 9000].map((agreedPrice) => ({
+        client: client.id, title: 'Past job', description: 'Completed earlier.', category: 'plumbing',
+        status: 'completed', agreedPrice, completedAt: new Date()
+      }))
+    );
+    const learned = await request(app).get('/api/ai/estimate?category=plumbing');
+    expect(learned.body).toMatchObject({ basis: 'history', samples: 7, low: 2300, high: 2900 });
+
+    // The analysis of a described problem carries the estimate for its category.
+    const analysis = await request(app).post('/api/ai/analyze').send({ text: 'kitchen tap is leaking water' });
+    expect(analysis.body.estimate).toMatchObject({ category: 'plumbing', basis: 'history' });
+  });
+
+  test('testimonials show recent written reviews with shortened client names', async () => {
+    const Job = require('../src/models/Job');
+    await Job.create({
+      client: client.id, title: 'Fix tap', description: 'Completed earlier.', category: 'plumbing', status: 'completed',
+      assignedTechnician: tech.id, agreedPrice: 2000, completedAt: new Date(), rating: 5, review: 'Brilliant, fast and tidy.'
+    });
+    const res = await request(app).get('/api/meta/testimonials').expect(200);
+    expect(res.body[0]).toMatchObject({ rating: 5, review: 'Brilliant, fast and tidy.', technicianId: tech.id });
+    expect(res.body[0].clientName).toMatch(/^\S+( \S\.)?$/);
+    expect((await request(app).get('/api/meta')).body).toMatchObject({ platformFeePercent: 10, jobStages: ['hired', 'on_the_way', 'working', 'done'] });
+  });
+
   test('site stats', async () => {
     const res = await request(app).get('/api/meta/stats').expect(200);
     expect(res.body).toMatchObject({ technicians: 1, tools: 1 });

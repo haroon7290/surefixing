@@ -1,74 +1,108 @@
 import 'package:intl/intl.dart';
 
-/// App-wide formatting. Currency defaults to Pakistani Rupees; override at
-/// build time with --dart-define=CURRENCY=$ (or any symbol).
-class Fmt {
-  static const currency = String.fromEnvironment('CURRENCY', defaultValue: 'Rs');
-  static final _num = NumberFormat.decimalPattern();
-  static final _compact = NumberFormat.compact();
+/// Text formatting shared by every screen: money, dates and labels.
 
-  static String money(num? v) {
-    final n = v ?? 0;
-    final s = n == n.roundToDouble() ? _num.format(n.round()) : _num.format(double.parse(n.toStringAsFixed(2)));
-    return '$currency $s';
-  }
+final _whole = NumberFormat('#,##0');
+final _compact = NumberFormat.compact();
 
-  static String compactMoney(num? v) => '$currency ${_compact.format(v ?? 0)}';
+/// "Rs 2,500". Amounts are whole rupees in the UI.
+String money(num? amount) => 'Rs ${_whole.format((amount ?? 0).round())}';
 
-  static String compact(num? v) => _compact.format(v ?? 0);
+/// "Rs 12.5K" for tight spaces (stat tiles, charts).
+String moneyCompact(num? amount) {
+  final v = (amount ?? 0).round();
+  return v.abs() < 10000 ? money(v) : 'Rs ${_compact.format(v)}';
+}
 
-  static String date(DateTime? d) => d == null ? '' : DateFormat.yMMMd().format(d.toLocal());
+/// "+Rs 500" / "−Rs 500" for ledger rows.
+String signedMoney(num amount) => '${amount < 0 ? '−' : '+'}${money(amount.abs())}';
 
-  static String shortDate(DateTime? d) => d == null ? '' : DateFormat.MMMd().format(d.toLocal());
+String count(num n) => _whole.format(n);
 
-  static String time(DateTime? d) => d == null ? '' : DateFormat.jm().format(d.toLocal());
+String plural(num n, String one, [String? many]) => '${count(n)} ${n == 1 ? one : (many ?? '${one}s')}';
 
-  static String dateTime(DateTime? d) => d == null ? '' : DateFormat('MMM d, h:mm a').format(d.toLocal());
+/// "plumbing" → "Plumbing", "on_the_way" → "On the way".
+String humanize(String key) {
+  final s = key.replaceAll('_', ' ').trim();
+  return s.isEmpty ? '' : s[0].toUpperCase() + s.substring(1);
+}
 
-  static String weekday(DateTime? d) => d == null ? '' : DateFormat('EEE, MMM d').format(d.toLocal());
+String initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+}
 
-  /// "just now", "5m ago", "3h ago", "Yesterday", "Mar 4".
-  static String ago(DateTime? d) {
-    if (d == null) return '';
-    final diff = DateTime.now().difference(d.toLocal());
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'Yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return shortDate(d);
-  }
+/// "just now", "5 min ago", "3 h ago", "yesterday", "12 Nov".
+String timeAgo(DateTime? at) {
+  if (at == null) return '';
+  final d = DateTime.now().difference(at);
+  if (d.inSeconds < 45) return 'just now';
+  if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+  if (d.inHours < 24) return '${d.inHours} h ago';
+  if (d.inDays == 1) return 'yesterday';
+  if (d.inDays < 7) return '${d.inDays} days ago';
+  return shortDate(at);
+}
 
-  /// Chat-list style: time today, weekday this week, date otherwise.
-  static String chatStamp(DateTime? d) {
-    if (d == null) return '';
-    final local = d.toLocal();
-    final now = DateTime.now();
-    if (local.year == now.year && local.month == now.month && local.day == now.day) return time(local);
-    if (now.difference(local).inDays < 7) return DateFormat.E().format(local);
-    return shortDate(local);
-  }
+/// "12 Nov" (adds the year when it is not this year).
+String shortDate(DateTime? at) {
+  if (at == null) return '';
+  return DateFormat(at.year == DateTime.now().year ? 'd MMM' : 'd MMM y').format(at);
+}
 
-  static String dayLabel(DateTime d) {
-    final local = d.toLocal();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(local.year, local.month, local.day);
-    final diff = today.difference(day).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    return DateFormat('EEEE, MMM d').format(local);
-  }
+/// "Tue, 12 Nov 2026".
+String longDate(DateTime? at) => at == null ? '' : DateFormat('EEE, d MMM y').format(at);
 
-  static String responseTime(num minutes) {
-    final m = minutes.round();
-    if (m < 60) return '~${m < 1 ? 1 : m} min';
-    final h = (m / 60).round();
-    return '~$h hr';
-  }
+/// "3:45 PM".
+String clock(DateTime? at) => at == null ? '' : DateFormat('h:mm a').format(at);
 
-  static String plural(int n, String word, [String? pluralWord]) => '$n ${n == 1 ? word : (pluralWord ?? '${word}s')}';
+/// "12 Nov, 3:45 PM".
+String dateTime(DateTime? at) => at == null ? '' : '${shortDate(at)}, ${clock(at)}';
 
-  static String titleCase(String s) =>
-      s.replaceAll('_', ' ').split(' ').map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+/// Chat day separator: "Today", "Yesterday", "Tue, 12 Nov".
+String dayLabel(DateTime at) {
+  final now = DateTime.now();
+  final days = DateTime(now.year, now.month, now.day).difference(DateTime(at.year, at.month, at.day)).inDays;
+  if (days == 0) return 'Today';
+  if (days == 1) return 'Yesterday';
+  return DateFormat('EEE, d MMM').format(at);
+}
+
+/// How fast a technician usually answers: "~15 min", "~2 h", "~1 day".
+String responseTime(double minutes) {
+  if (minutes < 60) return '~${minutes.round().clamp(1, 59)} min';
+  if (minutes < 24 * 60) return '~${(minutes / 60).round()} h';
+  return '~${(minutes / 1440).round()} day${minutes >= 2880 ? 's' : ''}';
+}
+
+/// When a technician can start: 0 → "Today".
+String etaLabel(int days) => days <= 0 ? 'Can start today' : (days == 1 ? 'Can start tomorrow' : 'Can start in $days days');
+
+/// Time left until [at]: "2 days", "5 h", "now".
+String timeLeft(DateTime? at) {
+  if (at == null) return '';
+  final d = at.difference(DateTime.now());
+  if (d.isNegative) return 'now';
+  if (d.inHours >= 48) return '${d.inDays} days';
+  if (d.inHours >= 1) return '${d.inHours} h';
+  return '${d.inMinutes.clamp(1, 59)} min';
+}
+
+String greeting() {
+  final h = DateTime.now().hour;
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/// Cleans an exception into a sentence a person can read.
+String errorText(Object error) => error.toString().replaceFirst('Exception: ', '');
+
+/// "850 m", "2.3 km", "12 km" — the same wording as the AI explanations.
+String distance(num km) {
+  if (km < 1) return '${(km * 1000).round()} m';
+  if (km < 10) return '${km.toStringAsFixed(1)} km';
+  return '${km.round()} km';
 }

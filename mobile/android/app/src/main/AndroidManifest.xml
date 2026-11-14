@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Needed in release builds too (debug builds get it from src/debug). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- "Near me" search: asked the first time someone taps "Use my current location". -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <!-- usesCleartextTraffic lets the app reach a local http:// backend
          (localhost via adb reverse, or a LAN IP). Remove it once the API
          is served over HTTPS. -->

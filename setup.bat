@@ -46,7 +46,7 @@ if exist android goto skip_create
 if exist ios goto skip_create
 if exist web goto skip_create
 if exist windows goto skip_create
-flutter create --org com.fixit --project-name surefix .
+flutter create --org com.surefix --project-name surefix --platforms=android,ios,web,windows .
 :skip_create
 flutter pub get
 cd ..
@@ -59,11 +59,11 @@ echo Start the stack (one command per window):
 echo   scripts\start-mongo.bat      ^(skip if MongoDB runs as a Windows service^)
 echo   scripts\start-backend.bat    :4000  ^(first run auto-seeds demo data^)
 echo   scripts\start-ai.bat         :5001
-echo   scripts\start-mobile.bat     ^(add "chrome" or a device id as an argument^)
+echo   scripts\start-mobile.bat     ^(phone or emulator; add a device id as an argument^)
+echo   scripts\start-web.bat        ^(the website in Chrome, http://localhost:8080^)
 echo.
 echo If testing on a real Android phone over USB, first run:
 echo   adb reverse tcp:4000 tcp:4000
-echo   adb reverse tcp:5001 tcp:5001
 echo.
 echo Demo logins:  client@demo.com   tech@demo.com   supplier@demo.com   admin@demo.com
 echo Password:     password123

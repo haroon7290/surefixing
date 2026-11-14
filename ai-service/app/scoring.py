@@ -14,30 +14,31 @@ an identical JS port (backend/src/services/scoring.js) used when this
 service is offline — keep the two in sync.
 """
 
+import math
 from typing import Any, Dict, List, Optional
 
 from .text import tokenize
 from .training_data import CATEGORY_LABELS
 
 RECOMMEND_WEIGHTS = {
-    "skill": 0.30,
-    "rating": 0.22,
+    "skill": 0.28,
+    "rating": 0.20,
     "reliability": 0.13,
     "responsiveness": 0.08,
     "experience": 0.09,
-    "proximity": 0.08,
+    "proximity": 0.12,
     "availability": 0.05,
     "verified": 0.05,
 }
 
 BID_WEIGHTS = {
-    "skill": 0.18,
-    "rating": 0.24,
+    "skill": 0.16,
+    "rating": 0.22,
     "reliability": 0.14,
     "responsiveness": 0.08,
     "experience": 0.08,
-    "price": 0.18,
-    "proximity": 0.05,
+    "price": 0.17,
+    "proximity": 0.10,
     "verified": 0.05,
 }
 
@@ -74,6 +75,36 @@ def _sentence_case(label: str) -> str:
     return label[:1].lower() + label[1:]
 
 
+def _distance(t: Dict[str, Any]) -> Optional[float]:
+    """A candidate's distance in km (sent by the backend), or None when unknown."""
+    v = t.get("distanceKm")
+    if v is None:
+        return None
+    try:
+        km = float(v)
+    except (TypeError, ValueError):
+        return None
+    return km if km >= 0 and math.isfinite(km) else None
+
+
+def _js_round(x: float) -> int:
+    """Math.round for non-negative numbers (Python's round() rounds half to even)."""
+    return int(math.floor(x + 0.5))
+
+
+def _int_text(x: float) -> str:
+    return str(int(x)) if float(x).is_integer() else str(x)
+
+
+def _km_text(km: float) -> str:
+    """"850 m", "2.3 km", "12 km" — must match the backend's fallback exactly."""
+    if km < 1:
+        return f"{_js_round(km * 1000)} m"
+    if km < 10:
+        return f"{km:.1f} km"
+    return f"{_js_round(km)} km"
+
+
 def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
@@ -105,8 +136,13 @@ def components(t: Dict[str, Any], ctx: Dict[str, Any], mode: str) -> Dict[str, f
         minutes = 60.0
     experience = 0.6 * min(1.0, completed / 40) + 0.4 * min(1.0, _num(t.get("experienceYears")) / 10)
 
+    # Proximity: real distance when known (1 at the door, 0.5 at 8 km, 0.2 at
+    # 32 km), otherwise whether they are in the same city.
     proximity = 0.5
-    if ctx.get("city"):
+    km = _distance(t)
+    if km is not None:
+        proximity = 1 / (1 + km / 8)
+    elif ctx.get("city"):
         a = str(ctx["city"]).strip().lower()
         b = str(t.get("city") or "").strip().lower()
         proximity = 0.4 if not b else (1.0 if a == b else 0.1)
@@ -182,7 +218,17 @@ def explain(t: Dict[str, Any], c: Dict[str, float], w: Dict[str, float], ctx: Di
     elif completed >= 20:
         add("experience", f"{completed} jobs completed")
 
-    if c["proximity"] == 1.0:
+    km = _distance(t)
+    nearby = None  # always shown when known: distance is the first thing people ask
+    if km is not None:
+        radius = _num(t.get("serviceRadiusKm"))
+        if radius and km > radius:
+            notes.append(f"{_km_text(km)} away, outside the {_int_text(radius)} km they usually cover")
+        elif km <= 10:
+            nearby = f"{_km_text(km)} from you"
+        elif km > 25:
+            notes.append(f"{_km_text(km)} away")
+    elif c["proximity"] == 1.0:
         add("proximity", f"Based in {t.get('city')}")
     elif c["proximity"] == 0.1 and t.get("city"):
         notes.append(f"Based in {t.get('city')} (outside your city)")
@@ -203,7 +249,8 @@ def explain(t: Dict[str, Any], c: Dict[str, float], w: Dict[str, float], ctx: Di
             notes.append(f"{round((amount - budget) / budget * 100)}% over your budget")
 
     reasons.sort(key=lambda x: -x[0])
-    return [text for _, text in reasons[:4]], notes
+    top = [text for _, text in reasons[: 3 if nearby else 4]]
+    return top + ([nearby] if nearby else []), notes
 
 
 def score_one(t: Dict[str, Any], ctx: Optional[Dict[str, Any]] = None, mode: str = "recommend") -> Dict[str, Any]:

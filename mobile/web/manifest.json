@@ -3,10 +3,10 @@
     "short_name": "SureFix",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0F1B3D",
-    "theme_color": "#2F54EB",
-    "description": "SureFix — the marketplace for home repairs and tool rentals.",
-    "orientation": "portrait-primary",
+    "background_color": "#F6F3EE",
+    "theme_color": "#FF5A1F",
+    "description": "SureFix — home repairs from verified technicians and tools to rent, with payments protected by escrow.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

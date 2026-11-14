@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
-const { URGENCY_LEVELS } = require('../config/catalog');
+const { URGENCY_LEVELS, JOB_STAGES } = require('../config/catalog');
+const { paymentSchema } = require('./payment');
+const { pointSchema } = require('../utils/geo');
 
+// Lifecycle:
+//   pending ──hire──▶ in_progress ──client confirms──▶ completed
+//      │                  │  stage: hired → on_the_way → working → done
+//      └──cancel──▶ cancelled ◀──cancel (before work starts) / admin
+//   in_progress ──technician withdraws──▶ pending (reopened for quotes)
 const STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
 
 const bidSchema = new mongoose.Schema(
@@ -9,14 +16,14 @@ const bidSchema = new mongoose.Schema(
     amount: { type: Number, required: true, min: 0 },
     message: { type: String, default: '' },
     etaDays: { type: Number, default: 1, min: 0 },
-    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
+    status: { type: String, enum: ['pending', 'accepted', 'rejected', 'withdrawn'], default: 'pending' }
   },
   { timestamps: true }
 );
 
 const historySchema = new mongoose.Schema(
   {
-    status: { type: String, required: true }, // a job status or an event like 'bid_accepted'
+    event: { type: String, required: true }, // posted, bid, hired, on_the_way, working, done, completed, cancelled…
     note: { type: String, default: '' },
     by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     at: { type: Date, default: Date.now }
@@ -33,6 +40,10 @@ const jobSchema = new mongoose.Schema(
     budget: { type: Number, default: 0, min: 0 },
     location: { type: String, default: '' },
     city: { type: String, default: '', trim: true },
+    // Where the work is, for technicians searching near them. Only the
+    // distance and area name are ever sent to the app.
+    geo: { type: pointSchema, default: undefined },
+    area: { type: String, default: '', trim: true },
     urgency: { type: String, enum: URGENCY_LEVELS, default: 'normal' },
     preferredDate: { type: Date, default: null },
     images: { type: [String], default: [] },
@@ -49,26 +60,37 @@ const jobSchema = new mongoose.Schema(
     bids: [bidSchema],
     history: { type: [historySchema], default: [] },
 
+    // Progress while in_progress, reported by the technician.
+    stage: { type: String, enum: JOB_STAGES, default: 'hired' },
+    hiredAt: { type: Date, default: null },
+    doneAt: { type: Date, default: null },
+    completionNote: { type: String, default: '' },
+    completionImages: { type: [String], default: [] },
+
+    payment: { type: paymentSchema, default: () => ({}) },
+
     completedAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
     cancelReason: { type: String, default: '' },
     rating: { type: Number, default: null },
     review: { type: String, default: '' }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (_doc, ret) => {
+        delete ret.geo;
+        return ret;
+      }
+    }
+  }
 );
 
 jobSchema.index({ status: 1, createdAt: -1 });
+jobSchema.index({ geo: '2dsphere' });
 
-jobSchema.methods.log = function (status, by, note = '') {
-  this.history.push({ status, by: by || null, note, at: new Date() });
-};
-
-jobSchema.methods.isParticipant = function (userId) {
-  const id = String(userId);
-  return [this.client, this.assignedTechnician, this.requestedTechnician]
-    .filter(Boolean)
-    .some((p) => String(p._id || p) === id);
+jobSchema.methods.log = function (event, by, note = '') {
+  this.history.push({ event, by: by || null, note, at: new Date() });
 };
 
 module.exports = mongoose.model('Job', jobSchema);

@@ -37,7 +37,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 4000
-      MONGO_URI: mongodb://mongo:27017/fixit
+      MONGO_URI: mongodb://mongo:27017/surefix
       AI_SERVICE_URL: http://ai:5001
       JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}

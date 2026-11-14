@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { pointSchema, latLng } = require('../utils/geo');
 
 const ROLES = ['client', 'technician', 'supplier', 'admin'];
+const PORTFOLIO_MAX = 8;
 
 const userSchema = new mongoose.Schema(
   {
@@ -15,6 +17,17 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '' },
     bio: { type: String, default: '' },
     city: { type: String, default: '', trim: true },
+    // Street address. Suppliers: where customers collect tools (shared with a
+    // renter once a request is approved). Others: default delivery address.
+    // Never shown on public profiles.
+    address: { type: String, default: '', trim: true, maxlength: 300 },
+    // Where the user is, for "near me" search: technicians' base, suppliers'
+    // shop (their tools inherit it), customers' home. Never shown to others —
+    // they only see the distance and the area name.
+    geo: { type: pointSchema, default: undefined },
+    area: { type: String, default: '', trim: true, maxlength: 60 },
+    // Technicians: how far they are willing to travel.
+    serviceRadiusKm: { type: Number, default: 15, min: 1, max: 100 },
 
     // Technician professional profile.
     headline: { type: String, default: '', trim: true },
@@ -22,6 +35,7 @@ const userSchema = new mongoose.Schema(
     hourlyRate: { type: Number, default: 0, min: 0 },
     experienceYears: { type: Number, default: 0, min: 0 },
     isAvailable: { type: Boolean, default: true },
+    portfolio: { type: [String], default: [] }, // photos of past work
 
     // Technician stats used by the AI ranker.
     rating: { type: Number, default: 0 }, // 0-5 running average
@@ -31,12 +45,31 @@ const userSchema = new mongoose.Schema(
     avgResponseMinutes: { type: Number, default: 60 },
     responseSamples: { type: Number, default: 0 },
 
+    // Wallet balance; every change has a Transaction row.
+    walletBalance: { type: Number, default: 0, min: 0 },
+    // Where withdrawals are sent (remembered from the last request).
+    payoutAccount: {
+      method: { type: String, enum: ['bank', 'mobile_wallet'], default: 'bank' },
+      provider: { type: String, default: '', trim: true },
+      accountTitle: { type: String, default: '', trim: true },
+      accountNumber: { type: String, default: '', trim: true }
+    },
+
+    favoriteTechnicians: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    favoriteTools: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tool' }],
+
+    // Password reset: bcrypt hash of a 6-digit code, valid for a few minutes.
+    resetCodeHash: { type: String, default: '' },
+    resetCodeExpires: { type: Date, default: null },
+    resetAttempts: { type: Number, default: 0 },
+
     lastSeenAt: { type: Date, default: null }
   },
   { timestamps: true }
 );
 
 userSchema.index({ role: 1, rating: -1 });
+userSchema.index({ geo: '2dsphere' });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
@@ -66,11 +99,14 @@ function profileFields(u) {
     avatar: u.avatar,
     bio: u.bio,
     city: u.city,
+    area: u.area,
+    serviceRadiusKm: u.serviceRadiusKm,
     headline: u.headline,
     skills: u.skills,
     hourlyRate: u.hourlyRate,
     experienceYears: u.experienceYears,
     isAvailable: u.isAvailable,
+    portfolio: u.portfolio,
     rating: u.rating,
     ratingCount: u.ratingCount,
     jobsCompleted: u.jobsCompleted,
@@ -81,20 +117,27 @@ function profileFields(u) {
   };
 }
 
-// Full projection — for the account owner and admins.
-userSchema.methods.toPublicJSON = function () {
+// Everything about an account — for its owner and admins.
+userSchema.methods.toPrivateJSON = function () {
   return {
     ...profileFields(this),
     email: this.email,
     phone: this.phone,
-    status: this.status
+    address: this.address,
+    geo: latLng(this.geo),
+    status: this.status,
+    walletBalance: this.walletBalance,
+    payoutAccount: this.payoutAccount,
+    favoriteTechnicians: this.favoriteTechnicians,
+    favoriteTools: this.favoriteTools
   };
 };
 
-// What other marketplace users may see: no email/phone.
+// What other marketplace users (and website visitors) may see.
 userSchema.methods.toProfileJSON = function () {
   return profileFields(this);
 };
 
 module.exports = mongoose.model('User', userSchema);
 module.exports.ROLES = ROLES;
+module.exports.PORTFOLIO_MAX = PORTFOLIO_MAX;
