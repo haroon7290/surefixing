@@ -184,6 +184,7 @@ docs/         Architecture, installation, user guide, status, screenshots
 |---|---|
 | [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) | Install + run on Windows, upgrading, troubleshooting |
 | [docs/INSTALLATION.md](./docs/INSTALLATION.md) | All platforms, environment variables, Docker, app builds |
+| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | Free hosting (Atlas, Render, GitHub Pages, APK) and updating it while live |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Components, data model, lifecycles, REST API, realtime events, AI pipeline |
 | [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) | Walkthrough for each role |
 | [docs/STATUS.md](./docs/STATUS.md) | What is implemented, known limitations, changelog |

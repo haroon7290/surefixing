@@ -1,0 +1,49 @@
+# Render Blueprint: the backend API and the AI service, both on the free plan.
+# Render → New → Blueprint → pick this repository. It asks for MONGO_URI (your
+# MongoDB Atlas connection string); everything else is filled in below.
+# Every push to main redeploys both services. See docs/DEPLOYMENT.md.
+services:
+  - type: web
+    name: surefix-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGO_URI
+        sync: false # asked for when you create the Blueprint
+      - key: JWT_SECRET
+        generateValue: true
+      # The website on GitHub Pages, plus a local web build for testing.
+      - key: CORS_ORIGINS
+        value: https://haroon7290.github.io,http://localhost:8080
+      # If Render gives the AI service a different address, change this in
+      # the dashboard (the backend falls back to its built-in scorer anyway).
+      - key: AI_SERVICE_URL
+        value: https://surefix-ai.onrender.com
+      # The AI service sleeps on the free plan and needs ~50 s to wake up;
+      # don't make requests wait for it.
+      - key: AI_TIMEOUT_MS
+        value: "2500"
+
+  - type: web
+    name: surefix-ai
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
