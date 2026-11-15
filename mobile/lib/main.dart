@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/alerts.dart';
 import 'core/location.dart';
 import 'core/nav.dart';
 import 'core/realtime.dart';
@@ -10,8 +11,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SiteNav.init();
   await Future.wait([Session.instance.load(), Settings.instance.load(), Locations.instance.load()]);
+  await Alerts.instance.init();
   final session = Session.instance;
   if (session.loggedIn) {
+    Alerts.instance.requestPermission();
     Realtime.instance.connect(session.token!);
     Badges.instance.start();
     session.refresh(); // pick up wallet, profile and verification changes

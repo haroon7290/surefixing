@@ -27,12 +27,21 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
     super.initState();
     _sub = Realtime.instance.events.listen(_onRealtime);
     Session.instance.addListener(_onSessionChanged);
+    Alerts.instance.onOpen = _openPayload;
     // Registered before MaterialApp's own observer, so address-bar changes
     // (…/#/tools) switch sections instead of pushing unknown named routes.
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pageForPath(SiteNav.initialRoute) == null) SiteNav.syncUrl();
+      // The app was opened by tapping a notification: go to what it is about.
+      if (Alerts.instance.openedFromNotification) Future.delayed(const Duration(milliseconds: 400), Alerts.instance.deliverLaunch);
     });
+  }
+
+  /// Back from the background: notification permission may have changed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) Alerts.instance.refreshAllowed();
   }
 
   @override
@@ -79,6 +88,37 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
     navigatorKey.currentState?.popUntil((r) => r.isFirst);
     SiteNav.select('home');
     now ? Badges.instance.start() : Badges.instance.stop();
+    if (now) Alerts.instance.requestPermission();
+  }
+
+  /// Opens what a notification (phone notification or toast) is about.
+  void _openPayload(Json p) {
+    final context = navigatorKey.currentContext;
+    if (context == null || !Session.instance.loggedIn) return;
+    switch (str(p['k'])) {
+      case 'target':
+        openTarget(context, type: str(p['type']), data: asJson(p['data']));
+      case 'job':
+        openJob(context, str(p['id']));
+      case 'section':
+        openSection(context, str(p['s']));
+      case 'chat':
+        openChat(
+          context,
+          ChatTarget(jobId: str(p['jobId']), toolId: str(p['toolId']), otherId: str(p['otherId']), otherName: str(p['otherName']), subject: str(p['subject'])),
+        );
+    }
+  }
+
+  /// On phones: a notification in the notification bar, with sound. Where
+  /// that isn't available or allowed (website, desktop, permission off): a
+  /// toast inside the app.
+  void _alert({required String title, required String body, required Json payload, String? actionLabel}) {
+    if (Alerts.instance.active) {
+      Alerts.instance.show(title, body, payload);
+      return;
+    }
+    toast(body.isEmpty ? title : '$title — $body', actionLabel: actionLabel, onAction: actionLabel == null ? null : () => _openPayload(payload));
   }
 
   // Toasts for events that matter wherever the user is.
@@ -88,25 +128,25 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
     if (me == null || context == null) return;
     switch (e.name) {
       case 'notification':
-        final title = str(e.data['title']);
-        final body = str(e.data['body']);
         final data = asJson(e.data['data']);
-        toast(
-          body.isEmpty ? title : '$title — $body',
+        _alert(
+          title: str(e.data['title'], 'SureFix'),
+          body: str(e.data['body']),
+          payload: {'k': 'target', 'type': str(e.data['type']), 'data': data},
           actionLabel: data.isEmpty ? null : 'View',
-          onAction: () => openTarget(navigatorKey.currentContext!, type: str(e.data['type']), data: data),
         );
       case 'job:new':
         if (!me.isTechnician) return;
         if (me.skills.isNotEmpty && !me.skills.contains(str(e.data['category']))) return;
-        toast('New job: ${e.data['title']}', actionLabel: 'View', onAction: () => openJob(navigatorKey.currentContext!, e.jobId));
+        _alert(title: 'New job', body: str(e.data['title']), payload: {'k': 'job', 'id': e.jobId}, actionLabel: 'View');
       case 'wallet:request':
         if (!me.isAdmin) return;
         final deposit = str(e.data['kind']) == 'deposit';
-        toast(
-          '${str(e.data['name'], 'Someone')} ${deposit ? 'sent a deposit' : 'asked to withdraw'}: ${money(dbl(e.data['amount']))}',
+        _alert(
+          title: deposit ? 'Deposit to review' : 'Withdrawal to review',
+          body: '${str(e.data['name'], 'Someone')} · ${money(dbl(e.data['amount']))}',
+          payload: {'k': 'section', 's': 'payments'},
           actionLabel: 'Review',
-          onAction: () => openSection(navigatorKey.currentContext!, 'payments'),
         );
       case 'message:new':
         final sender = str(e.data['sender']);
@@ -116,19 +156,18 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
         final isTool = thread.startsWith('tool:');
         final text = str(e.data['text']);
         final name = str(e.data['senderName'], 'New message');
-        toast(
-          '$name: ${text.isEmpty ? 'sent a photo' : text}',
+        _alert(
+          title: name,
+          body: text.isEmpty ? 'Sent a photo' : text,
+          payload: {
+            'k': 'chat',
+            'jobId': isTool ? '' : str(e.data['job']),
+            'toolId': isTool ? str(e.data['tool']) : '',
+            'otherId': sender,
+            'otherName': name,
+            'subject': str(e.data[isTool ? 'toolName' : 'jobTitle']),
+          },
           actionLabel: 'Reply',
-          onAction: () => openChat(
-            navigatorKey.currentContext!,
-            ChatTarget(
-              jobId: isTool ? '' : str(e.data['job']),
-              toolId: isTool ? str(e.data['tool']) : '',
-              otherId: sender,
-              otherName: name,
-              subject: str(e.data[isTool ? 'toolName' : 'jobTitle']),
-            ),
-          ),
         );
     }
   }

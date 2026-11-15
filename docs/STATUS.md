@@ -69,8 +69,10 @@ analyzer-clean Flutter code.
 
 - **Payment gateway** — money moves by manual bank / mobile-wallet transfer, checked by an
   admin. Nothing is charged automatically and payouts are sent by hand.
-- **Push notifications when the app is closed** — delivery is Socket.IO only (works while
-  the app is open). FCM / APNs would be the next step.
+- **Push notifications when the app is fully closed** — phones get real notifications (bar,
+  sound, vibration) while the app is open or in the background, raised from the live Socket.IO
+  connection. Once Android or iOS closes the app nothing is listening; Firebase Cloud
+  Messaging would be the next step.
 - **Automatic job closing** — after the confirmation window the technician can close the job
   with one tap; nothing closes it on a timer.
 - **Maps** — the map picker needs internet for OpenStreetMap tiles and distances are straight
@@ -96,6 +98,11 @@ does not carry over**:
    uninstall the old "SureFix" first.
 
 ## Changelog
+
+- **v3.3** — Phone notifications in the notification bar with sound and vibration for new
+  notifications, chat messages, matching jobs (technicians) and payment requests (admins);
+  tapping one opens the right screen. Free-tier deployment (Render, Atlas, GitHub Pages, APK
+  builds). Longer request timeout for a sleeping server.
 
 - **v3.2** — Near-me search: location from GPS, a map pin or an area list; distances on every
   technician, tool and job card; radius, *Travels to me*, rating, price, urgency and budget
