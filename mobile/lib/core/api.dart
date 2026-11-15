@@ -41,7 +41,9 @@ class ApiError implements Exception {
 /// JSON-over-HTTP client: adds the session token, a timeout and readable
 /// errors, and ends the session when the server rejects the token.
 abstract final class Api {
-  static const _timeout = Duration(seconds: 20);
+  // Long enough for a free-tier server to wake up (Render: ~50 s after
+  // 15 minutes without traffic).
+  static const _timeout = Duration(seconds: 75);
   static http.Client client = http.Client();
 
   static Map<String, String> _headers({bool json = true}) {
@@ -84,7 +86,7 @@ abstract final class Api {
     try {
       return _read(await call().timeout(_timeout));
     } on TimeoutException {
-      throw ApiError(0, 'The server is taking too long to respond. Please try again.');
+      throw ApiError(0, 'The server is taking too long to respond. It may be starting up. Please try again in a minute.');
     } on ApiError {
       rethrow;
     } catch (_) {
