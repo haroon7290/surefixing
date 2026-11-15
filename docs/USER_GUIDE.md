@@ -190,7 +190,10 @@ Use the switch on Home to mark yourself **busy**.
 ## Everyone
 
 - **Messages** — chat about a job or a tool, with photos, typing and read receipts.
-- **Notifications** — tap one to open the job, rental or page it is about.
+- **Notifications** — on a phone they arrive in the notification bar with sound and vibration
+  (allow notifications when the app asks after you sign in); tap one to open the job, chat,
+  rental or page it is about. They arrive while the app is open or running in the background.
+  On the website they appear as pop-ups inside the page.
 - **Forgot password** — on the log-in screen: enter your email, then the 6-digit code.
   (Without an email server the code is shown on screen and printed in the backend console.)
 - **Appearance** — Account → Auto / Light / Dark.

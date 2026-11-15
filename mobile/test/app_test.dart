@@ -502,6 +502,23 @@ void main() {
       expect(lastGet('/api/jobs')!.queryParameters['minBudget'], '5000');
     });
 
+    testWidgets('a live notification shows and opens what it is about', (tester) async {
+      await pumpApp(tester, role: 'client');
+      expect(Alerts.supported, isFalse); // the test machine: in-app toast instead of the notification bar
+      Realtime.instance.debugAdd('notification', {
+        'type': 'bid',
+        'title': 'New quote',
+        'body': 'Ahmad Raza quoted Rs 2,800',
+        'data': {'jobId': 'j1'},
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 750)); // the toast slides in
+      expect(find.text('New quote — Ahmad Raza quoted Rs 2,800'), findsOneWidget);
+      await tester.tap(find.text('View'));
+      await settle(tester);
+      expect(find.byType(JobDetailScreen), findsOneWidget);
+    });
+
     testWidgets('the dock switches sections', (tester) async {
       await pumpApp(tester, role: 'client');
       await tester.tap(find.bySemanticsLabel('My jobs'));

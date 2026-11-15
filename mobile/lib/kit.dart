@@ -2,6 +2,7 @@
 /// models and the core services.
 library;
 
+export 'core/alerts.dart';
 export 'core/api.dart';
 export 'core/catalog.dart';
 export 'core/format.dart';
