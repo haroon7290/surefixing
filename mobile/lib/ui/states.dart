@@ -220,33 +220,69 @@ class SkeletonList extends StatelessWidget {
 }
 
 /// Thin bar shown while the live connection is down.
-class OfflineBanner extends StatelessWidget {
+class OfflineBanner extends StatefulWidget {
   const OfflineBanner({super.key});
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
-        valueListenable: Realtime.instance.connected,
-        builder: (context, connected, _) {
-          final show = !connected && Session.instance.loggedIn;
-          final c = context.colors;
-          return AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            alignment: Alignment.topCenter,
-            child: !show
-                ? const SizedBox(width: double.infinity)
-                : Container(
-                    width: double.infinity,
-                    color: c.warningSoft,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(AppIcons.offline, size: 14, color: c.warning),
-                      Gap.w6,
-                      Text('Reconnecting — live updates are paused', style: context.text.bodySmall!.copyWith(color: c.warning, fontWeight: FontWeight.w700)),
-                    ]),
-                  ),
-          );
-        },
-      );
+  State<OfflineBanner> createState() => _OfflineBannerState();
+}
+
+/// Shown only when the live connection has been down for a while, not for
+/// the moment it takes to connect at start-up or after a network blip.
+class _OfflineBannerState extends State<OfflineBanner> {
+  static const _grace = Duration(seconds: 6);
+  Timer? _timer;
+  bool _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Realtime.instance.connected.addListener(_changed);
+    _changed();
+  }
+
+  @override
+  void dispose() {
+    Realtime.instance.connected.removeListener(_changed);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _changed() {
+    _timer?.cancel();
+    if (Realtime.instance.connected.value) {
+      if (_show) setState(() => _show = false);
+      return;
+    }
+    _timer = Timer(_grace, () {
+      if (mounted && !Realtime.instance.connected.value) setState(() => _show = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final show = _show && Session.instance.loggedIn;
+    final c = context.colors;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      alignment: Alignment.topCenter,
+      child: !show
+          ? const SizedBox(width: double.infinity)
+          : Container(
+              width: double.infinity,
+              color: c.warningSoft,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(AppIcons.offline, size: 14, color: c.warning),
+                Gap.w6,
+                Flexible(
+                  child: Text('Reconnecting… live updates will resume shortly',
+                      textAlign: TextAlign.center, style: context.text.bodySmall!.copyWith(color: c.warning, fontWeight: FontWeight.w700)),
+                ),
+              ]),
+            ),
+    );
+  }
 }
 
 /// Fades and lifts its child in once, optionally after a short delay.

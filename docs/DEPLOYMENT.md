@@ -54,7 +54,11 @@
 ## Free-tier limits
 
 - Render free services **sleep after 15 minutes** without traffic; the first request then takes
-  about 50 seconds. Open `/api/health` a minute before a demo.
+  about 50 seconds. The **Keep backend awake** workflow (`.github/workflows/keep-awake.yml`) pings
+  `/api/health` every 10 minutes to prevent that. GitHub sometimes runs scheduled jobs late, so
+  for a guaranteed ping add a free monitor (e.g. UptimeRobot, every 5 minutes) on
+  `https://surefix-api.onrender.com/api/health`. One always-on free service uses ~730 of
+  Render's 750 free hours a month, so keep the AI service asleep (the backend falls back).
 - **Uploaded photos** (avatars, job and tool photos, ID documents) are stored on the backend's
   disk, which Render's free plan wipes on every deploy or restart. Fine for a demo; for real use
   move uploads to object storage (e.g. Cloudinary) or a paid Render disk.
