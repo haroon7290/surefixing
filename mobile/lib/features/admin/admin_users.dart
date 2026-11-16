@@ -135,10 +135,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                         icon: Icon(AppIcons.dots, size: 18, color: c.body),
                                         onSelected: (v) => switch (v) {
                                           'profile' => openTechnician(context, u.id),
+                                          'message' => openSupportChat(context, userId: u.id, name: u.name, avatar: u.avatar),
                                           'delete' => _delete(u),
                                           _ => _setStatus(u, v),
                                         },
                                         itemBuilder: (_) => [
+                                          if (!u.isAdmin) const PopupMenuItem(value: 'message', child: Text('Message as SureFix Support')),
                                           if (public) const PopupMenuItem(value: 'profile', child: Text('View public profile')),
                                           u.suspended
                                               ? const PopupMenuItem(value: 'active', child: Text('Reactivate account'))

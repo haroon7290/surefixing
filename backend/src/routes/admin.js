@@ -208,7 +208,7 @@ router.delete('/users/:id', async (req, res) => {
   await Promise.all([
     Notification.deleteMany({ user: id }),
     WalletRequest.deleteMany({ user: id }),
-    Message.deleteMany({ $or: [{ sender: id }, { recipient: id }] }),
+    Message.deleteMany({ $or: [{ sender: id }, { recipient: id }, { support: id }] }),
     User.updateMany({}, { $pull: { favoriteTechnicians: id } })
   ]);
   await user.deleteOne();

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:surefix/app.dart';
+import 'package:surefix/features/account/account_screen.dart';
 import 'package:surefix/features/account/edit_profile_screen.dart';
 import 'package:surefix/features/account/kyc_screen.dart';
+import 'package:surefix/features/admin/admin_users.dart';
 import 'package:surefix/features/auth/auth_screens.dart';
 import 'package:surefix/features/chat/chat_screen.dart';
 import 'package:surefix/features/jobs/job_detail_screen.dart';
@@ -517,6 +519,44 @@ void main() {
       await tester.tap(find.text('View'));
       await settle(tester);
       expect(find.byType(JobDetailScreen), findsOneWidget);
+    });
+
+    testWidgets('a user messages SureFix Support and never sees who on the team replied', (tester) async {
+      await pumpApp(tester, role: 'client');
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const AccountScreen()));
+      await settle(tester);
+      await tapOn(tester, find.text('Message SureFix Support'));
+      expect(find.text('SureFix Support'), findsWidgets);
+      expect(find.text('Official SureFix team'), findsOneWidget);
+      expect(find.text('Re: Job: AC not cooling'), findsOneWidget);
+      expect(find.textContaining('Admin'), findsNothing); // the admin's name is never shown
+      await tester.enterText(find.byType(TextField).last, 'The AC is still dripping');
+      await tapOn(tester, find.byTooltip('Send'));
+      expect(sent, contains('POST /api/messages/support'));
+      expect(sentBodies['POST /api/messages/support'], containsPair('text', 'The AC is still dripping'));
+    });
+
+    testWidgets('an admin messages any user as SureFix Support, with the topic once', (tester) async {
+      await pumpApp(tester, role: 'admin', size: desktop);
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const AdminUsersScreen()));
+      await settle(tester);
+      await tapOn(tester, find.byTooltip('Actions for Ahmad Raza'));
+      await tapOn(tester, find.text('Message as SureFix Support'));
+      expect(find.textContaining('You are writing as SureFix Support'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'Please call the client today.');
+      await tapOn(tester, find.byTooltip('Send'));
+      expect(sent, contains('POST /api/messages/support/t1'));
+      expect(sentBodies['POST /api/messages/support/t1'], containsPair('text', 'Please call the client today.'));
+
+      // From a job: the first message carries what it is about.
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const JobDetailScreen(jobId: 'j2')));
+      await settle(tester);
+      resetPushGuard();
+      await tapOn(tester, find.text('Message technician'));
+      expect(find.textContaining('Re: Job: AC not cooling — needs gas refill'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'Can you go back and fix the drip?');
+      await tapOn(tester, find.byTooltip('Send'));
+      expect(sentBodies['POST /api/messages/support/t1'], containsPair('about', 'Job: AC not cooling — needs gas refill'));
     });
 
     testWidgets('the dock switches sections', (tester) async {

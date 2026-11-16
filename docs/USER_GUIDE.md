@@ -170,6 +170,12 @@ Use the switch on Home to mark yourself **busy**.
 - **Verify** — compare each ID with the selfie; approve or reject with a reason.
 - **Reports** — open the reported job, tool or profile; resolve, dismiss, or suspend the user.
 - **Disputes** — open any job in progress → **Refund client** or **Release to technician**.
+- **Message anyone as SureFix Support** — from Users (⋮ → *Message as SureFix Support*),
+  Reports (*Message reporter* / *Message reported user*), Verify, Payments, or a job page
+  (*Message client* / *Message technician*). The user sees the message from **SureFix
+  Support** with the SureFix logo, never your name. When you start from a job, report, deposit or
+  verification, the first message says what it is about ("Re: Job: …"). Every admin sees every
+  support conversation in Messages, with who on the team wrote each message.
 - **Payments** — the payments desk:
   - **Deposits:** each shows who sent it, the amount, the transaction ID (tap to copy), which
     company account it went to and the screenshot if attached. Check your bank or wallet
@@ -190,6 +196,8 @@ Use the switch on Home to mark yourself **busy**.
 ## Everyone
 
 - **Messages** — chat about a job or a tool, with photos, typing and read receipts.
+- **SureFix Support** — Messages → *Contact support*, or Account → *Message SureFix Support*,
+  to talk to the SureFix team. Messages from the team appear there too.
 - **Notifications** — on a phone they arrive in the notification bar with sound and vibration
   (allow notifications when the app asks after you sign in); tap one to open the job, chat,
   rental or page it is about. They arrive while the app is open or running in the background.

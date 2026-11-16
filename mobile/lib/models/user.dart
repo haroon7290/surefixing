@@ -80,6 +80,9 @@ class User {
   bool get isTechnician => role == 'technician';
   bool get isSupplier => role == 'supplier';
   bool get isAdmin => role == 'admin';
+
+  /// The SureFix team, as users see it in support chats.
+  bool get isSupport => role == 'support';
   bool get verified => kycStatus == 'approved';
   bool get suspended => status == 'suspended';
   bool get exists => id.isNotEmpty;

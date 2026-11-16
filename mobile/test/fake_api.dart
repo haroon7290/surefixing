@@ -257,6 +257,29 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
       {'kind': 'tool', 'toolId': 'tool1', 'toolName': 'Bosch Cordless Drill 18V', 'toolCategory': 'power', 'toolImage': '',
         'other': {'id': 's1', 'name': 'ToolCo Rentals', 'avatar': '', 'role': 'supplier', 'online': false},
         'lastMessage': {..._message('m3', 'c1', 's1', 'Is the charger included?'), 'job': null, 'tool': 'tool1', 'thread': 'tool:tool1'}, 'unread': 0},
+      if (role == 'admin')
+        {'kind': 'support', 'supportUser': 'c1', 'other': {'id': 'c1', 'name': 'Sara Khan', 'avatar': '', 'role': 'client', 'online': true},
+          'lastMessage': {..._message('s2', 'c1', '', 'He came but the AC still drips.'), 'job': null, 'support': 'c1', 'thread': 'support:c1', 'recipient': null}, 'unread': 1}
+      else
+        {'kind': 'support', 'other': {'id': 'support', 'name': 'SureFix Support', 'avatar': '', 'role': 'support', 'online': true},
+          'lastMessage': {..._message('s1', 'support', me['id'] as String, 'Did the technician arrive?'), 'job': null, 'support': me['id'], 'thread': 'support:${me['id']}', 'fromSupport': true}, 'unread': 1},
+    ];
+  }
+  // Support conversations: the team appears as "support" to users.
+  if (path.startsWith('/api/messages/support')) {
+    final team = role == 'admin';
+    final user = team ? (path.split('/').length > 4 ? path.split('/')[4] : 'c1') : me['id'] as String;
+    Json support(String id, bool fromTeam, String text, {String about = ''}) => {
+          '_id': id, 'support': user, 'thread': 'support:$user', 'fromSupport': fromTeam, 'about': about,
+          'sender': fromTeam ? (team ? 'a1' : 'support') : user, 'recipient': fromTeam ? user : null,
+          'senderName': fromTeam ? (team ? 'Admin' : 'SureFix Support') : 'Sara Khan',
+          'text': text, 'image': '', 'readAt': null, 'createdAt': _ago(const Duration(minutes: 30)),
+        };
+    if (path.endsWith('/read')) return {'ok': true};
+    if (method == 'POST') return support('s9', team, 'Sent');
+    return [
+      support('s1', true, 'Hi Sara, we are looking into the AC job. Did the technician arrive?', about: 'Job: AC not cooling'),
+      support('s2', false, 'He came but the AC still drips.'),
     ];
   }
   if (path.startsWith('/api/messages/')) {
@@ -327,6 +350,7 @@ void signIn(String? role) {
   Settings.instance.introSeen = true;
   Settings.instance.themeMode = ThemeMode.light;
   Locations.instance.reset();
+  resetPushGuard();
   installFakeApi(role ?? 'client');
 }
 

@@ -19,7 +19,7 @@ class ChatScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppPage(
-        title: target.otherName.isEmpty ? 'Chat' : target.otherName,
+        title: target.otherName.isEmpty ? 'Chat' : (target.isSupport && target.asTeam ? '${target.otherName} · Support' : target.otherName),
         maxWidth: 820,
         body: ChatView(target: target),
       );
@@ -51,6 +51,13 @@ class _ChatViewState extends State<ChatView> {
 
   ChatTarget get _t => widget.target;
   String get _me => Session.instance.user?.id ?? '';
+
+  /// Whether a message is on "my" side: mine, or (admins in a support
+  /// chat) written by anyone on the SureFix team.
+  bool _mine(Message m) => m.senderId == _me || (_t.isSupport && _t.asTeam && m.fromSupport);
+
+  /// Whether a message came from the other side of this conversation.
+  bool _fromOther(Message m) => _t.isSupport ? m.fromSupport != _t.asTeam : m.senderId == _t.otherId;
 
   @override
   void initState() {
@@ -98,24 +105,20 @@ class _ChatViewState extends State<ChatView> {
     switch (e.name) {
       case 'message:new':
         final m = Message.fromJson(e.data);
-        final involves = (m.senderId == _t.otherId && m.recipientId == _me) || (m.senderId == _me && m.recipientId == _t.otherId);
+        // Support threads have one conversation per thread key.
+        final involves = _t.isSupport || (m.senderId == _t.otherId && m.recipientId == _me) || (m.senderId == _me && m.recipientId == _t.otherId);
         if (!involves || _messages.any((x) => x.id == m.id)) return;
         setState(() {
           _messages = [..._messages, m];
-          if (m.senderId == _t.otherId) _otherTyping = false;
+          if (_fromOther(m)) _otherTyping = false;
         });
         _toBottom();
-        if (m.senderId == _t.otherId) {
+        if (_fromOther(m)) {
           Api.post('${_t.path}/read', {'with': _t.otherId}).then((_) => Badges.instance.refresh()).catchError((_) {});
         }
       case 'message:read':
         if (str(e.data['by']) != _t.otherId) return;
-        setState(() => _messages = [
-              for (final m in _messages)
-                m.senderId == _me && !m.read
-                    ? Message(id: m.id, thread: m.thread, senderId: m.senderId, recipientId: m.recipientId, text: m.text, image: m.image, read: true, createdAt: m.createdAt)
-                    : m,
-            ]);
+        setState(() => _messages = [for (final m in _messages) _mine(m) && !m.read ? m.markedRead() : m]);
       case 'typing':
         if (str(e.data['from']) != _t.otherId) return;
         setState(() => _otherTyping = e.data['typing'] != false);
@@ -133,7 +136,7 @@ class _ChatViewState extends State<ChatView> {
       });
 
   void _onTyping(String _) {
-    if (_typingSent?.isActive ?? false) return;
+    if (_t.isSupport || (_typingSent?.isActive ?? false)) return;
     Realtime.instance.emit('typing', {'to': _t.otherId, 'jobId': _t.thread, 'typing': true});
     _typingSent = Timer(const Duration(seconds: 2), () {});
   }
@@ -143,12 +146,16 @@ class _ChatViewState extends State<ChatView> {
     if (_sending || (text.isEmpty && image == null)) return;
     setState(() => _sending = true);
     if (image == null) _input.clear();
+    // The team states the topic once per topic ("Re: Job …"), not on every message.
+    final lastAbout = _messages.lastWhere((m) => m.about.isNotEmpty, orElse: () => const Message(id: '')).about;
+    final about = _t.isSupport && _t.asTeam && _t.about.isNotEmpty && _t.about != lastAbout ? _t.about : '';
     try {
       final res = image == null
-          ? await Api.post(_t.path, {'text': text, 'to': _t.otherId})
+          ? await Api.post(_t.path, {'text': text, 'to': _t.otherId, if (about.isNotEmpty) 'about': about})
           : await Api.upload(_t.path, fields: {
               'text': '',
-              'to': _t.otherId
+              'to': _t.otherId,
+              if (about.isNotEmpty) 'about': about,
             }, files: {
               'image': [image]
             });
@@ -182,13 +189,21 @@ class _ChatViewState extends State<ChatView> {
             _load();
           });
     } else if (_messages.isEmpty) {
-      body = EmptyState(
-        icon: AppIcons.chat,
-        title: 'Say hello to ${_t.otherName.split(' ').first}',
-        message: _t.isTool ? 'Ask about the tool, or arrange pickup and return.' : 'Ask questions, share photos and agree the details before work starts.',
-      );
+      body = _t.isSupport
+          ? EmptyState(
+              icon: AppIcons.help,
+              title: _t.asTeam ? 'Message ${_t.otherName.split(' ').first} as SureFix' : 'How can we help?',
+              message: _t.asTeam
+                  ? 'They will see your messages from "SureFix Support", not from you.${_t.about.isEmpty ? '' : ' Your first message is marked "Re: ${_t.about}".'}'
+                  : 'Ask about payments, verification, a job or anything else. The SureFix team replies here.',
+            )
+          : EmptyState(
+              icon: AppIcons.chat,
+              title: 'Say hello to ${_t.otherName.split(' ').first}',
+              message: _t.isTool ? 'Ask about the tool, or arrange pickup and return.' : 'Ask questions, share photos and agree the details before work starts.',
+            );
     } else {
-      final lastMine = _messages.lastIndexWhere((m) => m.senderId == _me);
+      final lastMine = _messages.lastIndexWhere(_mine);
       body = ListView.builder(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -208,7 +223,14 @@ class _ChatViewState extends State<ChatView> {
                   child: Text(dayLabel(m.createdAt!), style: context.text.bodySmall!.copyWith(fontSize: 11.5, fontWeight: FontWeight.w700)),
                 ),
               ),
-            _Bubble(m, mine: m.senderId == _me, joined: !newDay && prev.senderId == m.senderId, showStatus: i == lastMine),
+            _Bubble(
+              m,
+              mine: _mine(m),
+              joined: !newDay && prev.senderId == m.senderId && m.about.isEmpty,
+              showStatus: i == lastMine,
+              // Admins see which teammate wrote each support message.
+              by: _t.asTeam && m.fromSupport && m.senderId != _me ? m.senderName : '',
+            ),
           ]);
         },
       );
@@ -219,7 +241,36 @@ class _ChatViewState extends State<ChatView> {
         Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
-          child: PersonRow(name: _t.otherName, image: _t.otherAvatar, subtitle: subject, size: 42),
+          child: _t.isSupport && !_t.asTeam
+              ? Row(children: [
+                  const BrandMark(size: 42),
+                  Gap.w12,
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(ChatTarget.supportName, style: context.text.titleMedium),
+                      Text('The SureFix team', style: context.text.bodySmall),
+                    ]),
+                  ),
+                ])
+              : PersonRow(name: _t.otherName, image: _t.otherAvatar, subtitle: _t.isSupport ? 'Support conversation · they see you as SureFix Support' : subject, size: 42),
+        )
+      else if (_t.isSupport)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+          decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.line), bottom: BorderSide(color: c.line))),
+          child: Row(children: [
+            Icon(AppIcons.shieldFill, size: 15, color: c.brand),
+            Gap.w8,
+            Expanded(
+              child: Text(
+                _t.asTeam ? 'You are writing as SureFix Support${_t.about.isEmpty ? '' : ' · Re: ${_t.about}'}' : 'Official SureFix team',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.labelMedium!.copyWith(color: c.ink),
+              ),
+            ),
+          ]),
         )
       else if (subject.isNotEmpty)
         Semantics(
@@ -291,9 +342,10 @@ class _ChatViewState extends State<ChatView> {
 class _Bubble extends StatelessWidget {
   final Message message;
   final bool mine;
+  final String by;
   final bool joined; // follows another message from the same person
   final bool showStatus;
-  const _Bubble(this.message, {required this.mine, required this.joined, required this.showStatus});
+  const _Bubble(this.message, {required this.mine, required this.joined, required this.showStatus, this.by = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -309,6 +361,16 @@ class _Bubble extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: (MediaQuery.sizeOf(context).width * 0.76).clamp(220, 520)),
           child: Column(crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            // Support messages from the team can say what they are about.
+            if (m.about.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(AppIcons.tag, size: 12, color: c.muted),
+                  Gap.w4,
+                  Flexible(child: Text('Re: ${m.about}', maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.bodySmall!.copyWith(fontSize: 11.5, fontWeight: FontWeight.w700))),
+                ]),
+              ),
             Container(
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
@@ -330,11 +392,11 @@ class _Bubble extends StatelessWidget {
                   ),
               ]),
             ),
-            if (showStatus || !joined)
+            if (showStatus || !joined || by.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
                 child: Text(
-                  '${clock(m.createdAt)}${mine && showStatus ? (m.read ? '  ·  Read' : '  ·  Sent') : ''}',
+                  '${by.isEmpty ? '' : '$by  ·  '}${clock(m.createdAt)}${mine && showStatus ? (m.read ? '  ·  Read' : '  ·  Sent') : ''}',
                   style: context.text.bodySmall!.copyWith(fontSize: 11),
                 ),
               ),
