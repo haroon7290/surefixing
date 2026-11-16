@@ -61,7 +61,8 @@ with skills, rates and a **portfolio** · identity verification for the blue sea
 terms · approve / decline requests (stock reserved atomically) · take tools back with
 automatic late fees · record installment payments · chat with customers.
 
-**Admin** — **payments desk**: check deposits against the statement and approve or reject
+**Admin** — **support chat**: message anyone as "SureFix Support" while resolving an issue ·
+**payments desk**: check deposits against the statement and approve or reject
 them, pay out withdrawals, manage the company accounts users send money to · platform revenue
 and escrow · 7-day charts · user search with suspend and safe delete · identity verification
 queue · reports queue · **dispute resolution** (refund the customer or release to the

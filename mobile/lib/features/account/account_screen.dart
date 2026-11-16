@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../kit.dart';
+import '../../routes.dart';
 import '../shell/shell.dart';
 import '../site/info_pages.dart';
 import 'edit_profile_screen.dart';
@@ -169,6 +170,14 @@ class AccountScreen extends StatelessWidget {
             MenuGroup(children: [MenuRow(icon: AppIcons.lock, title: 'Change password', onTap: () => _changePassword(context))]),
             const SectionTitle('Support', top: 20),
             MenuGroup(children: [
+              if (!(Session.instance.user?.isAdmin ?? false))
+                MenuRow(
+                  icon: AppIcons.chat,
+                  tone: Tone.brand,
+                  title: 'Message SureFix Support',
+                  subtitle: 'A question, a problem with a job or a payment',
+                  onTap: () => openSupportChat(context),
+                ),
               MenuRow(icon: AppIcons.help, title: 'Help & FAQ', subtitle: 'Payments, rentals, verification', onTap: () => push(context, const HelpPage())),
               MenuRow(icon: AppIcons.document, title: 'Terms of use', onTap: () => push(context, const LegalPage())),
               MenuRow(icon: AppIcons.shield, title: 'Privacy', onTap: () => push(context, const LegalPage(privacy: true))),

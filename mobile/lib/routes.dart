@@ -31,6 +31,18 @@ void openTechnician(BuildContext context, String id) => push(context, Technician
 
 void openChat(BuildContext context, ChatTarget target) => push(context, ChatScreen(target: target));
 
+/// The support conversation. Admins pass the user they are writing to (and,
+/// optionally, what about); everyone else opens their own chat with
+/// SureFix Support.
+void openSupportChat(BuildContext context, {String userId = '', String name = '', String avatar = '', String about = ''}) {
+  final me = Session.instance.user;
+  if (me == null) return;
+  final target = me.isAdmin
+      ? ChatTarget.support(userId: userId, name: name, avatar: avatar, asTeam: true, about: about)
+      : ChatTarget.support(userId: me.id);
+  push(context, ChatScreen(target: target));
+}
+
 /// Opens whatever a notification points at, for the signed-in role.
 void openTarget(BuildContext context, {String? type, Json data = const {}}) {
   final role = Session.instance.role;

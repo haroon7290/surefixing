@@ -56,6 +56,10 @@ Future<T?> push<T>(BuildContext context, Widget page, {String? path}) {
 
 DateTime _lastPush = DateTime.fromMillisecondsSinceEpoch(0);
 
+/// Tests open pages faster than a person can tap: forget the last push.
+@visibleForTesting
+void resetPushGuard() => _lastPush = DateTime.fromMillisecondsSinceEpoch(0);
+
 /// Which top-level section is showing: a dock tab on phones, a sidebar or
 /// header link on the website. Signed out the sections are the public
 /// site's pages; signed in they are the role's sections (see `shell.dart`).

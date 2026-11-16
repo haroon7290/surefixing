@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../kit.dart';
+import '../../routes.dart';
 import '../wallet/wallet_screen.dart';
 
 /// Money in and out: deposits to check, withdrawals to pay, the ledger, and
@@ -189,6 +190,14 @@ class _RequestCard extends StatelessWidget {
               Text([roleLabels[u?.role] ?? '', u?.email ?? ''].where((x) => x.isNotEmpty).join('  ·  '), style: context.text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
+          if (u != null) ...[
+            RoundBtn(AppIcons.chat,
+                tooltip: 'Message as SureFix Support',
+                size: 36,
+                onPressed: () => openSupportChat(context,
+                    userId: u.id, name: u.name, avatar: u.avatar, about: r.isDeposit ? 'Deposit ${r.transactionId} (${money(r.amount)})' : 'Withdrawal of ${money(r.amount)}')),
+            Gap.w12,
+          ],
           Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
             Text(money(r.amount), style: context.text.titleLarge),
             Text(timeAgo(r.createdAt), style: context.text.bodySmall!.copyWith(fontSize: 11.5)),

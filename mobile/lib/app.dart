@@ -102,6 +102,8 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
         openJob(context, str(p['id']));
       case 'section':
         openSection(context, str(p['s']));
+      case 'support':
+        openSupportChat(context, userId: str(p['user']), name: str(p['name']));
       case 'chat':
         openChat(
           context,
@@ -153,6 +155,19 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
         if (sender == me.id) return;
         final thread = str(e.data['thread']);
         if (ChatScreen.isOpen(thread, sender)) return;
+        if (thread.startsWith('support:')) {
+          // Admins: only what users write (not teammates' replies).
+          if (me.isAdmin && e.data['fromSupport'] == true) return;
+          final text = str(e.data['text']);
+          final user = thread.substring('support:'.length);
+          _alert(
+            title: me.isAdmin ? '${str(e.data['supportName'], 'A user')} · Support' : ChatTarget.supportName,
+            body: text.isEmpty ? 'Sent a photo' : text,
+            payload: {'k': 'support', 'user': user, 'name': str(e.data['supportName'])},
+            actionLabel: 'Reply',
+          );
+          return;
+        }
         final isTool = thread.startsWith('tool:');
         final text = str(e.data['text']);
         final name = str(e.data['senderName'], 'New message');

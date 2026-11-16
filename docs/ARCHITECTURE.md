@@ -99,7 +99,7 @@ erDiagram
 | **Transaction** | user (null = the platform), type (deposit, withdrawal, withdrawal_reversed, job_hold, job_refund, job_earning, rental_hold, rental_refund, rental_earning, installment_payment, installment_earning, platform_fee), signed amount, balanceAfter, job / rental, note |
 | **Tool** | supplier, name, description, category, condition, city, **geo** + area (the supplier's shop, kept in sync when they move), images[], rentPricePerDay, deposit, purchasePrice, installmentMonths / Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
 | **Rental** | tool, renter, supplier, type (rent / installment), startDate, endDate, days, dailyRate, deposit, lateDays, lateFee, monthsTotal / monthsPaid / monthlyAmount, totalCost, **payment**, fulfillment (pickup / delivery), deliveryAddress, status (requested / active / returned / completed / rejected / cancelled) · computed in responses: overdue, daysLeft, monthsRemaining, handover `{method, address, city, revealed}` |
-| **Message** | job *or* tool, sender, recipient, text, image, readAt |
+| **Message** | job *or* tool *or* support (the user whose support conversation it is), sender, recipient (none when a user writes to the team), about (the team's topic), text, image, readAt |
 | **Notification** | user, type, title, body, data {jobId / toolId / rentalId …}, readAt |
 | **Kyc** | user, fullName, idType, idNumber, idFrontImage, idBackImage, selfieImage, status, rejectionReason |
 | **Report** | reporter, targetType (user / job / tool), targetId, reason, details, status, resolutionNote |
@@ -263,6 +263,8 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 
 | Method | Path | Notes |
 |---|---|---|
+| GET / POST | `/messages/support` 🔒 user | The caller's conversation with SureFix Support (team messages arrive with `sender: "support"`) · send `{text}` or multipart `image` · `POST /support/read` |
+| GET / POST | `/messages/support/:userId` 🔒 admin | Any user's support conversation; send as SureFix Support `{text, about?}`; each message carries `senderName` for the team · `POST /:userId/read` |
 | GET | `/messages` · `/messages/unread-count` 🔒 | Inbox: one row per (job or tool, other person) |
 | GET / POST | `/messages/:jobId` · `/messages/tool/:toolId` 🔒 | Thread (`?with=`); POST JSON `{text, to?}` or multipart `image`; `/read` marks read |
 | GET / POST | `/kyc/me` · `/kyc` 🔒 | multipart `idFront`, `idBack`, `selfie` |

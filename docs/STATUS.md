@@ -51,7 +51,8 @@ customer and the supplier, inbox with unread counts, read receipts, typing indic
 messages; notifications that open the right screen; realtime updates for every cross-party
 event; online presence.
 
-**Admin** — overview with revenue, escrow and 7-day charts; users (search, suspend, delete);
+**Admin** — **support chat**: message any user as "SureFix Support" (from users, reports,
+verification, payments or a job) and answer users who write in, as a shared team inbox; overview with revenue, escrow and 7-day charts; users (search, suspend, delete);
 verification queue; reports queue; **dispute resolution** on any job in progress (refund or
 release); all jobs and tools; payments ledger; AI engine status.
 
@@ -99,6 +100,8 @@ does not carry over**:
 
 ## Changelog
 
+- **v3.4** — SureFix Support conversations: admins message anyone as "SureFix Support" (their
+  own name stays hidden), users contact support from Messages or Account.
 - **v3.3** — Phone notifications in the notification bar with sound and vibration for new
   notifications, chat messages, matching jobs (technicians) and payment requests (admins);
   tapping one opens the right screen. Free-tier deployment (Render, Atlas, GitHub Pages, APK

@@ -433,8 +433,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         );
 
     if (me.isAdmin) {
-      if (!job.inProgress) return null;
-      return card(Tone.neutral, AppIcons.scales, 'Dispute tools', 'Settle this job if the two sides cannot agree. Both are notified.', [
+      final about = 'Job: ${job.title}';
+      final tech = job.technician ?? job.requestedTechnician;
+      final message = [
+        Btn('Message client', icon: AppIcons.chat, kind: BtnKind.outline, size: BtnSize.sm,
+            onPressed: () => openSupportChat(context, userId: job.client.id, name: job.client.name, avatar: job.client.avatar, about: about)),
+        if (tech != null && tech.exists)
+          Btn('Message technician', icon: AppIcons.chat, kind: BtnKind.outline, size: BtnSize.sm,
+              onPressed: () => openSupportChat(context, userId: tech.id, name: tech.name, avatar: tech.avatar, about: about)),
+      ];
+      if (!job.inProgress) {
+        return card(Tone.neutral, AppIcons.chat, 'Contact the people on this job', 'They see your messages from SureFix Support.', message);
+      }
+      return card(Tone.neutral, AppIcons.scales, 'Dispute tools', 'Talk to both sides as SureFix Support, then settle the job if they cannot agree. Both are notified.', [
+        ...message,
         Btn('Refund client', kind: BtnKind.danger, size: BtnSize.sm, onPressed: _busy ? null : () => _resolve('refund')),
         Btn('Release to technician', kind: BtnKind.dark, size: BtnSize.sm, onPressed: _busy ? null : () => _resolve('release')),
       ]);

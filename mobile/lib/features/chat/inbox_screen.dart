@@ -16,15 +16,23 @@ class _InboxScreenState extends State<InboxScreen> {
   final _view = GlobalKey<AsyncViewState<List<Conversation>>>();
   Conversation? _open;
 
-  static String _key(Conversation c) => '${c.isTool ? 'tool:${c.toolId}' : c.jobId}|${c.other.id}';
+  static String _key(Conversation c) => c.key;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final wide = context.isWide;
+    final admin = Session.instance.user?.isAdmin ?? false;
     return AppPage(
       title: 'Messages',
-      subtitle: 'Conversations about your jobs and rentals.',
+      subtitle: admin ? 'Support conversations with users (they see you as SureFix Support).' : 'Conversations about your jobs and rentals, and with SureFix Support.',
+      actions: [
+        if (!admin)
+          Btn('Contact support', icon: AppIcons.help, kind: BtnKind.soft, size: BtnSize.sm, onPressed: () async {
+            await push(context, ChatScreen(target: ChatTarget.support(userId: Session.instance.user!.id)));
+            _view.currentState?.reload();
+          }),
+      ],
       body: AsyncView<List<Conversation>>(
         key: _view,
         load: () async => (await Api.list('/api/messages')).map(Conversation.fromJson).toList(),
@@ -37,6 +45,7 @@ class _InboxScreenState extends State<InboxScreen> {
               message: switch (Session.instance.role) {
                 'client' => 'Message a technician from one of their quotes, or a supplier from a tool page.',
                 'technician' => 'Chats with clients start from a job you quoted on or were hired for.',
+                'admin' => 'Message any user from Users, Reports, Verify, Payments or a job: they see it from SureFix Support.',
                 _ => 'Customers can message you from your tool pages.',
               },
             );
@@ -44,7 +53,7 @@ class _InboxScreenState extends State<InboxScreen> {
 
           Widget row(Conversation conv) {
             final selected = wide && _open != null && _key(_open!) == _key(conv);
-            final mine = conv.last.senderId == Session.instance.user?.id;
+            final mine = conv.last.senderId == Session.instance.user?.id || (admin && conv.isSupport && conv.last.fromSupport);
             final preview = conv.last.text.isEmpty ? 'Sent a photo' : conv.last.text;
             return Semantics(
               button: true,
@@ -63,7 +72,7 @@ class _InboxScreenState extends State<InboxScreen> {
                   color: selected ? c.sunken : null,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Row(children: [
-                    Avatar(name: conv.other.name, image: conv.other.avatar, size: 50, online: conv.other.online),
+                    conv.other.isSupport ? const BrandMark(size: 50) : Avatar(name: conv.other.name, image: conv.other.avatar, size: 50, online: conv.other.online),
                     Gap.w12,
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -73,9 +82,16 @@ class _InboxScreenState extends State<InboxScreen> {
                         ]),
                         Gap.h2,
                         Row(children: [
-                          Icon(conv.isTool ? AppIcons.tools : AppIcons.jobs, size: 12, color: c.muted),
+                          Icon(conv.isSupport ? AppIcons.shieldFill : (conv.isTool ? AppIcons.tools : AppIcons.jobs), size: 12, color: conv.isSupport ? c.brand : c.muted),
                           Gap.w4,
-                          Expanded(child: Text(conv.title, style: context.text.bodySmall!.copyWith(fontSize: 11.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          Expanded(
+                            child: Text(
+                              conv.isSupport ? (admin ? 'Support conversation' : 'Official SureFix team') : conv.title,
+                              style: context.text.bodySmall!.copyWith(fontSize: 11.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ]),
                         Gap.h4,
                         Row(children: [
@@ -122,7 +138,7 @@ class _InboxScreenState extends State<InboxScreen> {
                         ]),
                 ),
               ),
-              if (open != null) ...[
+              if (open != null && !open.isSupport) ...[
                 Gap.w16,
                 SizedBox(
                   width: 44,
