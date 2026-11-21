@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../kit.dart';
 import '../../routes.dart';
+import '../admin/admin_chats.dart';
 import 'chat_screen.dart';
 
 /// All conversations. On wide windows the chat opens beside the list.
@@ -18,6 +19,26 @@ class _InboxScreenState extends State<InboxScreen> {
 
   static String _key(Conversation c) => c.key;
 
+  // Admins: their support conversations, or every chat between users.
+  String _tab = 'support';
+
+  Widget _withTabs(bool admin, Widget support) {
+    if (!admin) return support;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      PagePad(
+        child: Pills<String>(
+          scroll: true,
+          values: const ['support', 'all'],
+          label: (k) => k == 'support' ? 'Support' : 'All chats',
+          icon: (k) => k == 'support' ? AppIcons.help : AppIcons.chat,
+          selected: _tab,
+          onTap: (k) => setState(() => _tab = k),
+        ),
+      ),
+      Expanded(child: _tab == 'all' ? const AdminChatsView() : support),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -25,7 +46,7 @@ class _InboxScreenState extends State<InboxScreen> {
     final admin = Session.instance.user?.isAdmin ?? false;
     return AppPage(
       title: 'Messages',
-      subtitle: admin ? 'Support conversations with users (they see you as SureFix Support).' : 'Conversations about your jobs and rentals, and with SureFix Support.',
+      subtitle: admin ? 'Support: users see you as SureFix Support. All chats: every conversation between users, read-only.' : 'Conversations about your jobs and rentals, and with SureFix Support.',
       actions: [
         if (!admin)
           Btn('Contact support', icon: AppIcons.help, kind: BtnKind.soft, size: BtnSize.sm, onPressed: () async {
@@ -33,7 +54,7 @@ class _InboxScreenState extends State<InboxScreen> {
             _view.currentState?.reload();
           }),
       ],
-      body: AsyncView<List<Conversation>>(
+      body: _withTabs(admin, AsyncView<List<Conversation>>(
         key: _view,
         load: () async => (await Api.list('/api/messages')).map(Conversation.fromJson).toList(),
         events: Live.messages,
@@ -151,7 +172,7 @@ class _InboxScreenState extends State<InboxScreen> {
             ]),
           );
         },
-      ),
+      )),
     );
   }
 }

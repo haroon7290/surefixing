@@ -82,3 +82,35 @@ describe('SureFix Support conversations', () => {
     expect(inbox.body.every((r) => ['job', 'tool', 'support'].includes(r.kind))).toBe(true);
   });
 });
+
+describe('admins can read any conversation between users', () => {
+  test('list and read job chats, read-only, admins only', async () => {
+    const admin = await makeUser('admin');
+    const client = await makeUser('client');
+    const tech = await makeUser('technician', { profile: { skills: ['plumbing'] } });
+    const job = (await client.api('post', '/api/jobs').send({ title: 'Dripping kitchen tap', description: 'The kitchen tap drips all night long.', category: 'plumbing' })).body;
+    await tech.api('post', `/api/jobs/${job._id}/bids`).send({ amount: 1500 }).expect(201);
+    await client.api('post', `/api/messages/${job._id}`).send({ text: 'Can you come today?', to: tech.id }).expect(201);
+    await tech.api('post', `/api/messages/${job._id}`).send({ text: 'Yes, at 5 pm. Rs 1500 agreed.' }).expect(201);
+
+    const list = await admin.api('get', '/api/admin/conversations').expect(200);
+    const row = list.body.find((c) => String(c.jobId) === job._id);
+    expect(row).toMatchObject({ kind: 'job', subject: 'Dripping kitchen tap', count: 2 });
+    expect([row.a.name, row.b.name].sort()).toEqual([client.user.name, tech.user.name].sort());
+    expect(row.lastMessage.text).toBe('Yes, at 5 pm. Rs 1500 agreed.');
+
+    const filtered = await admin.api('get', '/api/admin/conversations?q=dripping').expect(200);
+    expect(filtered.body.some((c) => String(c.jobId) === job._id)).toBe(true);
+
+    const thread = await admin.api('get', `/api/admin/conversations/thread?job=${job._id}&a=${client.id}&b=${tech.id}`).expect(200);
+    expect(thread.body.map((m) => [m.senderName, m.text])).toEqual([
+      [client.user.name, 'Can you come today?'],
+      [tech.user.name, 'Yes, at 5 pm. Rs 1500 agreed.']
+    ]);
+    // Reading as admin doesn't mark anything read for the client.
+    expect((await client.api('get', '/api/messages/unread-count')).body.count).toBe(1);
+
+    await client.api('get', '/api/admin/conversations').expect(403);
+    await admin.api('get', `/api/admin/conversations/thread?a=${client.id}&b=${tech.id}`).expect(400);
+  });
+});

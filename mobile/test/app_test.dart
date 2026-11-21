@@ -441,6 +441,22 @@ void main() {
       expect(q.containsKey('covers'), isFalse);
     });
 
+    testWidgets('technicians in another city: the city replaces the distance limit', (tester) async {
+      await pumpApp(tester, role: 'client', size: desktop);
+      SiteNav.select('technicians');
+      await settle(tester);
+      Finder inPanel(String text) => find.descendant(of: find.byType(FilterPanel), matching: find.text(text));
+      await tapOn(tester, inPanel('Within 10 km'));
+      expect(lastGet('/api/users/technicians')!.queryParameters['radius'], '10');
+      await tapOn(tester, inPanel('Rawalpindi'));
+      final q = lastGet('/api/users/technicians')!.queryParameters;
+      expect(q['city'], 'Rawalpindi');
+      expect(q.containsKey('radius'), isFalse); // everyone in Rawalpindi, however far
+      expect(q['lat'], isNotNull); // still shows how far each one is
+      expect(find.textContaining('in Rawalpindi'), findsOneWidget);
+      expect(inPanel('Attock'), findsOneWidget);
+    });
+
     testWidgets('phone filter sheet applies only on "Show results"', (tester) async {
       await pumpApp(tester, role: 'client');
       navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const TechniciansScreen()));
@@ -557,6 +573,24 @@ void main() {
       await tester.enterText(find.byType(TextField).last, 'Can you go back and fix the drip?');
       await tapOn(tester, find.byTooltip('Send'));
       expect(sentBodies['POST /api/messages/support/t1'], containsPair('about', 'Job: AC not cooling — needs gas refill'));
+    });
+
+    testWidgets('admins read any chat between users and can step in as SureFix', (tester) async {
+      await pumpApp(tester, role: 'admin', size: desktop);
+      SiteNav.select('messages');
+      await settle(tester);
+      expect(find.text('Support'), findsWidgets);
+      await tapOn(tester, find.text('All chats'));
+      expect(lastGet('/api/admin/conversations'), isNotNull);
+      await tapOn(tester, find.text('Sara Khan  ↔  Ahmad Raza'));
+      expect(lastGet('/api/admin/conversations/thread')!.queryParameters, {'job': 'j2', 'a': 'c1', 'b': 't1'});
+      expect(find.text('Hi, when can you come?'), findsOneWidget);
+      expect(find.text('On my way, about 20 minutes.'), findsOneWidget);
+      expect(sent, isEmpty); // read-only: nothing marked as read
+      resetPushGuard();
+      await tapOn(tester, find.text('Message Ahmad as SureFix'));
+      expect(find.textContaining('You are writing as SureFix Support'), findsOneWidget);
+      expect(find.textContaining('Re: Job: AC not cooling'), findsWidgets);
     });
 
     testWidgets('the dock switches sections', (tester) async {

@@ -70,6 +70,7 @@ List<Dest> destinationsFor(String role) {
         Dest('reports', 'Reports', AppIcons.reports, AppIcons.reportsFill, (_) => const AdminReportsScreen(), group: 'Trust'),
         Dest('all-jobs', 'Jobs', AppIcons.jobs, AppIcons.jobsFill, (_) => const AdminJobsScreen(), group: 'Marketplace'),
         Dest('all-tools', 'Tools', AppIcons.tools, AppIcons.toolsFill, (_) => const AdminToolsScreen(), group: 'Marketplace'),
+        messages,
         alerts,
         account,
       ],

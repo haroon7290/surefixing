@@ -245,13 +245,13 @@ class Pills<T> extends StatelessWidget {
     if (!scroll || context.isWide) return Wrap(spacing: 8, runSpacing: 8, children: pills);
     return SizedBox(
       height: 40,
-      child: ListView.separated(
+      child: MouseDrag(child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: scrollPadding,
         itemCount: pills.length,
         separatorBuilder: (_, __) => Gap.w8,
         itemBuilder: (_, i) => pills[i],
-      ),
+      )),
     );
   }
 }
@@ -486,12 +486,12 @@ class FilterBar extends StatelessWidget {
     if (context.isWide) return Wrap(spacing: 8, runSpacing: 8, children: children);
     return SizedBox(
       height: 40,
-      child: ListView.separated(
+      child: MouseDrag(child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: children.length,
         separatorBuilder: (_, __) => Gap.w8,
         itemBuilder: (_, i) => children[i],
-      ),
+      )),
     );
   }
 }

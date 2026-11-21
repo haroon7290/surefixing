@@ -65,12 +65,12 @@ class FilterLayout<T> extends StatelessWidget {
       PagePad(
         child: SizedBox(
           height: 40,
-          child: ListView.separated(
+          child: MouseDrag(child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: phoneBar.length,
             separatorBuilder: (_, __) => Gap.w8,
             itemBuilder: (_, i) => phoneBar[i],
-          ),
+          )),
         ),
       ),
       Expanded(

@@ -13,21 +13,26 @@ const _budgets = [0, 2000, 5000, 10000];
 class JobFilters {
   final bool matching;
   final String category;
+  final String city;
   final Set<String> urgency;
   final int minBudget;
   final int radius;
-  const JobFilters({this.matching = false, this.category = '', this.urgency = const {}, this.minBudget = 0, this.radius = 0});
+  const JobFilters(
+      {this.matching = false, this.category = '', this.city = '', this.urgency = const {}, this.minBudget = 0, this.radius = 0});
 
-  JobFilters copy({bool? matching, String? category, Set<String>? urgency, int? minBudget, int? radius}) => JobFilters(
+  JobFilters copy({bool? matching, String? category, String? city, Set<String>? urgency, int? minBudget, int? radius}) => JobFilters(
         matching: matching ?? this.matching,
         category: category ?? this.category,
+        city: city ?? this.city,
         urgency: urgency ?? this.urgency,
         minBudget: minBudget ?? this.minBudget,
         radius: radius ?? this.radius,
       );
 
-  int get count => [matching && category.isEmpty, category.isNotEmpty, urgency.isNotEmpty, minBudget > 0, radius > 0].where((on) => on).length;
-  String get key => '$matching|$category|${(urgency.toList()..sort()).join(',')}|$minBudget|$radius';
+  int get count => [matching && category.isEmpty, category.isNotEmpty, city.isNotEmpty, urgency.isNotEmpty, minBudget > 0, radius > 0]
+      .where((on) => on)
+      .length;
+  String get key => '$matching|$category|$city|${(urgency.toList()..sort()).join(',')}|$minBudget|$radius';
 }
 
 /// The open marketplace for technicians: search and filter jobs to quote on
@@ -65,8 +70,9 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
       'matching': f.matching && f.category.isEmpty ? 1 : null,
       'urgency': f.urgency.isEmpty ? null : f.urgency.join(','),
       'minBudget': f.minBudget > 0 ? f.minBudget : null,
+      'city': f.city.isEmpty ? null : f.city,
       'sort': sort,
-      ...Locations.instance.query(),
+      ...Locations.instance.query(withRadius: f.city.isEmpty),
       'limit': 60,
     });
     return rows.map(Job.fromJson).toList();
@@ -80,7 +86,15 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
   List<Widget> _groups(BuildContext context, JobFilters f, ValueChanged<JobFilters> set) {
     final me = Session.instance.user!;
     return [
-      FilterGroup('Distance', hint: 'From where you work: your saved location unless you pick another.', child: DistanceFilter(radius: f.radius, onRadius: (km) => set(f.copy(radius: km)))),
+      FilterGroup('Distance',
+          hint: 'From where you work: your saved location unless you pick another.',
+          child: DistanceFilter(radius: f.radius, onRadius: (km) => set(f.copy(radius: km, city: '')))),
+      FilterGroup(
+        'City',
+        hint: 'Search in any city, e.g. Rawalpindi while you are in Attock. Distances stay from your location.',
+        child: Pills<String>(
+            values: const ['', ...cities], label: (c) => c.isEmpty ? 'Any city' : c, selected: f.city, onTap: (c) => set(f.copy(city: c))),
+      ),
       FilterGroup(
         'Type of work',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
@@ -113,7 +127,11 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
       ),
       FilterGroup(
         'Budget',
-        child: Pills<int>(values: _budgets, label: (b) => b == 0 ? 'Any budget' : '${money(b)}+', selected: f.minBudget, onTap: (b) => set(f.copy(minBudget: b))),
+        child: Pills<int>(
+            values: _budgets,
+            label: (b) => b == 0 ? 'Any budget' : '${money(b)}+',
+            selected: f.minBudget,
+            onTap: (b) => set(f.copy(minBudget: b))),
       ),
     ];
   }
@@ -127,6 +145,7 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
     final loc = Locations.instance;
     final from = loc.searchFrom;
     final what = plural(n, 'open job');
+    if (_f.city.isNotEmpty) return '$what in ${_f.city}';
     if (from != null && loc.radiusKm > 0) return '$what within ${loc.radiusKm} km of ${from.label}';
     return what;
   }
@@ -169,13 +188,19 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
                         title: 'No open jobs match',
                         message: loc.radiusKm > 0
                             ? 'Nothing within ${loc.radiusKm} km right now. Try a wider distance.'
-                            : (f.matching && f.category.isEmpty ? 'Nothing for your skills right now. Try all categories.' : 'Try another search or filter.'),
+                            : (f.matching && f.category.isEmpty
+                                ? 'Nothing for your skills right now. Try all categories.'
+                                : 'Try another search or filter.'),
                         action: filtered ? Btn('Show all jobs', kind: BtnKind.dark, onPressed: () => _apply(const JobFilters())) : null,
                       ),
                     ]
                   : [
                       ResultsHeader(_summary(jobs.length), sort: sortMenu),
-                      AutoGrid(minWidth: 340, gap: 12, maxColumns: 2, children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                      AutoGrid(
+                          minWidth: 340,
+                          gap: 12,
+                          maxColumns: 2,
+                          children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
                     ],
             ),
           );
@@ -241,7 +266,11 @@ class _MyWorkScreenState extends State<MyWorkScreen> {
                     : PageList(
                         onRefresh: () => _view.currentState!.reload(),
                         children: [
-                          AutoGrid(minWidth: 340, gap: 12, maxColumns: 3, children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                          AutoGrid(
+                              minWidth: 340,
+                              gap: 12,
+                              maxColumns: 3,
+                              children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
                         ],
                       ),
               ),
