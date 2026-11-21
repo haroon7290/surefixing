@@ -10,12 +10,14 @@ import 'api.dart';
 /// sign-in. Override any of them at build time with
 /// `--dart-define=FIREBASE_API_KEY=…` and so on.
 ///
-/// Left empty, the app uses SureFix's own email + password login instead.
+/// Project: surefix-app. Where an app id is empty (e.g. a platform not yet
+/// registered in Firebase), that build uses SureFix's own email + password
+/// login instead.
 abstract final class FirebaseConfig {
-  static const apiKey = String.fromEnvironment('FIREBASE_API_KEY', defaultValue: '');
-  static const projectId = String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: '');
-  static const messagingSenderId = String.fromEnvironment('FIREBASE_SENDER_ID', defaultValue: '');
-  static const webAppId = String.fromEnvironment('FIREBASE_WEB_APP_ID', defaultValue: '');
+  static const apiKey = String.fromEnvironment('FIREBASE_API_KEY', defaultValue: 'AIzaSyAVTI0rMXIIs7PsIOZKAkJ4SHgQIKwOyys');
+  static const projectId = String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: 'surefix-app');
+  static const messagingSenderId = String.fromEnvironment('FIREBASE_SENDER_ID', defaultValue: '552777580802');
+  static const webAppId = String.fromEnvironment('FIREBASE_WEB_APP_ID', defaultValue: '1:552777580802:web:eedb7cf3c1e2dc8f85421b');
   static const androidAppId = String.fromEnvironment('FIREBASE_ANDROID_APP_ID', defaultValue: '');
   static const iosAppId = String.fromEnvironment('FIREBASE_IOS_APP_ID', defaultValue: '');
 
