@@ -140,7 +140,7 @@ class _ClientHomeState extends State<ClientHome> {
                   '${job.technician?.name ?? 'Your technician'} finished "${job.title}". Confirm it to release the payment.',
                   title: 'Waiting for your confirmation',
                   tone: Tone.warning,
-                  action: Btn('Review & confirm', kind: BtnKind.dark, size: BtnSize.sm, onPressed: () => openJob(context, job.id)),
+                  action: Btn('Review & confirm', kind: BtnKind.dark, size: BtnSize.sm, onPressed: () => openJob(context, job.id, ref: job.ref)),
                 ),
               ],
               SectionTitle('Your jobs', action: active.isEmpty ? null : 'See all', onAction: () => openSection(context, 'jobs')),
@@ -155,7 +155,7 @@ class _ClientHomeState extends State<ClientHome> {
                   ),
                 )
               else
-                AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in active.take(wide ? 6 : 3)) JobCard(j, onTap: () => openJob(context, j.id))]),
+                AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in active.take(wide ? 6 : 3)) JobCard(j, onTap: () => openJob(context, j.id, ref: j.ref))]),
               const SectionTitle('Browse services'),
               AutoGrid(
                 minWidth: wide ? 150 : 76,

@@ -23,7 +23,10 @@ Widget? pageForPath(String route) {
   };
 }
 
-void openJob(BuildContext context, String id) => push(context, JobDetailScreen(jobId: id), path: '/jobs/$id');
+/// Opens a job. The address shows its number (…/#/jobs/SF-1024) when known;
+/// the page also accepts the number itself as [id].
+void openJob(BuildContext context, String id, {String ref = ''}) =>
+    push(context, JobDetailScreen(jobId: ref.isNotEmpty ? ref : id), path: '/jobs/${ref.isNotEmpty ? ref : id}');
 
 void openTool(BuildContext context, String id) => push(context, ToolDetailScreen(toolId: id), path: '/tools/$id');
 

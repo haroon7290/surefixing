@@ -307,7 +307,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                   ? const EmptyState(icon: AppIcons.jobs, title: 'No jobs match')
                   : PageList(children: [
                       Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(plural(jobs.length, 'job'), style: context.text.bodySmall)),
-                      AutoGrid(minWidth: 340, gap: 12, maxColumns: 3, children: [for (final j in jobs) JobCard(j, onTap: () => openJob(context, j.id))]),
+                      AutoGrid(minWidth: 340, gap: 12, maxColumns: 3, children: [for (final j in jobs) JobCard(j, onTap: () => openJob(context, j.id, ref: j.ref))]),
                     ]),
             ),
           ),

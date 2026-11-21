@@ -124,11 +124,11 @@ class _TechnicianHomeState extends State<TechnicianHome> {
                 ],
                 if (d.requests.isNotEmpty) ...[
                   const SectionTitle('Requested you directly'),
-                  AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in d.requests) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                  AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in d.requests) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id, ref: j.ref))]),
                 ],
                 if (d.active.isNotEmpty) ...[
                   SectionTitle('Jobs in progress', action: 'My work', onAction: () => openSection(context, 'work')),
-                  AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in d.active) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                  AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in d.active) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id, ref: j.ref))]),
                 ],
                 SectionTitle('New jobs for you', action: 'Find jobs', onAction: () => openSection(context, 'find')),
                 if (fresh.isEmpty)
@@ -142,7 +142,7 @@ class _TechnicianHomeState extends State<TechnicianHome> {
                     ),
                   )
                 else
-                  AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in fresh.take(6)) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                  AutoGrid(minWidth: 320, gap: 12, maxColumns: 3, children: [for (final j in fresh.take(6)) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id, ref: j.ref))]),
               ],
             );
           },

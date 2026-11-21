@@ -68,8 +68,7 @@ function messagePayload(msg) {
 }
 
 async function loadJob(id) {
-  if (!mongoose.isValidObjectId(id)) throw notFound('Job not found');
-  const job = await Job.findById(id);
+  const job = await Job.findByRef(id);
   if (!job) throw notFound('Job not found');
   return job;
 }

@@ -100,6 +100,8 @@ does not carry over**:
 
 ## Changelog
 
+- **v3.6.1** — Job pages live at their number: `…/#/jobs/SF-1024` (old id links still work and
+  are rewritten to the number).
 - **v3.6** — Job numbers (SF-1001 onwards): on cards and job pages, copyable, searchable in job
   lists, the admin's jobs and All chats; support topics include them. Existing jobs are numbered
   on start-up, oldest first.
