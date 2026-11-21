@@ -175,7 +175,10 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
   final id = path.split('/').last;
   Json job(String id) => fakeJobs.firstWhere((j) => j['_id'] == id, orElse: () => fakeJobs.first);
 
-  if (path == '/api/auth/login' || path == '/api/auth/register') return {'token': 'test-token', 'user': _client};
+  if (path == '/api/auth/login' || path == '/api/auth/verify-email') return {'token': 'test-token', 'user': _client};
+  // New accounts confirm their email first (here: the demo code).
+  if (path == '/api/auth/register') return {'verify': 'code', 'email': 'new@test.com', 'minutes': 30, 'emailed': false, 'devCode': '482913'};
+  if (path == '/api/auth/resend-verification') return {'ok': true, 'method': 'code', 'minutes': 30, 'devCode': '551177'};
   if (path == '/api/auth/forgot-password') return {'ok': true, 'minutes': 15, 'emailed': false, 'devCode': '482913'};
   if (path == '/api/users/me') return me;
   if (path == '/api/users/me/summary') {

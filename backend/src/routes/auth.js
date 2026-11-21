@@ -36,12 +36,91 @@ router.post(
     const { name, email, password, role, phone, city } = req.body;
     if (role === 'admin') return res.status(403).json({ error: 'Admin accounts are provisioned separately' });
     if (await User.exists({ email })) return res.status(409).json({ error: 'An account with this email already exists' });
-    const user = await User.create({ name, email, password, role, phone, city: city || '' });
-    // Keep Firebase in step so the new account can use Firebase sign-in too.
-    if (firebase.canManage()) firebase.syncUsers(User, [user]).catch(() => {});
-    res.status(201).json({ token: signToken(user), user: user.toPrivateJSON() });
+    // The email must be confirmed before the account can sign in: with
+    // Firebase by a link Firebase emails, otherwise by a 6-digit code.
+    if (firebase.canUseRest()) {
+      let uid;
+      try {
+        uid = await firebase.signUpAndVerify(email, password, name);
+      } catch (err) {
+        if (err.firebaseCode === 'EMAIL_EXISTS') return res.status(409).json({ error: 'An account with this email already exists' });
+        if (err.firebaseCode === 'WEAK_PASSWORD') throw badRequest('Choose a stronger password (at least 6 characters)');
+        throw err;
+      }
+      await User.create({ name, email, password, role, phone, city: city || '', firebaseUid: uid, emailVerified: false });
+      return res.status(202).json({ verify: 'link', email });
+    }
+    const user = await User.create({ name, email, password, role, phone, city: city || '', emailVerified: false });
+    res.status(202).json({ verify: 'code', email, ...(await sendVerifyCode(user)) });
   }
 );
+
+// A 6-digit code to confirm the email (servers without Firebase).
+async function sendVerifyCode(user) {
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  user.verifyCodeHash = await bcrypt.hash(code, 8);
+  user.verifyCodeExpires = new Date(Date.now() + config.resetCodeMinutes * 60 * 1000);
+  user.verifyAttempts = 0;
+  await user.save();
+  await mailer.send({
+    to: user.email,
+    subject: 'Confirm your SureFix email',
+    text: `Hi ${user.name},\n\nYour SureFix verification code is ${code}. It expires in ${config.resetCodeMinutes} minutes.\n\nIf you didn't sign up, you can ignore this email.`
+  });
+  const answer = { minutes: config.resetCodeMinutes, emailed: mailer.emailEnabled() };
+  if (!mailer.emailEnabled() && !config.isProd) answer.devCode = code;
+  return answer;
+}
+
+const unverified = (email, method) => ({
+  error:
+    method === 'link'
+      ? `Confirm your email first: open the link we sent to ${email}, then log in.`
+      : `Confirm your email first: enter the code we sent to ${email}.`,
+  code: 'email_unverified',
+  details: { method, email }
+});
+
+// Step 2 without Firebase: the code from the email.
+router.post(
+  '/verify-email',
+  [emailField(), body('code').trim().matches(/^\d{6}$/).withMessage('Enter the 6-digit code')],
+  validate,
+  async (req, res) => {
+    const invalid = badRequest('That code is wrong or has expired. Ask for a new one.');
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) throw invalid;
+    if (user.emailVerified) return res.json({ token: signToken(user), user: user.toPrivateJSON() });
+    if (!user.verifyCodeHash || !user.verifyCodeExpires || user.verifyCodeExpires < new Date()) throw invalid;
+    if (user.verifyAttempts >= MAX_RESET_ATTEMPTS) throw badRequest('Too many wrong attempts. Ask for a new code.');
+    if (!(await bcrypt.compare(req.body.code, user.verifyCodeHash))) {
+      user.verifyAttempts += 1;
+      await user.save();
+      throw invalid;
+    }
+    user.emailVerified = true;
+    user.verifyCodeHash = '';
+    user.verifyCodeExpires = null;
+    user.verifyAttempts = 0;
+    await user.save();
+    if (user.status === 'suspended') return res.status(403).json({ error: 'Your account has been suspended. Contact support.', code: 'suspended' });
+    res.json({ token: signToken(user), user: user.toPrivateJSON() });
+  }
+);
+
+// Sends the link (Firebase accounts; needs the password) or a new code
+// again. The answer doesn't reveal whether the email has an account.
+router.post('/resend-verification', [emailField(), body('password').optional().isString()], validate, async (req, res) => {
+  const user = await User.findOne({ email: req.body.email });
+  if (!user || user.emailVerified) return res.json({ ok: true });
+  if (user.firebaseUid && firebase.canUseRest()) {
+    if (!req.body.password) throw badRequest('Enter your password to resend the link');
+    const sent = await firebase.resendVerification(user.email, req.body.password).catch(() => false);
+    if (!sent) return res.status(401).json({ error: 'Invalid email or password' });
+    return res.json({ ok: true, method: 'link' });
+  }
+  res.json({ ok: true, method: 'code', ...(await sendVerifyCode(user)) });
+});
 
 // Firebase sign-in: the app signs in (or signs up) with Firebase and sends
 // the ID token here; the answer is a normal SureFix session.
@@ -95,9 +174,17 @@ router.post(
         role: profile.role,
         phone: profile.phone || '',
         city: profile.city || '',
-        firebaseUid: claims.uid
+        firebaseUid: claims.uid,
+        emailVerified: Boolean(claims.email_verified)
       });
+      if (!claims.email_verified) return res.status(403).json(unverified(email, 'link'));
       return res.status(201).json({ token: signToken(user), user: user.toPrivateJSON() });
+    }
+    // Signing in needs a confirmed email (Firebase emails the link).
+    if (!claims.email_verified) return res.status(403).json(unverified(email, 'link'));
+    if (!user.emailVerified) {
+      user.emailVerified = true;
+      await user.save();
     }
     if (user.status === 'suspended') {
       return res.status(403).json({ error: 'Your account has been suspended. Contact support.', code: 'suspended' });
@@ -123,7 +210,12 @@ router.post(
         return res.status(503).json({ error: "Couldn't check your password right now. Please try again." });
       }
       if (uid === undefined) return res.status(409).json({ error: 'Please update SureFix to sign in.', code: 'use_firebase' });
-      if (uid !== user.firebaseUid) return res.status(401).json({ error: 'Invalid email or password' });
+      if (!uid || uid.uid !== user.firebaseUid) return res.status(401).json({ error: 'Invalid email or password' });
+      if (!uid.verified) return res.status(403).json(unverified(email, 'link'));
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        await user.save();
+      }
       if (user.status === 'suspended') {
         return res.status(403).json({ error: 'Your account has been suspended. Contact support.', code: 'suspended' });
       }
@@ -132,6 +224,7 @@ router.post(
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+    if (!user.emailVerified) return res.status(403).json(unverified(email, 'code'));
     if (user.status === 'suspended') {
       return res.status(403).json({ error: 'Your account has been suspended. Contact support.', code: 'suspended' });
     }

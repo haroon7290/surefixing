@@ -12,23 +12,49 @@ describe('auth', () => {
     expect(res.body.errors.length).toBeGreaterThanOrEqual(3);
   });
 
-  test('register + login round trip, emails are case-insensitive', async () => {
+  test('sign-up needs the emailed code before the first login; emails are case-insensitive', async () => {
     const reg = await request(app)
       .post('/api/auth/register')
       .send({ name: 'Case Test', email: 'Case.Test@Example.com', password: 'secret123', role: 'technician', city: 'Lahore' });
-    expect(reg.status).toBe(201);
-    expect(reg.body.token).toBeTruthy();
-    expect(reg.body.user).toMatchObject({ email: 'case.test@example.com', role: 'technician', city: 'Lahore', status: 'active' });
-    expect(reg.body.user.password).toBeUndefined();
+    expect(reg.status).toBe(202);
+    expect(reg.body).toMatchObject({ verify: 'code', email: 'case.test@example.com' });
+    expect(reg.body.token).toBeUndefined();
+    expect(reg.body.devCode).toMatch(/^\d{6}$/);
+
+    const blocked = await request(app).post('/api/auth/login').send({ email: 'CASE.test@example.com', password: 'secret123' });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body).toMatchObject({ code: 'email_unverified', details: { method: 'code' } });
+
+    const wrong = reg.body.devCode === '000000' ? '111111' : '000000';
+    await request(app).post('/api/auth/verify-email').send({ email: 'case.test@example.com', code: wrong }).expect(400);
+    const ok = await request(app).post('/api/auth/verify-email').send({ email: 'Case.Test@Example.com', code: reg.body.devCode }).expect(200);
+    expect(ok.body.token).toBeTruthy();
+    expect(ok.body.user).toMatchObject({ email: 'case.test@example.com', role: 'technician', city: 'Lahore', status: 'active' });
+    expect(ok.body.user.password).toBeUndefined();
 
     const login = await request(app).post('/api/auth/login').send({ email: 'CASE.test@example.com', password: 'secret123' });
     expect(login.status).toBe(200);
     expect(login.body.user.email).toBe('case.test@example.com');
   });
 
+  test('a new code can be sent; old accounts are already verified', async () => {
+    const reg = await request(app).post('/api/auth/register').send({ name: 'Resend Me', email: 'resend@test.com', password: 'secret123', role: 'client' }).expect(202);
+    const again = await request(app).post('/api/auth/resend-verification').send({ email: 'resend@test.com' }).expect(200);
+    expect(again.body.method).toBe('code');
+    expect(again.body.devCode).not.toBe(undefined);
+    await request(app).post('/api/auth/verify-email').send({ email: 'resend@test.com', code: reg.body.devCode === again.body.devCode ? again.body.devCode : reg.body.devCode }).expect(again.body.devCode === reg.body.devCode ? 200 : 400);
+    await request(app).post('/api/auth/verify-email').send({ email: 'resend@test.com', code: again.body.devCode }).expect(200);
+    // Unknown emails get the same answer (no account fishing).
+    expect((await request(app).post('/api/auth/resend-verification').send({ email: 'nobody@test.com' })).body).toEqual({ ok: true });
+    // Accounts that existed before verification was added keep working.
+    const legacy = await User.create({ name: 'Old Timer', email: 'old@test.com', password: 'secret123', role: 'client' });
+    expect(legacy.emailVerified).toBe(true);
+    await request(app).post('/api/auth/login').send({ email: 'old@test.com', password: 'secret123' }).expect(200);
+  });
+
   test('duplicate email is rejected', async () => {
     const body = { name: 'Dup', email: 'dup@test.com', password: 'secret123', role: 'client' };
-    await request(app).post('/api/auth/register').send(body).expect(201);
+    await request(app).post('/api/auth/register').send(body).expect(202);
     const res = await request(app).post('/api/auth/register').send(body);
     expect(res.status).toBe(409);
   });

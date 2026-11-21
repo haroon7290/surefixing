@@ -95,6 +95,28 @@ abstract final class FirebaseLogin {
     }
   }
 
+  /// A new ID token after re-reading the account (e.g. once the email
+  /// verification link was opened).
+  static Future<String> freshToken() async {
+    final user = _auth.currentUser!;
+    try {
+      await user.reload();
+      return (await _auth.currentUser!.getIdToken(true))!;
+    } on FirebaseAuthException catch (e) {
+      throw explain(e);
+    }
+  }
+
+  /// Emails the verification link again.
+  static Future<void> sendVerification(String email, String password) async {
+    try {
+      if (_auth.currentUser?.email?.toLowerCase() != email.trim().toLowerCase()) await signIn(email, password);
+      await _auth.currentUser!.sendEmailVerification();
+    } on FirebaseAuthException catch (e) {
+      throw explain(e);
+    }
+  }
+
   /// Emails a link to choose a new password.
   static Future<void> sendReset(String email) async {
     try {
@@ -129,7 +151,11 @@ abstract final class FirebaseLogin {
 
   /// Firebase's error codes in the app's words.
   static ApiError explain(FirebaseAuthException e) => switch (e.code) {
-        'invalid-credential' || 'wrong-password' || 'user-not-found' || 'invalid-email' => ApiError(401, 'Invalid email or password', code: 'firebase_${e.code}'),
+        'invalid-credential' ||
+        'wrong-password' ||
+        'user-not-found' ||
+        'invalid-email' =>
+          ApiError(401, 'Invalid email or password', code: 'firebase_${e.code}'),
         'user-disabled' => ApiError(403, 'Your account has been suspended. Contact support.', code: 'suspended'),
         'too-many-requests' => ApiError(429, 'Too many attempts. Please wait a few minutes and try again.'),
         'weak-password' => ApiError(400, 'Choose a stronger password (at least 6 characters).'),

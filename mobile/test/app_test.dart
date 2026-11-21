@@ -295,6 +295,35 @@ void main() {
       expect(sent, isEmpty);
     });
 
+    testWidgets('sign-up asks for the emailed code before the account can be used', (tester) async {
+      useSize(tester, phone);
+      signIn(null);
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.light(), navigatorKey: navigatorKey, scaffoldMessengerKey: messengerKey, home: const RegisterScreen()));
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'New Person');
+      await tester.enterText(fields.at(1), 'new@test.com');
+      await tester.enterText(fields.at(3), 'secret123');
+      await tapOn(tester, find.text('Create account'));
+      expect(sent, contains('POST /api/auth/register'));
+      expect(Session.instance.loggedIn, isFalse);
+      expect(find.text('Confirm your email'), findsOneWidget);
+      expect(find.textContaining('482913'), findsOneWidget);
+
+      await tapOn(tester, find.text('Confirm email'));
+      expect(find.text('Enter the 6-digit code'), findsOneWidget);
+      expect(sent, isNot(contains('POST /api/auth/verify-email')));
+
+      await tapOn(tester, find.text('Send a new code'));
+      expect(find.textContaining('551177'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, '551177');
+      await tapOn(tester, find.text('Confirm email'));
+      expect(sentBodies['POST /api/auth/verify-email'], {'email': 'new@test.com', 'code': '551177'});
+      expect(Session.instance.loggedIn, isTrue);
+      Realtime.instance.disconnect();
+      Badges.instance.stop();
+    });
+
     testWidgets('forgot password shows the demo code and resets', (tester) async {
       useSize(tester, phone);
       signIn(null);
