@@ -75,6 +75,9 @@ const jobStages = ['hired', 'on_the_way', 'working', 'done'];
 
 class Job {
   final String id;
+
+  /// Short public number; shown as [ref] ("SF-1024").
+  final int number;
   final User client;
   final String title;
   final String description;
@@ -112,6 +115,7 @@ class Job {
 
   const Job({
     required this.id,
+    this.number = 0,
     required this.client,
     this.title = '',
     this.description = '',
@@ -151,6 +155,9 @@ class Job {
   bool get completed => status == 'completed';
   bool get cancelled => status == 'cancelled';
   bool get isDirectRequest => requestedTechnician != null;
+
+  /// "SF-1024" — quote it to support, search for it anywhere.
+  String get ref => number > 0 ? 'SF-$number' : '';
   String get place => [area, city].where((e) => e.isNotEmpty).join(', ');
 
   /// The technician said the work is finished; the client has yet to confirm.
@@ -182,6 +189,7 @@ class Job {
     final bids = asJsonList(j['bids']).map(Bid.fromJson).toList();
     return Job(
       id: idOf(j),
+      number: integer(j['number']),
       client: User.ref(j['client']),
       title: str(j['title']),
       description: str(j['description']),

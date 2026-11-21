@@ -100,6 +100,9 @@ does not carry over**:
 
 ## Changelog
 
+- **v3.6** — Job numbers (SF-1001 onwards): on cards and job pages, copyable, searchable in job
+  lists, the admin's jobs and All chats; support topics include them. Existing jobs are numbered
+  on start-up, oldest first.
 - **v3.5.1** — Live updates reconnect after signing out and in with another account (the
   "Reconnecting" bar no longer sticks).
 - **v3.5** — Admin *Messages* with a read-only view of every chat between users; City filter on

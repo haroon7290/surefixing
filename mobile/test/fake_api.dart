@@ -60,7 +60,7 @@ Json _bid(String id, Json tech, num amount, String status) => {
     };
 
 Json _job(String id, String title, String category, String status, {String stage = 'hired', Json? tech, List<Json> bids = const [], Json? payment, Json? extra}) => {
-      '_id': id, 'client': _card(_client, contact: tech != null), 'title': title,
+      '_id': id, 'number': 1000 + int.parse(id.substring(1)), 'client': _card(_client, contact: tech != null), 'title': title,
       'description': 'Water is dripping from the pipe under the kitchen sink and the cabinet floor is getting wet. Need it fixed today if possible.',
       'category': category, 'budget': 3000, 'location': 'House 14, Street 7, DHA Phase 4', 'city': 'Lahore', 'urgency': 'high', 'images': <String>[],
       'status': status, 'stage': stage, 'requestedTechnician': null, 'requestDeclined': false,

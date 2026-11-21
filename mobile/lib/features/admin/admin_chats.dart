@@ -11,6 +11,7 @@ class AdminConversation {
   final String jobId;
   final String toolId;
   final String subject;
+  final int jobNumber;
   final String jobStatus;
   final User a;
   final User b;
@@ -21,6 +22,7 @@ class AdminConversation {
     this.jobId = '',
     this.toolId = '',
     this.subject = '',
+    this.jobNumber = 0,
     this.jobStatus = '',
     required this.a,
     required this.b,
@@ -33,6 +35,7 @@ class AdminConversation {
         jobId: idOf(j['jobId']),
         toolId: idOf(j['toolId']),
         subject: str(j['subject']),
+        jobNumber: integer(j['jobNumber']),
         jobStatus: str(j['jobStatus']),
         a: User.fromJson(asJson(j['a'])),
         b: User.fromJson(asJson(j['b'])),
@@ -69,7 +72,7 @@ class _AdminChatsViewState extends State<AdminChatsView> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       PagePad(
         child: SearchBox(
-          hint: 'Search by name, job or tool',
+          hint: 'Search by name, job, tool or a job number like SF-1024',
           onChanged: (v) {
             _debounce?.cancel();
             _debounce = Timer(const Duration(milliseconds: 350), () => setState(() => _query = v.trim()));
@@ -136,7 +139,10 @@ class _AdminChatsViewState extends State<AdminChatsView> {
                 Row(children: [
                   Icon(conv.isTool ? AppIcons.tools : AppIcons.jobs, size: 12, color: c.muted),
                   Gap.w4,
-                  Expanded(child: Text(conv.subject, style: context.text.bodySmall!.copyWith(fontSize: 11.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Expanded(
+                    child: Text(conv.jobNumber > 0 ? 'SF-${conv.jobNumber} · ${conv.subject}' : conv.subject,
+                        style: context.text.bodySmall!.copyWith(fontSize: 11.5), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
                 ]),
                 Gap.h4,
                 Row(children: [
@@ -166,7 +172,7 @@ class AdminThreadScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final conv = conversation;
     final c = context.colors;
-    final about = conv.isTool ? 'Tool: ${conv.subject}' : 'Job: ${conv.subject}';
+    final about = conv.isTool ? 'Tool: ${conv.subject}' : (conv.jobNumber > 0 ? 'Job SF-${conv.jobNumber}: ${conv.subject}' : 'Job: ${conv.subject}');
     return AppPage(
       title: '${conv.a.firstName} & ${conv.b.firstName}',
       subtitle: about,

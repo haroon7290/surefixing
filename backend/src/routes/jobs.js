@@ -128,6 +128,8 @@ router.get('/', authRequired, async (req, res) => {
   if (text) {
     const rx = new RegExp(escapeRegex(String(text).trim()), 'i');
     q.$or = [{ title: rx }, { description: rx }, { location: rx }];
+    const number = Job.parseNumber(text);
+    if (number) q.$or.push({ number });
   }
 
   const sorts = { newest: { createdAt: -1 }, oldest: { createdAt: 1 }, budget: { budget: -1, createdAt: -1 } };

@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const config = require('../config');
 const User = require('../models/User');
 const Job = require('../models/Job');
+const Counter = require('../models/Counter');
 const Tool = require('../models/Tool');
 const Rental = require('../models/Rental');
 const Message = require('../models/Message');
@@ -541,6 +542,12 @@ async function run() {
 
   console.log('\nDemo accounts (password: password123):');
   [sara, bilal, ahmad, usman, toolco, admin].forEach((x) => console.log(`  ${x.role.padEnd(10)} ${x.email}`));
+  // Job numbers in date order: SF-1001 is the oldest job.
+  await Job.updateMany({}, { $unset: { number: 1 } });
+  await Counter.deleteMany({ _id: 'job' });
+  await Job.numberMissing();
+  console.log('Numbered jobs SF-1001 onwards, oldest first');
+
   await mongoose.disconnect();
   console.log('Done.');
 }

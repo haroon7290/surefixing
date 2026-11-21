@@ -258,6 +258,8 @@ router.get('/jobs', async (req, res) => {
   if (req.query.q) {
     const rx = new RegExp(escapeRegex(String(req.query.q).trim()), 'i');
     q.$or = [{ title: rx }, { description: rx }];
+    const number = Job.parseNumber(req.query.q);
+    if (number) q.$or.push({ number });
   }
   const { limit, skip } = paginate(req, { defaultLimit: 100, maxLimit: 200 });
   const [items, count] = await Promise.all([
@@ -324,7 +326,7 @@ router.get('/conversations', async (req, res) => {
   const ids = (key) => [...new Set(rows.map((r) => r._id[key]).filter(Boolean).map(String))];
   const [users, jobsFound, tools] = await Promise.all([
     User.find({ _id: { $in: [...ids('a'), ...ids('b')] } }).select('name avatar role'),
-    Job.find({ _id: { $in: ids('job') } }).select('title status category'),
+    Job.find({ _id: { $in: ids('job') } }).select('number title status category'),
     Tool.find({ _id: { $in: ids('tool') } }).select('name category')
   ]);
   const userMap = new Map(users.map((u) => [String(u._id), u]));
@@ -344,6 +346,7 @@ router.get('/conversations', async (req, res) => {
         jobId: r._id.job || null,
         toolId: r._id.tool || null,
         subject: job?.title || tool?.name || 'Removed',
+        jobNumber: job?.number || null,
         jobStatus: job?.status || '',
         a: person(r._id.a),
         b: person(r._id.b),
@@ -357,7 +360,12 @@ router.get('/conversations', async (req, res) => {
         }
       };
     })
-    .filter((c) => !q || [c.a.name, c.b.name, c.subject].some((x) => String(x).toLowerCase().includes(q)));
+    .filter((c) => {
+      if (!q) return true;
+      const number = Job.parseNumber(q);
+      if (number && c.jobNumber === number) return true;
+      return [c.a.name, c.b.name, c.subject, c.jobNumber ? `sf-${c.jobNumber}` : ''].some((x) => String(x).toLowerCase().includes(q));
+    });
   res.json(out);
 });
 

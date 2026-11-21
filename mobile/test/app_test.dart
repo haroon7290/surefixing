@@ -106,6 +106,11 @@ void main() {
       expect(Job.fromJson(fakeJobs[5]).isDirectRequest, isTrue);
     });
 
+    test('jobs have a short number to quote to support', () {
+      expect(Job.fromJson(fakeJobs[0]).ref, 'SF-1001');
+      expect(Job.fromJson({'_id': 'x'}).ref, '');
+    });
+
     test('references may be populated objects or bare ids', () {
       final job = Job.fromJson({
         '_id': 'x',
@@ -315,6 +320,15 @@ void main() {
       await settle(tester);
       expect(sent, contains('POST /api/jobs/j1/accept/b1'));
       expect(sentBodies['POST /api/jobs/j1/accept/b1'], {'paymentMethod': 'wallet'});
+    });
+
+    testWidgets('the job number shows on the job page and copies with a tap', (tester) async {
+      await pumpApp(tester, role: 'client', size: desktop);
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const JobDetailScreen(jobId: 'j1')));
+      await settle(tester);
+      expect(find.text('Job SF-1001'), findsOneWidget);
+      await tapOn(tester, find.text('Job SF-1001'));
+      expect(find.textContaining('SF-1001 copied'), findsOneWidget);
     });
 
     testWidgets('client confirms finished work', (tester) async {
@@ -569,10 +583,10 @@ void main() {
       await settle(tester);
       resetPushGuard();
       await tapOn(tester, find.text('Message technician'));
-      expect(find.textContaining('Re: Job: AC not cooling — needs gas refill'), findsOneWidget);
+      expect(find.textContaining('Re: Job SF-1002: AC not cooling — needs gas refill'), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, 'Can you go back and fix the drip?');
       await tapOn(tester, find.byTooltip('Send'));
-      expect(sentBodies['POST /api/messages/support/t1'], containsPair('about', 'Job: AC not cooling — needs gas refill'));
+      expect(sentBodies['POST /api/messages/support/t1'], containsPair('about', 'Job SF-1002: AC not cooling — needs gas refill'));
     });
 
     testWidgets('admins read any chat between users and can step in as SureFix', (tester) async {

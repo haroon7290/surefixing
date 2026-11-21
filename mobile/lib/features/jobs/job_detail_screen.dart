@@ -212,6 +212,29 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           Gap.w12,
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              if (job.ref.isNotEmpty) ...[
+                Semantics(
+                  button: true,
+                  label: 'Job number ${job.ref}, copy',
+                  excludeSemantics: true,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(R.sm),
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: job.ref));
+                      toastOk('Job number ${job.ref} copied');
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text('Job ${job.ref}', style: context.text.labelMedium!.copyWith(color: context.colors.brandDeep, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
+                        Gap.w4,
+                        Icon(AppIcons.copy, size: 13, color: context.colors.muted),
+                      ]),
+                    ),
+                  ),
+                ),
+                Gap.h4,
+              ],
               Text(job.title, style: context.text.headlineSmall),
               Gap.h6,
               Wrap(spacing: 6, runSpacing: 6, children: [
@@ -389,7 +412,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             icon: AppIcons.reports,
             kind: BtnKind.ghost,
             expand: true,
-            onPressed: () => showReportSheet(context, targetType: 'job', targetId: job.id, label: job.title, suggested: job.inProgress ? 'payment' : null)),
+            onPressed: () => showReportSheet(context, targetType: 'job', targetId: job.id, label: job.ref.isEmpty ? job.title : '${job.ref} ${job.title}', suggested: job.inProgress ? 'payment' : null)),
     ];
 
     Widget gap(Widget? w) => w == null ? const SizedBox.shrink() : Padding(padding: const EdgeInsets.only(bottom: 16), child: w);
@@ -433,7 +456,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         );
 
     if (me.isAdmin) {
-      final about = 'Job: ${job.title}';
+      final about = job.ref.isEmpty ? 'Job: ${job.title}' : 'Job ${job.ref}: ${job.title}';
       final tech = job.technician ?? job.requestedTechnician;
       final message = [
         Btn('Message client', icon: AppIcons.chat, kind: BtnKind.outline, size: BtnSize.sm,
