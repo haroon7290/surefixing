@@ -36,6 +36,33 @@
    with `create-admin` instead. Add `SMTP_URL` (e.g. a Gmail app password) in Render so
    password-reset codes are emailed — in production they are not shown on screen.
 
+## Firebase Authentication (sign-in and password-reset emails)
+
+With Firebase, Google checks passwords and emails password-reset links; SureFix keeps its own
+users and sessions (the app exchanges each Firebase sign-in at `POST /api/auth/firebase`).
+Without it, the backend's own email + password login is used everywhere.
+
+1. **Firebase console** (console.firebase.google.com) → **Add project** → name it `surefix`
+   (Google Analytics off is fine).
+2. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable → Save.**
+   Under **Settings → Authorized domains** add `haroon7290.github.io` (`localhost` is there
+   already).
+3. **Project settings (gear) → Your apps**: add a **Web** app (nickname `SureFix web`) and an
+   **Android** app (package name `com.surefix.app`). The values shown (apiKey, projectId,
+   messagingSenderId, appId for web and Android) are public; they go in
+   `mobile/lib/core/firebase_login.dart` (or as `--dart-define`s).
+4. **Project settings → Service accounts → Generate new private key.** This file is secret:
+   never commit it or paste it anywhere public. On Render (surefix-api → Environment) add
+   `FIREBASE_PROJECT_ID` and `FIREBASE_SERVICE_ACCOUNT` (the whole JSON on one line). For local
+   development put the same two in `backend\.env`.
+5. Redeploy. On start-up the backend copies every existing account into Firebase **with its
+   current password** (log line: `Firebase: N accounts copied`), so nobody has to reset.
+6. Optional: **Authentication → Templates → Password reset** to change the email's sender name
+   and wording.
+
+Accounts in Firebase can't use the old login route any more (their password now lives in
+Firebase), so install the new app build after switching.
+
 ## Changing things while it is live
 
 - Work on your PC against your **local** database, test (`.\scripts\test-all.bat`), then commit

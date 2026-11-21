@@ -33,6 +33,12 @@ services:
       # don't make requests wait for it.
       - key: AI_TIMEOUT_MS
         value: "2500"
+      # Firebase Authentication (see docs/DEPLOYMENT.md). Leave empty to
+      # keep the backend's own email + password login.
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
 
   - type: web
     name: surefix-ai
