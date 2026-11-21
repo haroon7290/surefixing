@@ -281,3 +281,35 @@ describe('job lifecycle', () => {
     expect(tech.body.earnings).toBeGreaterThan(0);
   });
 });
+
+describe('job numbers', () => {
+  test('every job gets the next number, found by "SF-1024", "#1024" or "1024"', async () => {
+    const { makeUser: mk } = require('./helpers');
+    const client = await mk('client');
+    const tech = await mk('technician', { profile: { skills: ['plumbing'] } });
+    const admin = await mk('admin');
+    const post = (title) => client.api('post', '/api/jobs').send({ title, description: 'Something needs fixing at home, please help.', category: 'plumbing' }).expect(201);
+    const a = (await post('First numbered job')).body;
+    const b = (await post('Second numbered job')).body;
+    expect(a.number).toBeGreaterThan(1000);
+    expect(b.number).toBe(a.number + 1);
+
+    for (const q of [`SF-${b.number}`, `sf${b.number}`, `#${b.number}`, String(b.number)]) {
+      const mine = await client.api('get', `/api/jobs?q=${encodeURIComponent(q)}`).expect(200);
+      expect(mine.body.map((j) => j._id)).toEqual([b._id]);
+    }
+    const market = await tech.api('get', `/api/jobs?q=SF-${a.number}`).expect(200);
+    expect(market.body.map((j) => j._id)).toContain(a._id);
+    const adminList = await admin.api('get', `/api/admin/jobs?q=SF-${a.number}`).expect(200);
+    expect(adminList.body.map((j) => j._id)).toEqual([a._id]);
+  });
+
+  test('older jobs without a number get one, oldest first', async () => {
+    const Job = require('../src/models/Job');
+    const old = await Job.collection.insertOne({ title: 'Legacy job', description: 'From before numbers existed.', category: 'general', status: 'pending', client: new (require('mongoose').Types.ObjectId)(), createdAt: new Date('2020-01-01'), bids: [], history: [] });
+    expect(await Job.numberMissing()).toBeGreaterThanOrEqual(1);
+    expect((await Job.findById(old.insertedId)).number).toBeGreaterThan(1000);
+    expect(Job.parseNumber('SF-1024')).toBe(1024);
+    expect(Job.parseNumber('kitchen tap')).toBeNull();
+  });
+});

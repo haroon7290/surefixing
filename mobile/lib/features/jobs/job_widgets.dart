@@ -31,6 +31,7 @@ class JobCard extends StatelessWidget {
               Gap.h4,
               Text(
                 [
+                  if (job.ref.isNotEmpty) job.ref,
                   cat.label,
                   if (job.distanceKm != null) '${distance(job.distanceKm!)} away' else if (job.area.isNotEmpty) job.area else if (job.city.isNotEmpty) job.city,
                   timeAgo(job.createdAt),

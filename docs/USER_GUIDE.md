@@ -51,6 +51,10 @@ are not signed in can browse the landing page, technicians and tools.
    admin will step in.
 7. **Review.** Rate 1–5 stars. Reviews appear on the technician's profile.
 
+**Job numbers.** Every job has a short number like **SF-1024**, shown on its card and at the
+top of its page (tap it to copy). Quote it when you contact support; typing it in any job search
+(or the admin's job and chat search) finds that job straight away.
+
 **Smart Match** ranks every technician for a problem you describe, before you post anything;
 nearer technicians rank higher and the reasons say how far each one is.
 **Saved** keeps technicians and tools you marked with the heart.

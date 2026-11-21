@@ -282,7 +282,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
         body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           PagePad(
             child: SearchBox(
-              hint: 'Search jobs',
+              hint: 'Search jobs or a number like SF-1024',
               onChanged: (v) {
                 _debounce?.cancel();
                 _debounce = Timer(const Duration(milliseconds: 350), () => setState(() => _query = v.trim()));

@@ -5,6 +5,7 @@ const { createApp } = require('./app');
 const realtime = require('./utils/realtime');
 const firebase = require('./utils/firebase');
 const User = require('./models/User');
+const Job = require('./models/Job');
 
 const app = createApp();
 const httpServer = http.createServer(app);
@@ -14,6 +15,9 @@ mongoose
   .connect(config.mongoUri)
   .then(() => {
     console.log('MongoDB connected');
+    Job.numberMissing()
+      .then((n) => n && console.log(`Gave job numbers to ${n} older jobs`))
+      .catch((err) => console.error('Job numbering failed:', err.message));
     // Copy accounts that aren't in Firebase yet (keeps their passwords).
     if (firebase.canManage()) {
       firebase

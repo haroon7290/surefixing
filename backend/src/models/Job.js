@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Counter = require('./Counter');
 const { URGENCY_LEVELS, JOB_STAGES } = require('../config/catalog');
 const { paymentSchema } = require('./payment');
 const { pointSchema } = require('../utils/geo');
@@ -34,6 +35,8 @@ const historySchema = new mongoose.Schema(
 const jobSchema = new mongoose.Schema(
   {
     client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    // Short public reference, shown as "SF-1024" (support, search, receipts).
+    number: { type: Number, unique: true, sparse: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
     category: { type: String, default: 'general' },
@@ -87,6 +90,31 @@ const jobSchema = new mongoose.Schema(
 );
 
 jobSchema.index({ status: 1, createdAt: -1 });
+
+// Every new job gets the next number.
+jobSchema.pre('save', async function assignNumber(next) {
+  if (this.number) return next();
+  try {
+    this.number = await Counter.next('job');
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Gives numbers to jobs that don't have one yet (older data, bulk inserts),
+// oldest first. Run on start-up.
+jobSchema.statics.numberMissing = async function numberMissing() {
+  const missing = await this.find({ $or: [{ number: null }, { number: { $exists: false } }] }).sort({ createdAt: 1 }).select('_id');
+  for (const job of missing) await this.updateOne({ _id: job._id }, { $set: { number: await Counter.next('job') } });
+  return missing.length;
+};
+
+// "SF-1024", "sf1024", "#1024" or "1024" → 1024 (else null).
+jobSchema.statics.parseNumber = function parseNumber(text) {
+  const m = /^\s*(?:sf[-\s]?|#)?(\d{3,9})\s*$/i.exec(String(text || ''));
+  return m ? Number(m[1]) : null;
+};
 jobSchema.index({ geo: '2dsphere' });
 
 jobSchema.methods.log = function (event, by, note = '') {

@@ -169,7 +169,7 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
               load: () => _load(f, sort),
               events: const {'job:new', 'job:status', 'job:hired'},
               search: SearchBox(
-                hint: 'Search jobs: "tap", "AC", "wiring"…',
+                hint: 'Search jobs: "tap", "AC" or a job number like SF-1024',
                 onChanged: (v) {
                   _debounce?.cancel();
                   _debounce = Timer(const Duration(milliseconds: 350), () => setState(() => _query = v.trim()));
