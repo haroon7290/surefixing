@@ -1,0 +1,26 @@
+# One-off: is Firebase sign-in ready end to end on the live site?
+name: Diagnose firebase
+on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/diagnose-firebase.yml"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check
+        run: |
+          KEY=AIzaSyAVTI0rMXIIs7PsIOZKAkJ4SHgQIKwOyys
+          API=https://surefix-api.onrender.com
+          echo "== backend health"; curl -s --max-time 90 $API/api/health; echo
+          echo "== backend Firebase switched on? (503 firebase_off = no; 401 = yes)"
+          curl -s --max-time 60 -X POST $API/api/auth/firebase -H 'Content-Type: application/json' -d '{"idToken":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}' -w " [HTTP %{http_code}]"; echo
+          echo "== Firebase sign-in with a demo account (accounts copied + Email/Password enabled?)"
+          R=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$KEY" -H 'Content-Type: application/json' -d '{"email":"client@demo.com","password":"password123","returnSecureToken":true}')
+          echo "$R" | python3 -c "import json,sys; d=json.load(sys.stdin); print('OK, signed in as', d['email']) if 'idToken' in d else print('ERROR', d.get('error',{}).get('message'))"
+          TOKEN=$(echo "$R" | python3 -c "import json,sys; print(json.load(sys.stdin).get('idToken',''))")
+          if [ -n "$TOKEN" ]; then
+            echo "== exchange at the live backend"
+            curl -s --max-time 60 -X POST $API/api/auth/firebase -H 'Content-Type: application/json' -d "{\"idToken\":\"$TOKEN\"}" | python3 -c "import json,sys; d=json.load(sys.stdin); print('OK, SureFix session for', d['user']['name']) if 'token' in d else print('ERROR', d)"
+          fi
