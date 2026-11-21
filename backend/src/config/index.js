@@ -52,8 +52,29 @@ const config = {
   // password-reset codes are printed in this console instead of emailed.
   smtpUrl: process.env.SMTP_URL || '',
   mailFrom: process.env.MAIL_FROM || 'SureFix <no-reply@surefix.local>',
-  resetCodeMinutes: num(process.env.RESET_CODE_MINUTES, 15)
+  resetCodeMinutes: num(process.env.RESET_CODE_MINUTES, 15),
+
+  // Firebase Authentication (see utils/firebase.js). Without a project id
+  // the app's own email + password login is used.
+  firebase: firebaseConfig()
 };
+
+// FIREBASE_SERVICE_ACCOUNT may be the JSON itself or base64 of it.
+function firebaseConfig() {
+  const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+  let serviceAccount = null;
+  if (raw) {
+    try {
+      serviceAccount = JSON.parse(raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'));
+    } catch (_err) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON (paste the whole key file, or its base64)');
+    }
+  }
+  return {
+    projectId: (process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id || '').trim(),
+    serviceAccount
+  };
+}
 
 if (config.isProd && config.jwtSecret === DEFAULT_SECRET) {
   throw new Error('JWT_SECRET must be set to a strong random value in production');

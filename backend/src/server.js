@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const config = require('./config');
 const { createApp } = require('./app');
 const realtime = require('./utils/realtime');
+const firebase = require('./utils/firebase');
+const User = require('./models/User');
 
 const app = createApp();
 const httpServer = http.createServer(app);
@@ -12,6 +14,13 @@ mongoose
   .connect(config.mongoUri)
   .then(() => {
     console.log('MongoDB connected');
+    // Copy accounts that aren't in Firebase yet (keeps their passwords).
+    if (firebase.canManage()) {
+      firebase
+        .syncUsers(User)
+        .then((r) => (r.imported || r.linked || r.failed) && console.log(`Firebase: ${r.imported} accounts copied, ${r.linked} linked, ${r.failed} failed`))
+        .catch((err) => console.error('Firebase sync failed:', err.message));
+    }
     httpServer.listen(config.port, () =>
       console.log(`SureFix backend (HTTP + Socket.IO) running on http://localhost:${config.port}`)
     );

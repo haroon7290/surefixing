@@ -22,6 +22,7 @@ const { removeUpload } = require('../utils/files');
 const jobs = require('../services/jobs');
 const wallet = require('../services/wallet');
 const { escapeRegex, paginate, setTotal, badRequest, notFound } = require('../utils/http');
+const firebase = require('../utils/firebase');
 
 const router = express.Router();
 router.use(authRequired, requireRole('admin'));
@@ -212,6 +213,7 @@ router.delete('/users/:id', async (req, res) => {
     User.updateMany({}, { $pull: { favoriteTechnicians: id } })
   ]);
   await user.deleteOne();
+  await firebase.deleteUser(user.firebaseUid);
   res.json({ ok: true });
 });
 

@@ -180,8 +180,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 validator: validEmail,
               ),
               Gap.h16,
-              PasswordField(controller: _password, validator: requiredField('Enter your password'), action: TextInputAction.done, onSubmitted: (_) => _submit()),
-              Align(alignment: Alignment.centerRight, child: LinkText('Forgot password?', onTap: () => SiteNav.select('forgot'), color: context.colors.body)),
+              PasswordField(
+                  controller: _password,
+                  validator: requiredField('Enter your password'),
+                  action: TextInputAction.done,
+                  onSubmitted: (_) => _submit()),
+              Align(
+                  alignment: Alignment.centerRight,
+                  child: LinkText('Forgot password?', onTap: () => SiteNav.select('forgot'), color: context.colors.body)),
               Gap.h12,
               Btn('Log in', size: BtnSize.lg, expand: true, loading: _busy, onPressed: _submit),
             ]),
@@ -201,7 +207,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text('One tap signs you in as each kind of member.', style: context.text.bodySmall),
                 Gap.h12,
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final (label, email, icon) in _demo) Btn(label, icon: icon, kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () => _useDemo(email)),
+                  for (final (label, email, icon) in _demo)
+                    Btn(label, icon: icon, kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () => _useDemo(email)),
                 ]),
               ]),
             ),
@@ -250,7 +257,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
     try {
-      await Session.instance.register(name: _name.text, email: _email.text, password: _password.text, role: _role, phone: _phone.text, city: _city ?? '');
+      await Session.instance
+          .register(name: _name.text, email: _email.text, password: _password.text, role: _role, phone: _phone.text, city: _city ?? '');
       TextInput.finishAutofillContext();
       toastOk('Welcome to SureFix!');
     } catch (e) {
@@ -317,21 +325,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: validEmail),
             Gap.h16,
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: Field(label: 'Phone', hint: '0300-1234567', controller: _phone, icon: AppIcons.phone, keyboardType: TextInputType.phone, optional: true)),
+              Expanded(
+                  child: Field(
+                      label: 'Phone',
+                      hint: '0300-1234567',
+                      controller: _phone,
+                      icon: AppIcons.phone,
+                      keyboardType: TextInputType.phone,
+                      optional: true)),
               Gap.w12,
-              Expanded(child: SelectField<String>(label: 'City', hint: 'Choose', value: _city, items: {for (final c in cities) c: c}, onChanged: (v) => setState(() => _city = v))),
+              Expanded(
+                  child: SelectField<String>(
+                      label: 'City',
+                      hint: 'Choose',
+                      value: _city,
+                      items: {for (final c in cities) c: c},
+                      onChanged: (v) => setState(() => _city = v))),
             ]),
             Gap.h16,
-            PasswordField(controller: _password, hint: 'At least 6 characters', validator: validPassword, isNew: true, action: TextInputAction.done, onSubmitted: (_) => _submit()),
+            PasswordField(
+                controller: _password,
+                hint: 'At least 6 characters',
+                validator: validPassword,
+                isNew: true,
+                action: TextInputAction.done,
+                onSubmitted: (_) => _submit()),
             Gap.h20,
             Btn('Create account', size: BtnSize.lg, expand: true, loading: _busy, onPressed: _submit),
             Gap.h12,
             Text.rich(
               TextSpan(children: [
                 const TextSpan(text: 'By creating an account you agree to the '),
-                WidgetSpan(alignment: PlaceholderAlignment.baseline, baseline: TextBaseline.alphabetic, child: _InlineLink('Terms', () => push(context, const LegalPage()))),
+                WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: _InlineLink('Terms', () => push(context, const LegalPage()))),
                 const TextSpan(text: ' and '),
-                WidgetSpan(alignment: PlaceholderAlignment.baseline, baseline: TextBaseline.alphabetic, child: _InlineLink('Privacy notice', () => push(context, const LegalPage(privacy: true)))),
+                WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: _InlineLink('Privacy notice', () => push(context, const LegalPage(privacy: true)))),
                 const TextSpan(text: '.'),
               ]),
               textAlign: TextAlign.center,
@@ -355,7 +388,9 @@ class _InlineLink extends StatelessWidget {
         link: true,
         child: GestureDetector(
           onTap: onTap,
-          child: Text(label, style: context.text.bodySmall!.copyWith(color: context.colors.ink, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+          child: Text(label,
+              style: context.text.bodySmall!
+                  .copyWith(color: context.colors.ink, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
         ),
       );
 }
@@ -379,6 +414,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   String? _error;
   String? _devCode;
   int _minutes = 15;
+  bool _byLink = false; // Firebase: a reset link was emailed
 
   @override
   void dispose() {
@@ -408,6 +444,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         if (!mounted) return;
         setState(() {
           _sent = true;
+          _byLink = res['firebase'] == true;
           _minutes = integer(res['minutes'], 15);
           _devCode = res['devCode']?.toString();
         });
@@ -420,54 +457,95 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
 
   @override
-  Widget build(BuildContext context) => _AuthLayout(
-        title: _sent ? 'Enter your code' : 'Reset your password',
-        subtitle: _sent ? 'Type the 6-digit code and choose a new password.' : 'We will send a 6-digit code to your email.',
+  Widget build(BuildContext context) {
+    if (_sent && _byLink) {
+      return _AuthLayout(
+        title: 'Check your email',
+        subtitle: 'We sent a link to choose a new password.',
         children: [
-          if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
-          if (_sent) ...[
-            _devCode != null
-                ? Notice('No email server is set up, so here is your code: $_devCode', title: 'Demo mode', tone: Tone.brand, icon: AppIcons.infoFill)
-                : Notice('If ${_email.text.trim()} has an account, a code is on its way. It expires in $_minutes minutes.', tone: Tone.success),
-            Gap.h16,
-          ],
-          Form(
-            key: _form,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-              Field(label: 'Email', hint: 'you@example.com', controller: _email, icon: AppIcons.mail, enabled: !_sent, keyboardType: TextInputType.emailAddress, validator: validEmail),
-              if (_sent) ...[
-                Gap.h16,
-                Field(
-                  label: '6-digit code',
-                  hint: '123456',
-                  controller: _code,
-                  icon: AppIcons.shield,
-                  keyboardType: TextInputType.number,
-                  formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                  validator: (v) => (v ?? '').trim().length == 6 ? null : 'Enter the 6-digit code',
-                ),
-                Gap.h16,
-                PasswordField(
-                    label: 'New password', hint: 'At least 6 characters', controller: _password, validator: validPassword, isNew: true, action: TextInputAction.done, onSubmitted: (_) => _reset()),
-              ],
-              Gap.h20,
-              Btn(_sent ? 'Change password' : 'Send code', size: BtnSize.lg, expand: true, loading: _busy, onPressed: _sent ? _reset : _send),
-              if (_sent) ...[
-                Gap.h8,
-                Btn('Use a different email',
-                    kind: BtnKind.ghost,
-                    expand: true,
-                    onPressed: () => setState(() {
-                          _sent = false;
-                          _devCode = null;
-                          _code.clear();
-                        })),
-              ],
-            ]),
+          Notice(
+            'If ${_email.text.trim()} has a SureFix account, an email from SureFix is on its way. Open the link, choose a new password, then log in with it. '
+            'No email after a few minutes? Check your spam folder.',
+            tone: Tone.success,
           ),
-          _SwitchLine('Remembered it?', 'Back to log in', () => SiteNav.select('login')),
+          Gap.h20,
+          Btn('Back to log in', size: BtnSize.lg, expand: true, onPressed: () => SiteNav.select('login')),
+          Gap.h8,
+          Btn('Send it again', kind: BtnKind.ghost, expand: true, loading: _busy, onPressed: _send),
+          Gap.h8,
+          Btn('Use a different email', kind: BtnKind.ghost, expand: true, onPressed: () => setState(() => _sent = false)),
         ],
       );
+    }
+    return _AuthLayout(
+      title: _sent ? 'Enter your code' : 'Reset your password',
+      subtitle: _sent
+          ? 'Type the 6-digit code and choose a new password.'
+          : (Session.instance.resetsByLink
+              ? 'We will email you a link to choose a new password.'
+              : 'We will send a 6-digit code to your email.'),
+      children: [
+        if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
+        if (_sent) ...[
+          _devCode != null
+              ? Notice('No email server is set up, so here is your code: $_devCode',
+                  title: 'Demo mode', tone: Tone.brand, icon: AppIcons.infoFill)
+              : Notice('If ${_email.text.trim()} has an account, a code is on its way. It expires in $_minutes minutes.',
+                  tone: Tone.success),
+          Gap.h16,
+        ],
+        Form(
+          key: _form,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Field(
+                label: 'Email',
+                hint: 'you@example.com',
+                controller: _email,
+                icon: AppIcons.mail,
+                enabled: !_sent,
+                keyboardType: TextInputType.emailAddress,
+                validator: validEmail),
+            if (_sent) ...[
+              Gap.h16,
+              Field(
+                label: '6-digit code',
+                hint: '123456',
+                controller: _code,
+                icon: AppIcons.shield,
+                keyboardType: TextInputType.number,
+                formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                validator: (v) => (v ?? '').trim().length == 6 ? null : 'Enter the 6-digit code',
+              ),
+              Gap.h16,
+              PasswordField(
+                  label: 'New password',
+                  hint: 'At least 6 characters',
+                  controller: _password,
+                  validator: validPassword,
+                  isNew: true,
+                  action: TextInputAction.done,
+                  onSubmitted: (_) => _reset()),
+            ],
+            Gap.h20,
+            Btn(_sent ? 'Change password' : (Session.instance.resetsByLink ? 'Send reset link' : 'Send code'),
+                size: BtnSize.lg, expand: true, loading: _busy, onPressed: _sent ? _reset : _send),
+            if (_sent) ...[
+              Gap.h8,
+              Btn('Use a different email',
+                  kind: BtnKind.ghost,
+                  expand: true,
+                  onPressed: () => setState(() {
+                        _sent = false;
+                        _devCode = null;
+                        _code.clear();
+                      })),
+            ],
+          ]),
+        ),
+        _SwitchLine('Remembered it?', 'Back to log in', () => SiteNav.select('login')),
+      ],
+    );
+  }
 }
 
 // ------------------------------------------------------------------ intro
@@ -509,16 +587,26 @@ class _IntroScreenState extends State<IntroScreen> {
             Container(
               width: 76,
               height: 76,
-              decoration: BoxDecoration(color: c.onHero.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(22), border: Border.all(color: c.heroLine)),
-              child: Icon(cat.icon, size: 32, color: cat.key == 'plumbing' || cat.key == 'carpentry' || cat.key == 'roofing' ? c.brand : c.onHero),
+              decoration: BoxDecoration(
+                  color: c.onHero.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(22), border: Border.all(color: c.heroLine)),
+              child: Icon(cat.icon,
+                  size: 32, color: cat.key == 'plumbing' || cat.key == 'carpentry' || cat.key == 'roofing' ? c.brand : c.onHero),
             ),
         ]),
       1 => const ExcludeSemantics(
           child: IgnorePointer(
             child: MatchCard(
               TechMatch(
-                technician:
-                    User(id: 'demo', name: 'Noor Fatima', headline: 'Certified electrician', kycStatus: 'approved', rating: 4.9, ratingCount: 86, jobsCompleted: 140, city: 'Lahore', online: true),
+                technician: User(
+                    id: 'demo',
+                    name: 'Noor Fatima',
+                    headline: 'Certified electrician',
+                    kycStatus: 'approved',
+                    rating: 4.9,
+                    ratingCount: 86,
+                    jobsCompleted: 140,
+                    city: 'Lahore',
+                    online: true),
                 matchPercent: 94,
                 reasons: ['Electrical specialist, 140 jobs done', 'Rated 4.9 by 86 customers', 'In your city, replies in ~15 min'],
               ),
@@ -596,7 +684,11 @@ class _IntroScreenState extends State<IntroScreen> {
               Gap.h8,
               Btn('I already have an account', kind: BtnKind.ghost, expand: true, onPressed: _finish),
             ] else
-              Btn('Next', size: BtnSize.lg, expand: true, trailing: AppIcons.forward, onPressed: () => _pages.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
+              Btn('Next',
+                  size: BtnSize.lg,
+                  expand: true,
+                  trailing: AppIcons.forward,
+                  onPressed: () => _pages.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
           ]),
         ),
       ),

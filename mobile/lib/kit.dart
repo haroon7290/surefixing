@@ -5,6 +5,7 @@ library;
 export 'core/alerts.dart';
 export 'core/api.dart';
 export 'core/catalog.dart';
+export 'core/firebase_login.dart';
 export 'core/format.dart';
 export 'core/location.dart';
 export 'core/nav.dart';

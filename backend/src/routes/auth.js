@@ -6,6 +6,7 @@ const { body } = require('express-validator');
 const config = require('../config');
 const User = require('../models/User');
 const mailer = require('../services/mailer');
+const firebase = require('../utils/firebase');
 const { authRequired } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const { badRequest } = require('../utils/http');
@@ -36,7 +37,72 @@ router.post(
     if (role === 'admin') return res.status(403).json({ error: 'Admin accounts are provisioned separately' });
     if (await User.exists({ email })) return res.status(409).json({ error: 'An account with this email already exists' });
     const user = await User.create({ name, email, password, role, phone, city: city || '' });
+    // Keep Firebase in step so the new account can use Firebase sign-in too.
+    if (firebase.canManage()) firebase.syncUsers(User, [user]).catch(() => {});
     res.status(201).json({ token: signToken(user), user: user.toPrivateJSON() });
+  }
+);
+
+// Firebase sign-in: the app signs in (or signs up) with Firebase and sends
+// the ID token here; the answer is a normal SureFix session.
+//   { idToken }                                   existing account
+//   { idToken, profile: { name, role, phone?, city? } }   new account
+// An existing account with the same email is linked only when Firebase has
+// verified the email (accounts copied by the server are), so nobody can
+// claim someone else's account by signing up with their address.
+router.post(
+  '/firebase',
+  [
+    body('idToken').isString().isLength({ min: 20 }).withMessage('Missing sign-in token'),
+    body('profile.name').optional().trim().isLength({ min: 2, max: 80 }).withMessage('Name must be at least 2 characters'),
+    body('profile.role').optional().isIn(['client', 'technician', 'supplier']).withMessage('Choose a valid role'),
+    body('profile.phone').optional({ values: 'falsy' }).trim().isLength({ max: 30 }),
+    body('profile.city').optional({ values: 'falsy' }).trim().isLength({ max: 60 })
+  ],
+  validate,
+  async (req, res) => {
+    if (!firebase.enabled()) return res.status(503).json({ error: 'Firebase sign-in is not set up on this server', code: 'firebase_off' });
+    let claims;
+    try {
+      claims = await firebase.verify(req.body.idToken);
+    } catch (_err) {
+      return res.status(401).json({ error: 'Your sign-in could not be verified. Please try again.' });
+    }
+    const email = String(claims.email || '').toLowerCase();
+    let user = await User.findOne({ firebaseUid: claims.uid });
+    if (!user && email) {
+      const existing = await User.findOne({ email });
+      if (existing) {
+        if (!claims.email_verified) {
+          return res.status(409).json({ error: 'An account with this email already exists. Log in with its password instead.', code: 'email_taken' });
+        }
+        existing.firebaseUid = claims.uid;
+        await existing.save();
+        user = existing;
+      }
+    }
+    if (!user) {
+      const profile = req.body.profile;
+      if (!profile?.name || !profile?.role) {
+        return res.status(404).json({ error: 'Finish creating your SureFix account', code: 'needs_profile' });
+      }
+      if (!email) throw badRequest('Your account has no email address');
+      user = await User.create({
+        name: profile.name,
+        email,
+        // Never used: Firebase checks the password.
+        password: crypto.randomBytes(24).toString('hex'),
+        role: profile.role,
+        phone: profile.phone || '',
+        city: profile.city || '',
+        firebaseUid: claims.uid
+      });
+      return res.status(201).json({ token: signToken(user), user: user.toPrivateJSON() });
+    }
+    if (user.status === 'suspended') {
+      return res.status(403).json({ error: 'Your account has been suspended. Contact support.', code: 'suspended' });
+    }
+    res.json({ token: signToken(user), user: user.toPrivateJSON() });
   }
 );
 
@@ -47,6 +113,11 @@ router.post(
   async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+    // Accounts in Firebase sign in through Firebase: their password (and any
+    // reset) lives there, so the copy here may be out of date.
+    if (user && user.firebaseUid && firebase.enabled()) {
+      return res.status(409).json({ error: 'Please update SureFix to sign in.', code: 'use_firebase' });
+    }
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
