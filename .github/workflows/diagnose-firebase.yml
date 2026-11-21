@@ -1,0 +1,19 @@
+# One-off: which spelling of the (public) Firebase web API key is valid?
+name: Diagnose firebase key
+on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/diagnose-firebase.yml"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Try keys
+        run: |
+          for a in 0 O; do for b in O 0; do for c in O 0; do
+            KEY="AIzaSyAVTI${a}rMXIIs7PsI${b}ZKAkJ4SHgQIKw${c}yys"
+            R=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=$KEY" -H 'Content-Type: application/json' -d '{"identifier":"probe@example.com","continueUri":"http://localhost"}')
+            echo "$a$b$c => $(echo "$R" | tr -d '\n' | head -c 160)"
+          done; done; done
+          echo "== config check (projectId from the valid key)"
