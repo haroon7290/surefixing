@@ -199,7 +199,11 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/auth/register` · `/auth/login` | → `{token, user}`; `403 {code:"suspended"}` for suspended accounts |
+| POST | `/auth/register` | Creates the account but gives no session yet: `202 {verify:"link"\|"code", email}`. With Firebase on the server, Firebase emails a confirmation **link**; otherwise a 6-digit **code** is emailed (`minutes`, `emailed`; outside production without SMTP also `devCode`) |
+| POST | `/auth/verify-email` | `{email, code}` → `{token, user}`; 5 attempts per code |
+| POST | `/auth/resend-verification` | `{email, password?}` (password needed for link accounts) → `{ok}`; never reveals whether the account exists |
+| POST | `/auth/login` | → `{token, user}`; `403 {code:"email_unverified", details:{method, email}}` until the email is confirmed; `403 {code:"suspended"}` for suspended accounts |
+| POST | `/auth/firebase` | `{idToken, profile?}` → `{token, user}`; `403 email_unverified` while Firebase says the email isn't verified (the account is still created from `profile`) |
 | POST | `/auth/change-password` 🔒 | `{currentPassword, newPassword}` |
 | POST | `/auth/forgot-password` | `{email}` → always `{ok, minutes, emailed}`; outside production without SMTP also `devCode` |
 | POST | `/auth/reset-password` | `{email, code, newPassword}` → `{token, user}`; 5 attempts per code |

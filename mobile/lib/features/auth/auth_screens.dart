@@ -114,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
   String? _error;
   late final String? _ended = Session.instance.endedReason;
+  VerificationNeeded? _verify;
 
   // One-tap demo sign-in. Hide it in a real release with --dart-define=DEMO=false.
   static const _showDemo = bool.fromEnvironment('DEMO', defaultValue: true);
@@ -147,6 +148,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await Session.instance.login(_email.text, _password.text);
       TextInput.finishAutofillContext();
+    } on VerificationNeeded catch (v) {
+      if (mounted) setState(() => _verify = v);
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
     } finally {
@@ -161,59 +164,56 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _AuthLayout(
-        title: 'Welcome back',
-        subtitle: 'Log in to pick up where you left off.',
-        children: [
-          if (_ended != null) ...[Notice(_ended, tone: Tone.warning), Gap.h16],
-          if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
-          Form(
-            key: _form,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-              Field(
-                label: 'Email',
-                hint: 'you@example.com',
-                controller: _email,
-                icon: AppIcons.mail,
-                keyboardType: TextInputType.emailAddress,
-                autofill: const [AutofillHints.email],
-                validator: validEmail,
-              ),
-              Gap.h16,
-              PasswordField(
-                  controller: _password,
-                  validator: requiredField('Enter your password'),
-                  action: TextInputAction.done,
-                  onSubmitted: (_) => _submit()),
-              Align(
-                  alignment: Alignment.centerRight,
-                  child: LinkText('Forgot password?', onTap: () => SiteNav.select('forgot'), color: context.colors.body)),
-              Gap.h12,
-              Btn('Log in', size: BtnSize.lg, expand: true, loading: _busy, onPressed: _submit),
-            ]),
-          ),
-          _SwitchLine('New to SureFix?', 'Create an account', () {
-            SiteNav.signupRole = null;
-            SiteNav.select('register');
-          }),
-          if (_showDemo) Gap.h24,
-          if (_showDemo)
-            Panel(
-              color: context.colors.sunken,
-              border: Colors.transparent,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text('Explore with a demo account', style: context.text.titleSmall),
-                Gap.h2,
-                Text('One tap signs you in as each kind of member.', style: context.text.bodySmall),
+  Widget build(BuildContext context) => _verify != null
+      ? VerifyEmailView(_verify!, onBack: () => setState(() => _verify = null))
+      : _AuthLayout(
+          title: 'Welcome back',
+          subtitle: 'Log in to pick up where you left off.',
+          children: [
+            if (_ended != null) ...[Notice(_ended, tone: Tone.warning), Gap.h16],
+            if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
+            Form(
+              key: _form,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                Field(
+                  label: 'Email',
+                  hint: 'you@example.com',
+                  controller: _email,
+                  icon: AppIcons.mail,
+                  keyboardType: TextInputType.emailAddress,
+                  autofill: const [AutofillHints.email],
+                  validator: validEmail,
+                ),
+                Gap.h16,
+                PasswordField(
+                    controller: _password, validator: requiredField('Enter your password'), action: TextInputAction.done, onSubmitted: (_) => _submit()),
+                Align(alignment: Alignment.centerRight, child: LinkText('Forgot password?', onTap: () => SiteNav.select('forgot'), color: context.colors.body)),
                 Gap.h12,
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final (label, email, icon) in _demo)
-                    Btn(label, icon: icon, kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () => _useDemo(email)),
-                ]),
+                Btn('Log in', size: BtnSize.lg, expand: true, loading: _busy, onPressed: _submit),
               ]),
             ),
-        ],
-      );
+            _SwitchLine('New to SureFix?', 'Create an account', () {
+              SiteNav.signupRole = null;
+              SiteNav.select('register');
+            }),
+            if (_showDemo) Gap.h24,
+            if (_showDemo)
+              Panel(
+                color: context.colors.sunken,
+                border: Colors.transparent,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text('Explore with a demo account', style: context.text.titleSmall),
+                  Gap.h2,
+                  Text('One tap signs you in as each kind of member.', style: context.text.bodySmall),
+                  Gap.h12,
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final (label, email, icon) in _demo)
+                      Btn(label, icon: icon, kind: BtnKind.outline, size: BtnSize.sm, onPressed: _busy ? null : () => _useDemo(email)),
+                  ]),
+                ]),
+              ),
+          ],
+        );
 }
 
 // --------------------------------------------------------------- register
@@ -235,6 +235,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _city;
   bool _busy = false;
   String? _error;
+  VerificationNeeded? _verify;
 
   static const _roles = [
     ('client', 'I need a repair', 'Post jobs, hire technicians, rent tools', AppIcons.home),
@@ -257,10 +258,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
     try {
-      await Session.instance
-          .register(name: _name.text, email: _email.text, password: _password.text, role: _role, phone: _phone.text, city: _city ?? '');
+      await Session.instance.register(name: _name.text, email: _email.text, password: _password.text, role: _role, phone: _phone.text, city: _city ?? '');
       TextInput.finishAutofillContext();
       toastOk('Welcome to SureFix!');
+    } on VerificationNeeded catch (v) {
+      TextInput.finishAutofillContext();
+      if (mounted) setState(() => _verify = v);
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
     } finally {
@@ -270,6 +273,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_verify != null) return VerifyEmailView(_verify!, onBack: () => setState(() => _verify = null));
     final c = context.colors;
     return _AuthLayout(
       title: 'Create your account',
@@ -326,21 +330,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Gap.h16,
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
-                  child: Field(
-                      label: 'Phone',
-                      hint: '0300-1234567',
-                      controller: _phone,
-                      icon: AppIcons.phone,
-                      keyboardType: TextInputType.phone,
-                      optional: true)),
+                  child:
+                      Field(label: 'Phone', hint: '0300-1234567', controller: _phone, icon: AppIcons.phone, keyboardType: TextInputType.phone, optional: true)),
               Gap.w12,
               Expanded(
                   child: SelectField<String>(
-                      label: 'City',
-                      hint: 'Choose',
-                      value: _city,
-                      items: {for (final c in cities) c: c},
-                      onChanged: (v) => setState(() => _city = v))),
+                      label: 'City', hint: 'Choose', value: _city, items: {for (final c in cities) c: c}, onChanged: (v) => setState(() => _city = v))),
             ]),
             Gap.h16,
             PasswordField(
@@ -389,9 +384,130 @@ class _InlineLink extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Text(label,
-              style: context.text.bodySmall!
-                  .copyWith(color: context.colors.ink, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+              style: context.text.bodySmall!.copyWith(color: context.colors.ink, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
         ),
+      );
+}
+
+// ----------------------------------------------------------- verify email
+
+/// Sign-up's last step: the account works only once its email address is
+/// confirmed, by opening the emailed link or typing the emailed code.
+class VerifyEmailView extends StatefulWidget {
+  final VerificationNeeded request;
+  final VoidCallback onBack;
+  const VerifyEmailView(this.request, {super.key, required this.onBack});
+
+  @override
+  State<VerifyEmailView> createState() => _VerifyEmailViewState();
+}
+
+class _VerifyEmailViewState extends State<VerifyEmailView> {
+  final _form = GlobalKey<FormState>();
+  final _code = TextEditingController();
+  bool _busy = false;
+  bool _resending = false;
+  String? _error;
+  String? _info;
+  late String? _devCode = widget.request.devCode;
+
+  VerificationNeeded get _v => widget.request;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirm() async {
+    if (_busy || !(_form.currentState?.validate() ?? true)) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      if (_v.byLink) {
+        await Session.instance.continueAfterLink(_v);
+      } else {
+        await Session.instance.verifyCode(_v.email, _code.text);
+      }
+      toastOk('Email confirmed. Welcome to SureFix!');
+    } on VerificationNeeded {
+      if (mounted) setState(() => _error = 'Not confirmed yet. Open the link in the email from SureFix, then tap Continue.');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resend() async {
+    if (_resending) return;
+    setState(() {
+      _resending = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      final code = await Session.instance.resendVerification(_v);
+      if (!mounted) return;
+      setState(() {
+        if (code != null) _devCode = code;
+        _info = _v.byLink ? 'A new link is on its way to ${_v.email}.' : 'A new code is on its way to ${_v.email}.';
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _AuthLayout(
+        title: 'Confirm your email',
+        subtitle: _v.byLink ? 'One last step before you can use SureFix.' : 'Type the 6-digit code we emailed you.',
+        children: [
+          if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
+          if (_info != null) ...[Notice(_info!, tone: Tone.success), Gap.h16],
+          if (_v.byLink)
+            Notice(
+              'We sent a link to ${_v.email}. Open it to confirm the address, then come back here and tap Continue. '
+              'No email after a few minutes? Check your spam folder.',
+              tone: Tone.brand,
+              icon: AppIcons.mail,
+            )
+          else
+            _devCode != null
+                ? Notice('No email server is set up, so here is your code: $_devCode', title: 'Demo mode', tone: Tone.brand, icon: AppIcons.infoFill)
+                : Notice('We sent a code to ${_v.email}. It expires in ${_v.minutes} minutes. Check your spam folder if it is not there.',
+                    tone: Tone.brand, icon: AppIcons.mail),
+          Gap.h16,
+          Form(
+            key: _form,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+              if (!_v.byLink) ...[
+                Field(
+                  label: '6-digit code',
+                  hint: '123456',
+                  controller: _code,
+                  icon: AppIcons.shield,
+                  keyboardType: TextInputType.number,
+                  formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                  validator: (v) => (v ?? '').trim().length == 6 ? null : 'Enter the 6-digit code',
+                  action: TextInputAction.done,
+                  onSubmitted: (_) => _confirm(),
+                ),
+                Gap.h20,
+              ],
+              Btn(_v.byLink ? "I've confirmed, continue" : 'Confirm email', size: BtnSize.lg, expand: true, loading: _busy, onPressed: _confirm),
+              Gap.h8,
+              Btn(_v.byLink ? 'Send the link again' : 'Send a new code', kind: BtnKind.ghost, expand: true, loading: _resending, onPressed: _resend),
+              Gap.h8,
+              Btn('Back', kind: BtnKind.ghost, expand: true, onPressed: widget.onBack),
+            ]),
+          ),
+        ],
       );
 }
 
@@ -481,17 +597,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       title: _sent ? 'Enter your code' : 'Reset your password',
       subtitle: _sent
           ? 'Type the 6-digit code and choose a new password.'
-          : (Session.instance.resetsByLink
-              ? 'We will email you a link to choose a new password.'
-              : 'We will send a 6-digit code to your email.'),
+          : (Session.instance.resetsByLink ? 'We will email you a link to choose a new password.' : 'We will send a 6-digit code to your email.'),
       children: [
         if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
         if (_sent) ...[
           _devCode != null
-              ? Notice('No email server is set up, so here is your code: $_devCode',
-                  title: 'Demo mode', tone: Tone.brand, icon: AppIcons.infoFill)
-              : Notice('If ${_email.text.trim()} has an account, a code is on its way. It expires in $_minutes minutes.',
-                  tone: Tone.success),
+              ? Notice('No email server is set up, so here is your code: $_devCode', title: 'Demo mode', tone: Tone.brand, icon: AppIcons.infoFill)
+              : Notice('If ${_email.text.trim()} has an account, a code is on its way. It expires in $_minutes minutes.', tone: Tone.success),
           Gap.h16,
         ],
         Form(
@@ -587,10 +699,9 @@ class _IntroScreenState extends State<IntroScreen> {
             Container(
               width: 76,
               height: 76,
-              decoration: BoxDecoration(
-                  color: c.onHero.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(22), border: Border.all(color: c.heroLine)),
-              child: Icon(cat.icon,
-                  size: 32, color: cat.key == 'plumbing' || cat.key == 'carpentry' || cat.key == 'roofing' ? c.brand : c.onHero),
+              decoration:
+                  BoxDecoration(color: c.onHero.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(22), border: Border.all(color: c.heroLine)),
+              child: Icon(cat.icon, size: 32, color: cat.key == 'plumbing' || cat.key == 'carpentry' || cat.key == 'roofing' ? c.brand : c.onHero),
             ),
         ]),
       1 => const ExcludeSemantics(

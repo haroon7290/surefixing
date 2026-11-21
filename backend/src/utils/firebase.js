@@ -83,17 +83,58 @@ async function syncUsers(User, users) {
   return result;
 }
 
-// Checks an email + password with Firebase (for app versions that still use
-// POST /api/auth/login). Resolves to the Firebase uid, or null if wrong.
-async function checkPassword(email, password) {
-  if (!enabled() || !config.firebase.webApiKey) return undefined; // can't check here
-  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${config.firebase.webApiKey}`, {
+// Firebase Authentication REST API with the project's public web API key,
+// for routes where the app doesn't talk to Firebase itself (older app
+// versions using /api/auth/login and /register).
+function canUseRest() {
+  return enabled() && Boolean(config.firebase.webApiKey);
+}
+
+async function rest(method, body) {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${method}?key=${config.firebase.webApiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, returnSecureToken: false })
+    body: JSON.stringify(body)
   });
-  if (!res.ok) return null;
-  return (await res.json()).localId || null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error?.message || `Firebase ${method} failed`);
+    err.firebaseCode = String(data.error?.message || '').split(' ')[0];
+    throw err;
+  }
+  return data;
+}
+
+// Checks an email + password. Resolves to { uid, idToken, verified }, or
+// null when they don't match; undefined when this server can't check.
+async function checkPassword(email, password) {
+  if (!canUseRest()) return undefined;
+  let signedIn;
+  try {
+    signedIn = await rest('signInWithPassword', { email, password, returnSecureToken: true });
+  } catch (err) {
+    if (['INVALID_LOGIN_CREDENTIALS', 'INVALID_PASSWORD', 'EMAIL_NOT_FOUND', 'USER_DISABLED', 'INVALID_EMAIL'].includes(err.firebaseCode)) return null;
+    throw err;
+  }
+  const looked = await rest('lookup', { idToken: signedIn.idToken });
+  return { uid: signedIn.localId, idToken: signedIn.idToken, verified: Boolean(looked.users?.[0]?.emailVerified) };
+}
+
+// Creates a Firebase account and emails it a verification link.
+// Resolves to the uid; throws with firebaseCode 'EMAIL_EXISTS' if taken.
+async function signUpAndVerify(email, password, name) {
+  const created = await rest('signUp', { email, password, returnSecureToken: true });
+  if (name) await rest('update', { idToken: created.idToken, displayName: name, returnSecureToken: false }).catch(() => {});
+  await rest('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: created.idToken });
+  return created.localId;
+}
+
+// Emails the verification link again (needs the account's password).
+async function resendVerification(email, password) {
+  const signedIn = await checkPassword(email, password);
+  if (!signedIn) return false;
+  if (!signedIn.verified) await rest('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: signedIn.idToken });
+  return true;
 }
 
 async function deleteUser(uid) {
@@ -105,4 +146,4 @@ async function deleteUser(uid) {
   }
 }
 
-module.exports = { enabled, canManage, verify, syncUsers, checkPassword, deleteUser };
+module.exports = { enabled, canManage, canUseRest, verify, syncUsers, checkPassword, signUpAndVerify, resendVerification, deleteUser };

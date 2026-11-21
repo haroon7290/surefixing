@@ -32,8 +32,10 @@ async function makeUser(role = 'client', extra = {}) {
     const res = await request(app)
       .post('/api/auth/register')
       .send({ name: `${role} ${counter}`, email, password, role, ...(extra.register || {}) });
-    if (res.status !== 201) throw new Error(`register failed: ${res.status} ${JSON.stringify(res.body)}`);
+    if (res.status !== 202) throw new Error(`register failed: ${res.status} ${JSON.stringify(res.body)}`);
   }
+  // Tests skip the email confirmation step (it has its own tests).
+  await User.updateOne({ email }, { $set: { emailVerified: true } });
   if (extra.profile) await User.updateOne({ email }, { $set: extra.profile });
   const login = await request(app).post('/api/auth/login').send({ email, password });
   const { token, user } = login.body;

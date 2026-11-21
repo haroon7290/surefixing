@@ -70,12 +70,13 @@ class Session extends ChangeNotifier {
 
   /// With Firebase (see `firebase_login.dart`) Firebase checks the password
   /// and the backend turns the sign-in into a session; otherwise the
-  /// backend checks it itself.
+  /// backend checks it itself. Throws [VerificationNeeded] while the
+  /// account's email address isn't confirmed yet.
   Future<void> login(String email, String password) async {
     if (FirebaseLogin.active) {
       try {
         final idToken = await FirebaseLogin.signIn(email, password);
-        return _start(await Api.post('/api/auth/firebase', {'idToken': idToken}));
+        return await _exchange(idToken, email: email, password: password);
       } on ApiError catch (e) {
         // Not a Firebase password problem (network, suspended…): show it.
         if (!(e.code?.startsWith('firebase_') ?? false)) rethrow;
@@ -91,9 +92,30 @@ class Session extends ChangeNotifier {
     await _backendLogin(email, password);
   }
 
-  Future<void> _backendLogin(String email, String password) async => _start(await Api.post('/api/auth/login', {'email': email.trim(), 'password': password}));
+  Future<void> _backendLogin(String email, String password) async {
+    try {
+      await _start(await Api.post('/api/auth/login', {'email': email.trim(), 'password': password}));
+    } on ApiError catch (e) {
+      if (e.code != 'email_unverified') rethrow;
+      throw VerificationNeeded(email: email.trim().toLowerCase(), password: password, byLink: e.details['method'] == 'link');
+    }
+  }
 
-  Future<void> register({required String name, required String email, required String password, required String role, String phone = '', String city = ''}) async {
+  /// Firebase sign-in → SureFix session, unless the email isn't confirmed.
+  Future<void> _exchange(String idToken, {required String email, required String password, Json? profile}) async {
+    try {
+      await _start(await Api.post('/api/auth/firebase', {'idToken': idToken, if (profile != null) 'profile': profile}));
+    } on ApiError catch (e) {
+      if (e.code != 'email_unverified') rethrow;
+      throw VerificationNeeded(email: email.trim().toLowerCase(), password: password, byLink: true, firebase: true);
+    }
+  }
+
+  /// Creates the account. It can't be used until its email address is
+  /// confirmed, so this always ends in [VerificationNeeded] (a link or a
+  /// 6-digit code was emailed), except for an account confirmed earlier.
+  Future<void> register(
+      {required String name, required String email, required String password, required String role, String phone = '', String city = ''}) async {
     final profile = {
       'name': name.trim(),
       'role': role,
@@ -102,9 +124,40 @@ class Session extends ChangeNotifier {
     };
     if (FirebaseLogin.active) {
       final idToken = await FirebaseLogin.signUp(email, password);
-      return _start(await Api.post('/api/auth/firebase', {'idToken': idToken, 'profile': profile}));
+      return _exchange(idToken, email: email, password: password, profile: profile);
     }
-    await _start(await Api.post('/api/auth/register', {...profile, 'email': email.trim(), 'password': password}));
+    final body = asJson(await Api.post('/api/auth/register', {...profile, 'email': email.trim(), 'password': password}));
+    if (body['token'] != null) return _start(body);
+    throw VerificationNeeded(
+      email: str(body['email'], email.trim().toLowerCase()),
+      password: password,
+      byLink: body['verify'] == 'link',
+      minutes: integer(body['minutes'], 30),
+      devCode: body['devCode']?.toString(),
+    );
+  }
+
+  /// Finishes sign-up with the 6-digit code from the email.
+  Future<void> verifyCode(String email, String code) async => _start(await Api.post('/api/auth/verify-email', {'email': email.trim(), 'code': code.trim()}));
+
+  /// After the person opened the link: signs them in if the address is now
+  /// confirmed, else throws [VerificationNeeded] again.
+  Future<void> continueAfterLink(VerificationNeeded v) async {
+    if (v.firebase && FirebaseLogin.signedIn) {
+      return _exchange(await FirebaseLogin.freshToken(), email: v.email, password: v.password);
+    }
+    await login(v.email, v.password);
+  }
+
+  /// Emails the link or code again. Returns a new demo code when the
+  /// server has no email set up.
+  Future<String?> resendVerification(VerificationNeeded v) async {
+    if (v.firebase && FirebaseLogin.active) {
+      await FirebaseLogin.sendVerification(v.email, v.password);
+      return null;
+    }
+    final res = asJson(await Api.post('/api/auth/resend-verification', {'email': v.email, if (v.byLink) 'password': v.password}));
+    return res['devCode']?.toString();
   }
 
   /// True when "forgot password" sends a link by email (Firebase) instead
@@ -228,4 +281,19 @@ class Settings extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('introSeen', true);
   }
+}
+
+/// Sign-up or sign-in stopped until the email address is confirmed, by the
+/// link ([byLink]) or the 6-digit code that was emailed.
+class VerificationNeeded implements Exception {
+  final String email;
+  final String password;
+  final bool byLink;
+  final bool firebase; // signed in with Firebase in this app
+  final int minutes;
+  final String? devCode; // no email server (local/demo): the code itself
+  const VerificationNeeded({required this.email, required this.password, required this.byLink, this.firebase = false, this.minutes = 30, this.devCode});
+
+  @override
+  String toString() => 'Confirm your email address to continue.';
 }

@@ -60,6 +60,14 @@ const userSchema = new mongoose.Schema(
     favoriteTechnicians: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     favoriteTools: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tool' }],
 
+    // Email verification. Accounts from before it existed count as verified;
+    // new sign-ups start unverified and can't sign in until they confirm
+    // (a Firebase link, or a 6-digit code without Firebase).
+    emailVerified: { type: Boolean, default: true },
+    verifyCodeHash: { type: String, default: '' },
+    verifyCodeExpires: { type: Date, default: null },
+    verifyAttempts: { type: Number, default: 0 },
+
     // Password reset: bcrypt hash of a 6-digit code, valid for a few minutes.
     resetCodeHash: { type: String, default: '' },
     resetCodeExpires: { type: Date, default: null },
