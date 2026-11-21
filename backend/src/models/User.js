@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     phone: { type: String, trim: true },
     password: { type: String, required: true },
+    // Firebase Authentication account (when the server uses Firebase).
+    firebaseUid: { type: String, default: '', index: true },
     role: { type: String, enum: ROLES, required: true, index: true },
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
     kycStatus: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },

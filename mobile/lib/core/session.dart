@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/json.dart';
 import '../models/user.dart';
 import 'api.dart';
+import 'firebase_login.dart';
 import 'realtime.dart';
 
 /// The signed-in account (JWT + user), saved on the device. Widgets listen
@@ -67,28 +68,69 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async => _start(await Api.post('/api/auth/login', {'email': email.trim(), 'password': password}));
+  /// With Firebase (see `firebase_login.dart`) Firebase checks the password
+  /// and the backend turns the sign-in into a session; otherwise the
+  /// backend checks it itself.
+  Future<void> login(String email, String password) async {
+    if (FirebaseLogin.active) {
+      try {
+        final idToken = await FirebaseLogin.signIn(email, password);
+        return _start(await Api.post('/api/auth/firebase', {'idToken': idToken}));
+      } on ApiError catch (e) {
+        // Not a Firebase password problem (network, suspended…): show it.
+        if (!(e.code?.startsWith('firebase_') ?? false)) rethrow;
+        // An account the server hasn't copied into Firebase yet.
+        try {
+          return await _backendLogin(email, password);
+        } on ApiError catch (backend) {
+          if (backend.status == 401 || backend.code == 'use_firebase') throw e;
+          rethrow;
+        }
+      }
+    }
+    await _backendLogin(email, password);
+  }
 
-  Future<void> register({required String name, required String email, required String password, required String role, String phone = '', String city = ''}) async =>
-      _start(await Api.post('/api/auth/register', {
-        'name': name.trim(),
-        'email': email.trim(),
-        'password': password,
-        'role': role,
-        if (phone.trim().isNotEmpty) 'phone': phone.trim(),
-        if (city.trim().isNotEmpty) 'city': city.trim(),
-      }));
+  Future<void> _backendLogin(String email, String password) async => _start(await Api.post('/api/auth/login', {'email': email.trim(), 'password': password}));
 
-  /// Asks for a reset code. Returns the server's answer; outside production
-  /// without an email server it includes `devCode`.
-  Future<Json> forgotPassword(String email) async => asJson(await Api.post('/api/auth/forgot-password', {'email': email.trim()}));
+  Future<void> register({required String name, required String email, required String password, required String role, String phone = '', String city = ''}) async {
+    final profile = {
+      'name': name.trim(),
+      'role': role,
+      if (phone.trim().isNotEmpty) 'phone': phone.trim(),
+      if (city.trim().isNotEmpty) 'city': city.trim(),
+    };
+    if (FirebaseLogin.active) {
+      final idToken = await FirebaseLogin.signUp(email, password);
+      return _start(await Api.post('/api/auth/firebase', {'idToken': idToken, 'profile': profile}));
+    }
+    await _start(await Api.post('/api/auth/register', {...profile, 'email': email.trim(), 'password': password}));
+  }
+
+  /// True when "forgot password" sends a link by email (Firebase) instead
+  /// of a 6-digit code.
+  bool get resetsByLink => FirebaseLogin.active;
+
+  /// Starts a password reset. With Firebase, emails a reset link and
+  /// returns `{firebase: true}`; otherwise asks the backend for a code (the
+  /// answer includes `devCode` outside production without an email server).
+  Future<Json> forgotPassword(String email) async {
+    if (FirebaseLogin.active) {
+      await FirebaseLogin.sendReset(email);
+      return {'ok': true, 'firebase': true};
+    }
+    return asJson(await Api.post('/api/auth/forgot-password', {'email': email.trim()}));
+  }
 
   Future<void> resetPassword({required String email, required String code, required String newPassword}) async {
     final body = asJson(await Api.post('/api/auth/reset-password', {'email': email.trim(), 'code': code.trim(), 'newPassword': newPassword}));
     if (body['token'] != null) await _start(body);
   }
 
-  Future<void> changePassword(String current, String next) => Api.post('/api/auth/change-password', {'currentPassword': current, 'newPassword': next});
+  Future<void> changePassword(String current, String next) async {
+    if (FirebaseLogin.signedIn) return FirebaseLogin.changePassword(current, next);
+    await Api.post('/api/auth/change-password', {'currentPassword': current, 'newPassword': next});
+  }
 
   /// Re-reads the account after anything that changes it server-side
   /// (wallet movements, verification, ratings).
@@ -144,6 +186,7 @@ class Session extends ChangeNotifier {
 
   Future<void> logout() async {
     Realtime.instance.disconnect();
+    FirebaseLogin.signOut();
     token = null;
     user = null;
     await _save();
