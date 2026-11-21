@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -30,11 +31,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _view = GlobalKey<AsyncViewState<_Data>>();
   bool _busy = false;
 
-  String get _path => '/api/jobs/${widget.jobId}';
+  // widget.jobId may be the number ("SF-1024"); actions use the real id
+  // once the job has loaded.
+  String? _id;
+  String get _path => '/api/jobs/${_id ?? widget.jobId}';
   User get _me => Session.instance.user!;
 
   Future<_Data> _load() async {
     final job = Job.fromJson(await Api.map(_path));
+    if (_id == null) {
+      _id = job.id;
+      // On the website, show the job's number in the address bar.
+      if (kIsWeb && job.ref.isNotEmpty && widget.jobId != job.ref && mounted && ModalRoute.of(context)?.isCurrent == true) {
+        SystemNavigator.routeInformationUpdated(uri: Uri(path: '/jobs/${job.ref}'), replace: true);
+      }
+    }
     var ranked = <TechMatch>[];
     var estimate = const Estimate();
     final mine = job.client.id == _me.id || _me.isAdmin;
@@ -177,7 +188,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       confirmLabel: refund ? 'Refund client' : 'Release payment',
       danger: refund,
     );
-    if (note != null) await _act(() => Api.post('/api/admin/jobs/${widget.jobId}/resolve', {'action': action, 'note': note}), done: 'Dispute resolved');
+    if (note != null) await _act(() => Api.post('/api/admin/jobs/${_id ?? widget.jobId}/resolve', {'action': action, 'note': note}), done: 'Dispute resolved');
   }
 
   // ----------------------------------------------------------------- build

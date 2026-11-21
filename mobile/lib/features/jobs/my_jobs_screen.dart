@@ -58,7 +58,7 @@ class _MyJobsScreenState extends State<MyJobsScreen> {
                     : PageList(
                         onRefresh: () => _view.currentState!.reload(),
                         children: [
-                          AutoGrid(minWidth: 340, gap: 12, maxColumns: 3, children: [for (final j in jobs) JobCard(j, onTap: () => openJob(context, j.id))]),
+                          AutoGrid(minWidth: 340, gap: 12, maxColumns: 3, children: [for (final j in jobs) JobCard(j, onTap: () => openJob(context, j.id, ref: j.ref))]),
                         ],
                       ),
               ),

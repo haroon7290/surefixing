@@ -200,7 +200,7 @@ class _FindJobsScreenState extends State<FindJobsScreen> {
                           minWidth: 340,
                           gap: 12,
                           maxColumns: 2,
-                          children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                          children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id, ref: j.ref))]),
                     ],
             ),
           );
@@ -270,7 +270,7 @@ class _MyWorkScreenState extends State<MyWorkScreen> {
                               minWidth: 340,
                               gap: 12,
                               maxColumns: 3,
-                              children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id))]),
+                              children: [for (final j in jobs) JobCard(j, forTechnician: true, onTap: () => openJob(context, j.id, ref: j.ref))]),
                         ],
                       ),
               ),

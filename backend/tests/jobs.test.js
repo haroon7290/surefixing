@@ -313,3 +313,19 @@ describe('job numbers', () => {
     expect(Job.parseNumber('kitchen tap')).toBeNull();
   });
 });
+
+describe('job addresses by number', () => {
+  test('a job can be opened and acted on by its number', async () => {
+    const { makeUser: mk } = require('./helpers');
+    const client = await mk('client');
+    const tech = await mk('technician', { profile: { skills: ['plumbing'] } });
+    const job = (await client.api('post', '/api/jobs').send({ title: 'Numbered address job', description: 'The kitchen tap needs a new washer.', category: 'plumbing' }).expect(201)).body;
+    const byNumber = await client.api('get', `/api/jobs/SF-${job.number}`).expect(200);
+    expect(byNumber.body._id).toBe(job._id);
+    await client.api('get', `/api/jobs/${job.number}`).expect(200);
+    await tech.api('post', `/api/jobs/SF-${job.number}/bids`).send({ amount: 900 }).expect(201);
+    await client.api('get', `/api/jobs/SF-${job.number}/ranked-bids`).expect(200);
+    await client.api('get', '/api/jobs/SF-999999').expect(404);
+    await client.api('get', '/api/jobs/not-a-job').expect(404);
+  });
+});

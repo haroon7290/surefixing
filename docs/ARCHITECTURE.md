@@ -234,7 +234,7 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 |---|---|---|
 | GET | `/jobs` 🔒 | Client: own jobs. Technician: open market (`?q=&category=&city=&urgency=a,b&minBudget=&matching=1&sort=newest\|oldest\|budget\|distance`, `&lat=&lng=&radius=` — from their saved location by default; each job has `distanceKm`), `?view=requests`, `?view=bids`, `?mine=1&status=`. Admin: all |
 | POST | `/jobs` 🔒 client | multipart: title, description, category, budget, city, location, `lat`, `lng`, `area` (else the client's saved location), urgency, preferredDate, requestedTechnician?, `images` (≤ 5) |
-| GET | `/jobs/:id` 🔒 | Adds `bidCount`, `autoCompleteAt`; hides what the viewer may not see |
+| GET | `/jobs/:id` 🔒 | `:id` is the job's id or its number (`SF-1024`; every `/jobs/:id/…` route accepts both). Adds `bidCount`, `autoCompleteAt`; hides what the viewer may not see |
 | GET | `/jobs/:id/ranked-bids` 🔒 owner / admin | Quotes ranked by the AI: `matchPercent`, `reasons[]`, `notes[]`, `breakdown`, `engine`, `distanceKm`, `serviceRadiusKm` |
 | POST / DELETE | `/jobs/:id/bids` · `/jobs/:id/bids/me` 🔒 technician | Quote `{amount, etaDays?, message?}` · take it back |
 | POST | `/jobs/:id/decline` · `/jobs/:id/open` 🔒 | Requested technician declines · client opens the job to everyone |

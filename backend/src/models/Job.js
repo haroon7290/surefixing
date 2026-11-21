@@ -110,6 +110,13 @@ jobSchema.statics.numberMissing = async function numberMissing() {
   return missing.length;
 };
 
+// A job by its database id or its number ("SF-1024", "1024"); null if none.
+jobSchema.statics.findByRef = function findByRef(ref) {
+  if (mongoose.isValidObjectId(ref) && String(ref).length === 24) return this.findById(ref);
+  const number = this.parseNumber(ref);
+  return number ? this.findOne({ number }) : Promise.resolve(null);
+};
+
 // "SF-1024", "sf1024", "#1024" or "1024" → 1024 (else null).
 jobSchema.statics.parseNumber = function parseNumber(text) {
   const m = /^\s*(?:sf[-\s]?|#)?(\d{3,9})\s*$/i.exec(String(text || ''));

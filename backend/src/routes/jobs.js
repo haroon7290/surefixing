@@ -22,9 +22,9 @@ const CONTACT = 'phone email';
 const BIDDER_FIELDS =
   'name avatar rating ratingCount jobsCompleted jobsAssigned avgResponseMinutes skills headline bio city kycStatus experienceYears hourlyRate isAvailable';
 
+// :id may be the job's database id or its number ("SF-1024").
 async function loadJob(id) {
-  if (!mongoose.isValidObjectId(id)) throw notFound('Job not found');
-  const job = await Job.findById(id);
+  const job = await Job.findByRef(id);
   if (!job) throw notFound('Job not found');
   return job;
 }
@@ -240,8 +240,8 @@ router.get('/:id', authRequired, async (req, res) => {
 // AI-ranked quotes: the job's quotes sorted by technician match score, each
 // with human-readable reasons.
 router.get('/:id/ranked-bids', authRequired, async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Job not found');
-  const job = await Job.findById(req.params.id).populate('bids.technician', BIDDER_FIELDS);
+  const found = await Job.findByRef(req.params.id);
+  const job = found && (await found.populate('bids.technician', BIDDER_FIELDS));
   if (!job) throw notFound('Job not found');
   if (!sameId(job.client, req.user._id) && req.user.role !== 'admin') throw forbidden('Only the job owner can see ranked quotes');
 

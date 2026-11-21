@@ -19,6 +19,7 @@ import 'package:surefix/features/tools/tool_detail_screen.dart';
 import 'package:surefix/features/tools/tool_form_screen.dart';
 import 'package:surefix/features/tools/tool_market_screen.dart';
 import 'package:surefix/kit.dart';
+import 'package:surefix/routes.dart';
 
 import 'fake_api.dart';
 
@@ -329,6 +330,19 @@ void main() {
       expect(find.text('Job SF-1001'), findsOneWidget);
       await tapOn(tester, find.text('Job SF-1001'));
       expect(find.textContaining('SF-1001 copied'), findsOneWidget);
+    });
+
+    testWidgets('a job opened by its number (…/#/jobs/SF-1001) works like any other', (tester) async {
+      await pumpApp(tester, role: 'client', size: desktop);
+      expect(pageForPath('/jobs/SF-1001'), isA<JobDetailScreen>());
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const JobDetailScreen(jobId: 'SF-1001')));
+      await settle(tester);
+      expect(gets.any((u) => u.path == '/api/jobs/SF-1001'), isTrue);
+      expect(find.text('Job SF-1001'), findsOneWidget);
+      await tapOn(tester, find.text('Hire · Rs 2,800'));
+      await tester.tap(find.text('Hire · Rs 2,800').last);
+      await settle(tester);
+      expect(sent, contains('POST /api/jobs/j1/accept/b1')); // actions use the real id
     });
 
     testWidgets('client confirms finished work', (tester) async {
