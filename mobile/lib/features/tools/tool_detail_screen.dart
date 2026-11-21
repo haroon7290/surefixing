@@ -143,7 +143,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         Gap.h12,
         SizedBox(
           height: 64,
-          child: ListView.separated(
+          child: MouseDrag(child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: tool.images.length,
             separatorBuilder: (_, __) => Gap.w8,
@@ -159,7 +159,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 ),
               ),
             ),
-          ),
+          )),
         ),
       ],
     ]);

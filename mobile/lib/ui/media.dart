@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/api.dart';
 import '../core/catalog.dart';
 import '../core/nav.dart';
+import '../core/responsive.dart';
 import '../core/theme.dart';
 import 'brand.dart';
 import 'icons.dart';
@@ -82,7 +83,7 @@ class PhotoStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
         height: size,
-        child: ListView.separated(
+        child: MouseDrag(child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: files.length,
           separatorBuilder: (_, __) => Gap.w8,
@@ -94,7 +95,7 @@ class PhotoStrip extends StatelessWidget {
               child: ClipRRect(borderRadius: BorderRadius.circular(R.md), child: NetImage(files[i], width: size, height: size)),
             ),
           ),
-        ),
+        )),
       );
 }
 

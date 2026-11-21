@@ -69,7 +69,8 @@ nearer technicians rank higher and the reasons say how far each one is.
    spot), or tap your **area** in the list. Your saved profile location is used until you do.
 2. **Filter.** On a phone tap **Filters**: *Distance* (any, or within 2 / 5 / 10 / 25 / 50 km),
    *Travels to me* (only technicians whose working range reaches you), *Verified ID*,
-   *Available now*, *Rating* and *Type of work* — then **Show results**. Tools have price per
+   *Available now*, *Rating*, *Type of work* and *City* (e.g. Rawalpindi while you are in Attock:
+   everyone in that city, still with the distance from you) — then **Show results**. Tools have price per
    day, *In stock* and *Buy monthly* instead. On the website the filters sit on the left and
    apply as you click.
 3. **Sort.** Results are **nearest first** once SureFix knows where you are; the sort menu
@@ -176,6 +177,10 @@ Use the switch on Home to mark yourself **busy**.
   Support** with the SureFix logo, never your name. When you start from a job, report, deposit or
   verification, the first message says what it is about ("Re: Job: …"). Every admin sees every
   support conversation in Messages, with who on the team wrote each message.
+- **Messages** — *Support*: your conversations as SureFix Support. *All chats*: every chat
+  between customers, technicians and suppliers, read-only (search by name, job or tool), with
+  buttons to message either person as SureFix Support or open the job. Reading a chat doesn't
+  mark it as read for them.
 - **Payments** — the payments desk:
   - **Deposits:** each shows who sent it, the amount, the transaction ID (tap to copy), which
     company account it went to and the screenshot if attached. Check your bank or wallet

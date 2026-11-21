@@ -301,6 +301,99 @@ router.get('/tools', async (req, res) => {
 // --------------------------------------------------------------- payments
 
 // Latest wallet movements across the platform. ?type=platform_fee etc.
+// ---------------------------------------------------------- conversations
+//
+// Every chat between users (job and tool threads), read-only, so admins can
+// see what was agreed when they resolve a dispute or a report. Support
+// conversations are in the admin's own Messages inbox instead.
+
+router.get('/conversations', async (req, res) => {
+  const rows = await Message.aggregate([
+    { $match: { support: null } },
+    { $sort: { createdAt: -1 } },
+    {
+      $addFields: {
+        a: { $cond: [{ $lt: ['$sender', '$recipient'] }, '$sender', '$recipient'] },
+        b: { $cond: [{ $lt: ['$sender', '$recipient'] }, '$recipient', '$sender'] }
+      }
+    },
+    { $group: { _id: { job: '$job', tool: '$tool', a: '$a', b: '$b' }, last: { $first: '$$ROOT' }, count: { $sum: 1 } } },
+    { $sort: { 'last.createdAt': -1 } },
+    { $limit: 500 }
+  ]);
+  const ids = (key) => [...new Set(rows.map((r) => r._id[key]).filter(Boolean).map(String))];
+  const [users, jobsFound, tools] = await Promise.all([
+    User.find({ _id: { $in: [...ids('a'), ...ids('b')] } }).select('name avatar role'),
+    Job.find({ _id: { $in: ids('job') } }).select('title status category'),
+    Tool.find({ _id: { $in: ids('tool') } }).select('name category')
+  ]);
+  const userMap = new Map(users.map((u) => [String(u._id), u]));
+  const jobMap = new Map(jobsFound.map((j) => [String(j._id), j]));
+  const toolMap = new Map(tools.map((t) => [String(t._id), t]));
+  const person = (id) => {
+    const u = userMap.get(String(id));
+    return u ? { id: u._id, name: u.name, avatar: u.avatar, role: u.role } : { id, name: 'Deleted account', avatar: '', role: '' };
+  };
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const out = rows
+    .map((r) => {
+      const job = r._id.job ? jobMap.get(String(r._id.job)) : null;
+      const tool = r._id.tool ? toolMap.get(String(r._id.tool)) : null;
+      return {
+        kind: tool || r._id.tool ? 'tool' : 'job',
+        jobId: r._id.job || null,
+        toolId: r._id.tool || null,
+        subject: job?.title || tool?.name || 'Removed',
+        jobStatus: job?.status || '',
+        a: person(r._id.a),
+        b: person(r._id.b),
+        count: r.count,
+        lastMessage: {
+          sender: r.last.sender,
+          senderName: person(r.last.sender).name,
+          text: r.last.text,
+          image: r.last.image,
+          createdAt: r.last.createdAt
+        }
+      };
+    })
+    .filter((c) => !q || [c.a.name, c.b.name, c.subject].some((x) => String(x).toLowerCase().includes(q)));
+  res.json(out);
+});
+
+// One conversation: ?job= or ?tool=, plus the two people ?a= & ?b=.
+router.get('/conversations/thread', async (req, res) => {
+  const { job, tool, a, b } = req.query;
+  if (![a, b].every((x) => mongoose.isValidObjectId(x))) throw badRequest('Choose the two people in the conversation');
+  if (Boolean(job) === Boolean(tool) || !mongoose.isValidObjectId(job || tool)) throw badRequest('Choose a job or a tool');
+  const scope = job ? { job } : { tool };
+  const msgs = await Message.find({
+    ...scope,
+    $or: [
+      { sender: a, recipient: b },
+      { sender: b, recipient: a }
+    ]
+  })
+    .sort({ createdAt: 1 })
+    .limit(1000)
+    .populate('sender', 'name');
+  // Read-only: nothing is marked as read for the people talking.
+  res.json(
+    msgs.map((m) => ({
+      _id: m._id,
+      job: m.job,
+      tool: m.tool,
+      sender: m.sender?._id || m.sender,
+      senderName: m.sender?.name || 'Deleted account',
+      recipient: m.recipient,
+      text: m.text,
+      image: m.image,
+      readAt: m.readAt,
+      createdAt: m.createdAt
+    }))
+  );
+});
+
 router.get('/transactions', async (req, res) => {
   const q = {};
   if (req.query.type) q.type = req.query.type;

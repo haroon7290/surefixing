@@ -65,12 +65,12 @@ class HScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
         height: height,
-        child: ListView.separated(
+        child: MouseDrag(child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: children.length,
           separatorBuilder: (_, __) => Gap.w12,
           itemBuilder: (_, i) => children[i],
-        ),
+        )),
       );
 }
 

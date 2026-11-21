@@ -312,6 +312,19 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
       'signupsLast7Days': week([1, 1, 2, 1, 2, 1, 0]), 'jobsLast7Days': week([0, 0, 0, 7, 1, 2, 3]), 'revenueLast7Days': week([0, 0, 0, 0, 3180, 0, 0]),
     };
   }
+  if (path == '/api/admin/conversations') {
+    return [
+      {'kind': 'job', 'jobId': 'j2', 'subject': 'AC not cooling — needs gas refill', 'jobStatus': 'in_progress', 'count': 4,
+        'a': {'id': 'c1', 'name': 'Sara Khan', 'avatar': '', 'role': 'client'}, 'b': {'id': 't1', 'name': 'Ahmad Raza', 'avatar': '', 'role': 'technician'},
+        'lastMessage': {'sender': 't1', 'senderName': 'Ahmad Raza', 'text': 'On my way, about 20 minutes.', 'image': '', 'createdAt': _ago(const Duration(minutes: 20))}},
+    ];
+  }
+  if (path == '/api/admin/conversations/thread') {
+    return [
+      {..._message('m1', 'c1', 't1', 'Hi, when can you come?'), 'senderName': 'Sara Khan'},
+      {..._message('m2', 't1', 'c1', 'On my way, about 20 minutes.'), 'senderName': 'Ahmad Raza'},
+    ];
+  }
   if (path == '/api/admin/users') return [_client, _tech1, _tech2, _supplier, _admin];
   if (path == '/api/admin/kyc') return [{'_id': 'k1', 'user': {'_id': 't2', 'name': 'Noor Fatima', 'email': 'tech2@demo.com', 'role': 'technician', 'avatar': '', 'city': 'Lahore'}, 'fullName': 'Noor Fatima', 'idType': 'cnic', 'idNumber': '35202-1234567-1', 'idFrontImage': '', 'idBackImage': '', 'selfieImage': '', 'status': 'pending', 'createdAt': _ago(const Duration(hours: 4))}];
   if (path == '/api/admin/reports') return [{'_id': 'rp1', 'reporter': {'_id': 'c1', 'name': 'Sara Khan', 'email': 'client@demo.com', 'role': 'client', 'avatar': ''}, 'targetType': 'user', 'targetId': 't2', 'targetLabel': 'Noor Fatima (technician)', 'reason': 'no_show', 'details': 'Agreed a time twice and never arrived.', 'status': 'open', 'createdAt': _ago(const Duration(hours: 6))}];

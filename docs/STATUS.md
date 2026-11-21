@@ -100,6 +100,9 @@ does not carry over**:
 
 ## Changelog
 
+- **v3.5** — Admin *Messages* with a read-only view of every chat between users; City filter on
+  technicians, tools and jobs (hire from another city); cards in a row share one height; the
+  website's scrollbar follows the mouse when dragged; Firebase Authentication ready to switch on.
 - **v3.4** — SureFix Support conversations: admins message anyone as "SureFix Support" (their
   own name stays hidden), users contact support from Messages or Account.
 - **v3.3** — Phone notifications in the notification bar with sound and vibration for new

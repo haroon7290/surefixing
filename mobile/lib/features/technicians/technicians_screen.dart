@@ -11,15 +11,25 @@ import 'tech_widgets.dart';
 /// sort live beside it).
 class TechFilters {
   final String category;
+  final String city;
   final double minRating;
   final bool verified;
   final bool available;
   final bool covers;
   final int radius;
-  const TechFilters({this.category = '', this.minRating = 0, this.verified = false, this.available = false, this.covers = false, this.radius = 0});
+  const TechFilters(
+      {this.category = '',
+      this.city = '',
+      this.minRating = 0,
+      this.verified = false,
+      this.available = false,
+      this.covers = false,
+      this.radius = 0});
 
-  TechFilters copy({String? category, double? minRating, bool? verified, bool? available, bool? covers, int? radius}) => TechFilters(
+  TechFilters copy({String? category, String? city, double? minRating, bool? verified, bool? available, bool? covers, int? radius}) =>
+      TechFilters(
         category: category ?? this.category,
+        city: city ?? this.city,
         minRating: minRating ?? this.minRating,
         verified: verified ?? this.verified,
         available: available ?? this.available,
@@ -27,9 +37,9 @@ class TechFilters {
         radius: radius ?? this.radius,
       );
 
-  int get count => [category.isNotEmpty, minRating > 0, verified, available, covers, radius > 0].where((on) => on).length;
+  int get count => [category.isNotEmpty, city.isNotEmpty, minRating > 0, verified, available, covers, radius > 0].where((on) => on).length;
 
-  String get key => '$category|$minRating|$verified|$available|$covers|$radius';
+  String get key => '$category|$city|$minRating|$verified|$available|$covers|$radius';
 }
 
 /// The technician directory: search, filter by distance, trade, rating and
@@ -49,7 +59,13 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
   String? _sort; // null = nearest when a location is known, else top rated
   Timer? _debounce;
 
-  static const _sorts = {'distance': 'Nearest', 'rating': 'Top rated', 'jobs': 'Most jobs done', 'price': 'Lowest hourly rate', 'newest': 'Newest'};
+  static const _sorts = {
+    'distance': 'Nearest',
+    'rating': 'Top rated',
+    'jobs': 'Most jobs done',
+    'price': 'Lowest hourly rate',
+    'newest': 'Newest'
+  };
 
   @override
   void initState() {
@@ -79,8 +95,10 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
       'available': f.available ? 1 : null,
       'minRating': f.minRating > 0 ? f.minRating : null,
       'covers': f.covers && Locations.instance.known ? 1 : null,
+      'city': f.city.isEmpty ? null : f.city,
       'sort': sort,
-      ...Locations.instance.query(),
+      // A chosen city replaces the distance limit (distances are still shown).
+      ...Locations.instance.query(withRadius: f.city.isEmpty),
       'limit': 60,
     });
     return rows.map(User.fromJson).toList();
@@ -94,7 +112,13 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
   List<Widget> _groups(BuildContext context, TechFilters f, ValueChanged<TechFilters> set) {
     final known = Locations.instance.known;
     return [
-      FilterGroup('Distance', child: DistanceFilter(radius: f.radius, onRadius: (km) => set(f.copy(radius: km)))),
+      FilterGroup('Distance', child: DistanceFilter(radius: f.radius, onRadius: (km) => set(f.copy(radius: km, city: '')))),
+      FilterGroup(
+        'City',
+        hint: 'Search in any city, e.g. Rawalpindi while you are in Attock. Distances stay from your location.',
+        child: Pills<String>(
+            values: const ['', ...cities], label: (c) => c.isEmpty ? 'Any city' : c, selected: f.city, onTap: (c) => set(f.copy(city: c))),
+      ),
       FilterGroup(
         'Show only',
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -140,6 +164,7 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
     final loc = Locations.instance;
     final from = loc.searchFrom;
     final what = plural(n, 'technician');
+    if (_f.city.isNotEmpty) return from == null ? '$what in ${_f.city}' : '$what in ${_f.city} · distances from ${from.label}';
     if (from == null) return what;
     if (loc.radiusKm > 0) return '$what within ${loc.radiusKm} km of ${from.label}';
     return sort == 'distance' ? '$what · nearest to ${from.label} first' : '$what · distances from ${from.label}';
@@ -178,14 +203,20 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
                       EmptyState(
                         icon: AppIcons.technicians,
                         title: 'No technicians match',
-                        message: loc.radiusKm > 0 ? 'Nobody within ${loc.radiusKm} km. Try a wider distance or remove a filter.' : 'Try a different skill, or remove a filter.',
+                        message: loc.radiusKm > 0
+                            ? 'Nobody within ${loc.radiusKm} km. Try a wider distance or remove a filter.'
+                            : 'Try a different skill, or remove a filter.',
                         action: Btn(loc.radiusKm > 0 ? 'Search any distance' : 'Clear filters',
                             kind: BtnKind.dark, onPressed: () => _apply(loc.radiusKm > 0 ? f.copy(radius: 0) : const TechFilters())),
                       ),
                     ]
                   : [
                       ResultsHeader(_summary(techs.length, sort), sort: sortMenu),
-                      AutoGrid(minWidth: 300, gap: 16, maxColumns: 3, children: [for (final t in techs) TechCard(t, onTap: () => openTechnician(context, t.id))]),
+                      AutoGrid(
+                          minWidth: 300,
+                          gap: 16,
+                          maxColumns: 3,
+                          children: [for (final t in techs) TechCard(t, onTap: () => openTechnician(context, t.id))]),
                     ],
             ),
           );

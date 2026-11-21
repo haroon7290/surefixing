@@ -19,22 +19,24 @@ String _bandLabel((int, int) b) => switch (b) {
 
 class ToolFilters {
   final String category;
+  final String city;
   final int band; // index into _priceBands
   final bool inStock;
   final bool installment;
   final int radius;
-  const ToolFilters({this.category = '', this.band = 0, this.inStock = false, this.installment = false, this.radius = 0});
+  const ToolFilters({this.category = '', this.city = '', this.band = 0, this.inStock = false, this.installment = false, this.radius = 0});
 
-  ToolFilters copy({String? category, int? band, bool? inStock, bool? installment, int? radius}) => ToolFilters(
+  ToolFilters copy({String? category, String? city, int? band, bool? inStock, bool? installment, int? radius}) => ToolFilters(
         category: category ?? this.category,
+        city: city ?? this.city,
         band: band ?? this.band,
         inStock: inStock ?? this.inStock,
         installment: installment ?? this.installment,
         radius: radius ?? this.radius,
       );
 
-  int get count => [category.isNotEmpty, band > 0, inStock, installment, radius > 0].where((on) => on).length;
-  String get key => '$category|$band|$inStock|$installment|$radius';
+  int get count => [category.isNotEmpty, city.isNotEmpty, band > 0, inStock, installment, radius > 0].where((on) => on).length;
+  String get key => '$category|$city|$band|$inStock|$installment|$radius';
 }
 
 /// The tool market: rent by the day or buy in installments, from suppliers
@@ -84,8 +86,9 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
       'installment': f.installment ? 1 : null,
       'minPrice': min > 0 ? min : null,
       'maxPrice': max > 0 ? max : null,
+      'city': f.city.isEmpty ? null : f.city,
       'sort': sort,
-      ...Locations.instance.query(),
+      ...Locations.instance.query(withRadius: f.city.isEmpty),
       'limit': 60,
     });
     return rows.map(Tool.fromJson).toList();
@@ -97,17 +100,34 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
   }
 
   List<Widget> _groups(BuildContext context, ToolFilters f, ValueChanged<ToolFilters> set) => [
-        FilterGroup('Distance', hint: 'Tools are picked up from the supplier or delivered.', child: DistanceFilter(radius: f.radius, onRadius: (km) => set(f.copy(radius: km)))),
+        FilterGroup('Distance',
+            hint: 'Tools are picked up from the supplier or delivered.',
+            child: DistanceFilter(radius: f.radius, onRadius: (km) => set(f.copy(radius: km, city: '')))),
+        FilterGroup(
+          'City',
+          hint: 'Search in any city, e.g. Rawalpindi while you are in Attock. Distances stay from your location.',
+          child: Pills<String>(
+              values: const ['', ...cities], label: (c) => c.isEmpty ? 'Any city' : c, selected: f.city, onTap: (c) => set(f.copy(city: c))),
+        ),
         FilterGroup(
           'Show only',
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             FilterToggle(label: 'In stock now', icon: AppIcons.check, value: f.inStock, onChanged: (v) => set(f.copy(inStock: v))),
-            FilterToggle(label: 'Buy monthly', subtitle: 'Can be bought in installments', icon: AppIcons.calendar, value: f.installment, onChanged: (v) => set(f.copy(installment: v))),
+            FilterToggle(
+                label: 'Buy monthly',
+                subtitle: 'Can be bought in installments',
+                icon: AppIcons.calendar,
+                value: f.installment,
+                onChanged: (v) => set(f.copy(installment: v))),
           ]),
         ),
         FilterGroup(
           'Price per day',
-          child: Pills<int>(values: [for (var i = 0; i < _priceBands.length; i++) i], label: (i) => _bandLabel(_priceBands[i]), selected: f.band, onTap: (i) => set(f.copy(band: i))),
+          child: Pills<int>(
+              values: [for (var i = 0; i < _priceBands.length; i++) i],
+              label: (i) => _bandLabel(_priceBands[i]),
+              selected: f.band,
+              onTap: (i) => set(f.copy(band: i))),
         ),
         FilterGroup(
           'Category',
@@ -130,6 +150,7 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
     final loc = Locations.instance;
     final from = loc.searchFrom;
     final what = plural(n, 'tool');
+    if (_f.city.isNotEmpty) return from == null ? '$what in ${_f.city}' : '$what in ${_f.city} · distances from ${from.label}';
     if (from == null) return what;
     if (loc.radiusKm > 0) return '$what within ${loc.radiusKm} km of ${from.label}';
     return sort == 'distance' ? '$what · nearest to ${from.label} first' : '$what · distances from ${from.label}';
@@ -169,7 +190,9 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
                       EmptyState(
                         icon: AppIcons.tools,
                         title: 'No tools match',
-                        message: loc.radiusKm > 0 ? 'Nothing within ${loc.radiusKm} km. Try a wider distance or remove a filter.' : 'Try another search, or remove a filter.',
+                        message: loc.radiusKm > 0
+                            ? 'Nothing within ${loc.radiusKm} km. Try a wider distance or remove a filter.'
+                            : 'Try another search, or remove a filter.',
                         action: Btn(loc.radiusKm > 0 ? 'Search any distance' : 'Clear filters',
                             kind: BtnKind.dark, onPressed: () => _apply(loc.radiusKm > 0 ? f.copy(radius: 0) : const ToolFilters())),
                       ),

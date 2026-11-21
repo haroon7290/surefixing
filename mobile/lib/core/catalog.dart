@@ -76,7 +76,7 @@ const reportReasons = {
 
 const idTypes = {'cnic': 'CNIC', 'passport': 'Passport', 'driver_license': "Driver's licence"};
 
-const cities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala'];
+const cities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Attock', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala'];
 
 const roleLabels = {'client': 'Customer', 'technician': 'Technician', 'supplier': 'Tool supplier', 'admin': 'Admin'};
 
