@@ -1,6 +1,8 @@
 # Builds the Flutter website and publishes it on GitHub Pages:
 #   https://haroon7290.github.io/surefixing/
 # Runs on every push to main that changes the app, and on demand.
+# Built without the offline cache (service worker), so visitors get a new
+# version on a normal reload instead of an old saved copy.
 # One-time setup: Settings → Pages → Source: "GitHub Actions".
 # Optional repository variables (Settings → Secrets and variables → Actions →
 # Variables): API_BASE_URL (the backend's address on Render) and DEMO
@@ -39,6 +41,7 @@ jobs:
       - name: Build
         run: >
           flutter build web --release
+          --pwa-strategy=none
           --base-href /${{ github.event.repository.name }}/
           --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'https://surefix-api.onrender.com' }}
           --dart-define=DEMO=${{ vars.DEMO || 'false' }}
