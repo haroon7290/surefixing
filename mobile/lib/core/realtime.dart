@@ -64,7 +64,10 @@ class Realtime {
     if (_socket != null) return;
     final socket = io.io(
       ApiConfig.baseUrl,
-      io.OptionBuilder().setTransports(['websocket', 'polling']).setAuth({'token': token}).enableReconnection().build(),
+      // forceNew: the library caches connection managers per address, so
+      // after signing out and in (another account) it reused the old,
+      // closed one and never connected again ("Reconnecting" forever).
+      io.OptionBuilder().setTransports(['websocket', 'polling']).setAuth({'token': token}).enableForceNew().enableReconnection().build(),
     );
     socket
       ..onConnect((_) => connected.value = true)

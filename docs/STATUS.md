@@ -100,6 +100,8 @@ does not carry over**:
 
 ## Changelog
 
+- **v3.5.1** — Live updates reconnect after signing out and in with another account (the
+  "Reconnecting" bar no longer sticks).
 - **v3.5** — Admin *Messages* with a read-only view of every chat between users; City filter on
   technicians, tools and jobs (hire from another city); cards in a row share one height; the
   website's scrollbar follows the mouse when dragged; Firebase Authentication ready to switch on.
