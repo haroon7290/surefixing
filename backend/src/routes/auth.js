@@ -113,10 +113,21 @@ router.post(
   async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    // Accounts in Firebase sign in through Firebase: their password (and any
-    // reset) lives there, so the copy here may be out of date.
+    // Accounts in Firebase: their password (and any reset) lives there, so
+    // the copy here may be out of date. Check it with Firebase instead.
     if (user && user.firebaseUid && firebase.enabled()) {
-      return res.status(409).json({ error: 'Please update SureFix to sign in.', code: 'use_firebase' });
+      let uid;
+      try {
+        uid = await firebase.checkPassword(email, password);
+      } catch (_err) {
+        return res.status(503).json({ error: "Couldn't check your password right now. Please try again." });
+      }
+      if (uid === undefined) return res.status(409).json({ error: 'Please update SureFix to sign in.', code: 'use_firebase' });
+      if (uid !== user.firebaseUid) return res.status(401).json({ error: 'Invalid email or password' });
+      if (user.status === 'suspended') {
+        return res.status(403).json({ error: 'Your account has been suspended. Contact support.', code: 'suspended' });
+      }
+      return res.json({ token: signToken(user), user: user.toPrivateJSON() });
     }
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ error: 'Invalid email or password' });

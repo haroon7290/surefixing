@@ -83,6 +83,19 @@ async function syncUsers(User, users) {
   return result;
 }
 
+// Checks an email + password with Firebase (for app versions that still use
+// POST /api/auth/login). Resolves to the Firebase uid, or null if wrong.
+async function checkPassword(email, password) {
+  if (!enabled() || !config.firebase.webApiKey) return undefined; // can't check here
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${config.firebase.webApiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, returnSecureToken: false })
+  });
+  if (!res.ok) return null;
+  return (await res.json()).localId || null;
+}
+
 async function deleteUser(uid) {
   if (!uid || !enabled() || !canManage()) return;
   try {
@@ -92,4 +105,4 @@ async function deleteUser(uid) {
   }
 }
 
-module.exports = { enabled, canManage, verify, syncUsers, deleteUser };
+module.exports = { enabled, canManage, verify, syncUsers, checkPassword, deleteUser };

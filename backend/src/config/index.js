@@ -70,9 +70,14 @@ function firebaseConfig() {
       throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON (paste the whole key file, or its base64)');
     }
   }
+  const projectId = (process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id || '').trim();
   return {
-    projectId: (process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id || '').trim(),
-    serviceAccount
+    projectId,
+    serviceAccount,
+    // The project's public web API key (the same one the website uses):
+    // lets the backend check a password with Firebase for apps that still
+    // use the email + password route.
+    webApiKey: (process.env.FIREBASE_WEB_API_KEY || (projectId === 'surefix-app' ? 'AIzaSyAVTI0rMXIIs7PsIOZKAkJ4SHgQIKwOyys' : '')).trim()
   };
 }
 
