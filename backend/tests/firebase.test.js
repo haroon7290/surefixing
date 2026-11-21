@@ -5,6 +5,7 @@ jest.mock('../src/utils/firebase', () => ({
   canManage: jest.fn(() => false),
   syncUsers: jest.fn(async () => ({ imported: 0, linked: 0, failed: 0 })),
   deleteUser: jest.fn(async () => {}),
+  checkPassword: jest.fn(async () => undefined),
   verify: jest.fn(async (token) => {
     const [kind, uid, email, verified] = String(token).split('|');
     if (kind !== 'test-token') throw new Error('bad token');
@@ -52,6 +53,16 @@ describe('Firebase sign-in', () => {
     await exchange({ idToken: tok('uid-moved', u.email) }).expect(200);
     const res = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password }).expect(409);
     expect(res.body.code).toBe('use_firebase');
+  });
+
+  test('older apps using the password route are checked against Firebase', async () => {
+    const u = await makeUser('client');
+    await exchange({ idToken: tok('uid-old-app', u.email) }).expect(200);
+    firebase.checkPassword.mockResolvedValueOnce('uid-old-app'); // Firebase says: right password
+    const ok = await request(app).post('/api/auth/login').send({ email: u.email, password: 'new-password-from-reset' }).expect(200);
+    expect(ok.body.user.id).toBe(u.id);
+    firebase.checkPassword.mockResolvedValueOnce(null); // wrong password
+    await request(app).post('/api/auth/login').send({ email: u.email, password: u.password }).expect(401);
   });
 
   test('suspended accounts and bad tokens are refused; admins cannot be created', async () => {
