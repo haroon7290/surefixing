@@ -1,0 +1,36 @@
+# One-off: can a client open the live (Socket.IO) connection to the backend?
+name: Diagnose realtime
+on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/diagnose-realtime.yml"]
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: npm i socket.io-client@4 --no-save --no-audit --no-fund >/dev/null
+      - name: Connect
+        run: |
+          cat > check.js <<'JS'
+          const { io } = require('socket.io-client');
+          const API = 'https://surefix-api.onrender.com';
+          (async () => {
+            const h = await fetch(API + '/api/health'); console.log('health', h.status, await h.text());
+            const r = await fetch(API + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://haroon7290.github.io' }, body: JSON.stringify({ email: 'client@demo.com', password: 'password123' }) });
+            const body = await r.json(); console.log('login', r.status, body.error || 'ok', 'cors:', r.headers.get('access-control-allow-origin'));
+            for (const transports of [['websocket'], ['polling'], ['websocket', 'polling']]) {
+              await new Promise((done) => {
+                const s = io(API, { transports, auth: { token: body.token }, reconnection: false, timeout: 20000, extraHeaders: { Origin: 'https://haroon7290.github.io' } });
+                const t = setTimeout(() => { console.log(transports.join('+'), 'TIMEOUT'); s.close(); done(); }, 25000);
+                s.on('connect', () => { console.log(transports.join('+'), 'CONNECTED via', s.io.engine.transport.name); setTimeout(() => { console.log(transports.join('+'), 'still connected after 20s:', s.connected); clearTimeout(t); s.close(); done(); }, 20000); });
+                s.on('connect_error', (e) => { console.log(transports.join('+'), 'connect_error:', e.message, e.description ? JSON.stringify(e.description).slice(0, 300) : '', e.context ? String(e.context.statusText || e.context.status || '') : ''); clearTimeout(t); s.close(); done(); });
+                s.on('disconnect', (why) => console.log(transports.join('+'), 'disconnect:', why));
+              });
+            }
+          })();
+          JS
+          node check.js
