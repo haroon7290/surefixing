@@ -9,6 +9,7 @@ jest.mock('../src/utils/firebase', () => ({
   canUseRest: jest.fn(() => false),
   signUpAndVerify: jest.fn(async () => 'uid-from-rest'),
   resendVerification: jest.fn(async () => true),
+  sendPasswordReset: jest.fn(async () => {}),
   verify: jest.fn(async (token) => {
     const [kind, uid, email, verified] = String(token).split('|');
     if (kind !== 'test-token') throw new Error('bad token');
@@ -108,6 +109,20 @@ describe('Firebase sign-in', () => {
     firebase.enabled.mockReturnValue(false);
     await request(app).post('/api/auth/login').send({ email: u.email, password: u.password }).expect(200);
     firebase.enabled.mockReturnValue(true);
+  });
+
+  test('forgot password: Firebase emails a reset link, the same answer for unknown emails', async () => {
+    const u = await makeUser('client');
+    await exchange({ idToken: tok('uid-forgot', u.email) }).expect(200);
+    firebase.canUseRest.mockReturnValue(true);
+    const res = await request(app).post('/api/auth/forgot-password').send({ email: u.email }).expect(200);
+    expect(res.body).toEqual({ ok: true, method: 'link' });
+    expect(firebase.sendPasswordReset).toHaveBeenCalledWith(u.email);
+    firebase.sendPasswordReset.mockClear();
+    const unknown = await request(app).post('/api/auth/forgot-password').send({ email: 'nobody-here@test.com' }).expect(200);
+    expect(unknown.body).toEqual({ ok: true, method: 'link' });
+    expect(firebase.sendPasswordReset).not.toHaveBeenCalled();
+    firebase.canUseRest.mockReturnValue(false);
   });
 
   test('deleting a user removes their Firebase account', async () => {

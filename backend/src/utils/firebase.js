@@ -137,6 +137,11 @@ async function resendVerification(email, password) {
   return true;
 }
 
+// Emails Firebase's "choose a new password" link.
+async function sendPasswordReset(email) {
+  await rest('sendOobCode', { requestType: 'PASSWORD_RESET', email });
+}
+
 async function deleteUser(uid) {
   if (!uid || !enabled() || !canManage()) return;
   try {
@@ -146,4 +151,4 @@ async function deleteUser(uid) {
   }
 }
 
-module.exports = { enabled, canManage, canUseRest, verify, syncUsers, checkPassword, signUpAndVerify, resendVerification, deleteUser };
+module.exports = { enabled, canManage, canUseRest, verify, syncUsers, checkPassword, signUpAndVerify, resendVerification, sendPasswordReset, deleteUser };

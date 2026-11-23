@@ -9,7 +9,7 @@ const mailer = require('../services/mailer');
 const firebase = require('../utils/firebase');
 const { authRequired } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
-const { badRequest } = require('../utils/http');
+const { badRequest, HttpError } = require('../utils/http');
 
 const router = express.Router();
 const MAX_RESET_ATTEMPTS = 5;
@@ -254,7 +254,20 @@ router.post(
 // flow can be demonstrated without an email server.
 router.post('/forgot-password', [emailField()], validate, async (req, res) => {
   const user = await User.findOne({ email: req.body.email, status: { $ne: 'suspended' } });
-  const answer = { ok: true, minutes: config.resetCodeMinutes, emailed: mailer.emailEnabled() };
+  // Passwords live in Firebase when the server can reach it: Firebase emails
+  // a reset link (the same answer whether or not the account exists).
+  if (firebase.canUseRest() && (!user || user.firebaseUid)) {
+    if (user) {
+      try {
+        await firebase.sendPasswordReset(user.email);
+      } catch (err) {
+        if (err.firebaseCode === 'TOO_MANY_ATTEMPTS_TRY_LATER') throw new HttpError(429, 'Too many attempts. Please wait a few minutes and try again.');
+        if (err.firebaseCode !== 'EMAIL_NOT_FOUND') throw err;
+      }
+    }
+    return res.json({ ok: true, method: 'link' });
+  }
+  const answer = { ok: true, method: 'code', minutes: config.resetCodeMinutes, emailed: mailer.emailEnabled() };
   if (!user) return res.json(answer);
 
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
