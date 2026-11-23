@@ -150,6 +150,9 @@ Json _message(String id, String from, String to, String text) =>
 
 /// Requests the app made, newest last: `POST /api/jobs/j1/accept/b1`.
 final List<String> sent = [];
+
+/// Makes forgot-password answer like a server with Firebase (a reset link).
+bool fakeResetByLink = false;
 final Map<String, dynamic> sentBodies = {};
 
 /// Every GET, with its query (`/api/users/technicians?lat=…&radius=10`).
@@ -179,7 +182,9 @@ dynamic _route(String method, String path, Map<String, String> q, String role) {
   // New accounts confirm their email first (here: the demo code).
   if (path == '/api/auth/register') return {'verify': 'code', 'email': 'new@test.com', 'minutes': 30, 'emailed': false, 'devCode': '482913'};
   if (path == '/api/auth/resend-verification') return {'ok': true, 'method': 'code', 'minutes': 30, 'devCode': '551177'};
-  if (path == '/api/auth/forgot-password') return {'ok': true, 'minutes': 15, 'emailed': false, 'devCode': '482913'};
+  if (path == '/api/auth/forgot-password') {
+    return fakeResetByLink ? {'ok': true, 'method': 'link'} : {'ok': true, 'method': 'code', 'minutes': 15, 'emailed': false, 'devCode': '482913'};
+  }
   if (path == '/api/users/me') return me;
   if (path == '/api/users/me/summary') {
     return {

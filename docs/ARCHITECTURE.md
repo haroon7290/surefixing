@@ -205,7 +205,7 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 | POST | `/auth/login` | → `{token, user}`; `403 {code:"email_unverified", details:{method, email}}` until the email is confirmed; `403 {code:"suspended"}` for suspended accounts |
 | POST | `/auth/firebase` | `{idToken, profile?}` → `{token, user}`; `403 email_unverified` while Firebase says the email isn't verified (the account is still created from `profile`) |
 | POST | `/auth/change-password` 🔒 | `{currentPassword, newPassword}` |
-| POST | `/auth/forgot-password` | `{email}` → always `{ok, minutes, emailed}`; outside production without SMTP also `devCode` |
+| POST | `/auth/forgot-password` | `{email}` → with Firebase on the server `{ok, method:"link"}` (Firebase emails a reset link); otherwise always `{ok, method:"code", minutes, emailed}`, outside production without SMTP also `devCode` |
 | POST | `/auth/reset-password` | `{email, code, newPassword}` → `{token, user}`; 5 attempts per code |
 | GET / PATCH | `/users/me` 🔒 | Profile (own `geo` as `{lat, lng}`); PATCH whitelists name, phone, bio, city, address, headline, skills[], hourlyRate, experienceYears, isAvailable, serviceRadiusKm (1–100), and the location as `{lat, lng, area?}` (area defaults to the nearest known one) or `{clearLocation: true}` |
 | POST | `/users/me/avatar` 🔒 | multipart `avatar` |

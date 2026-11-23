@@ -160,19 +160,19 @@ class Session extends ChangeNotifier {
     return res['devCode']?.toString();
   }
 
-  /// True when "forgot password" sends a link by email (Firebase) instead
-  /// of a 6-digit code.
-  bool get resetsByLink => FirebaseLogin.active;
-
-  /// Starts a password reset. With Firebase, emails a reset link and
-  /// returns `{firebase: true}`; otherwise asks the backend for a code (the
-  /// answer includes `devCode` outside production without an email server).
+  /// Starts a password reset. Returns `{firebase: true}` when a reset link
+  /// was emailed (by Firebase, from the app or via the server); otherwise a
+  /// 6-digit code was (the answer includes `devCode` outside production
+  /// without an email server).
   Future<Json> forgotPassword(String email) async {
     if (FirebaseLogin.active) {
       await FirebaseLogin.sendReset(email);
       return {'ok': true, 'firebase': true};
     }
-    return asJson(await Api.post('/api/auth/forgot-password', {'email': email.trim()}));
+    final res = asJson(await Api.post('/api/auth/forgot-password', {'email': email.trim()}));
+    // The server had Firebase email a reset link.
+    if (res['method'] == 'link') return {...res, 'firebase': true};
+    return res;
   }
 
   Future<void> resetPassword({required String email, required String code, required String newPassword}) async {

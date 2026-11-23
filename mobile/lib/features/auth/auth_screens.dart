@@ -597,7 +597,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       title: _sent ? 'Enter your code' : 'Reset your password',
       subtitle: _sent
           ? 'Type the 6-digit code and choose a new password.'
-          : (Session.instance.resetsByLink ? 'We will email you a link to choose a new password.' : 'We will send a 6-digit code to your email.'),
+          : 'We will email you a link or a code to choose a new password.',
       children: [
         if (_error != null) ...[Notice(_error!, tone: Tone.danger), Gap.h16],
         if (_sent) ...[
@@ -639,7 +639,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onSubmitted: (_) => _reset()),
             ],
             Gap.h20,
-            Btn(_sent ? 'Change password' : (Session.instance.resetsByLink ? 'Send reset link' : 'Send code'),
+            Btn(_sent ? 'Change password' : 'Send reset email',
                 size: BtnSize.lg, expand: true, loading: _busy, onPressed: _sent ? _reset : _send),
             if (_sent) ...[
               Gap.h8,

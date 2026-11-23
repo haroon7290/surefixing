@@ -324,12 +324,25 @@ void main() {
       Badges.instance.stop();
     });
 
+    testWidgets('forgot password: the server emailed a reset link', (tester) async {
+      useSize(tester, phone);
+      signIn(null);
+      fakeResetByLink = true;
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.light(), navigatorKey: navigatorKey, scaffoldMessengerKey: messengerKey, home: const ForgotPasswordScreen()));
+      await tester.enterText(find.byType(TextFormField).first, 'client@demo.com');
+      await tester.tap(find.text('Send reset email'));
+      await settle(tester);
+      fakeResetByLink = false;
+      expect(find.text('Check your email'), findsOneWidget);
+      expect(find.text('Change password'), findsNothing);
+    });
+
     testWidgets('forgot password shows the demo code and resets', (tester) async {
       useSize(tester, phone);
       signIn(null);
       await tester.pumpWidget(MaterialApp(theme: AppTheme.light(), navigatorKey: navigatorKey, scaffoldMessengerKey: messengerKey, home: const ForgotPasswordScreen()));
       await tester.enterText(find.byType(TextFormField).first, 'client@demo.com');
-      await tester.tap(find.text('Send code'));
+      await tester.tap(find.text('Send reset email'));
       await settle(tester);
       expect(find.textContaining('482913'), findsOneWidget);
       expect(find.text('Change password'), findsOneWidget);
