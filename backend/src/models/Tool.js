@@ -17,9 +17,11 @@ const toolSchema = new mongoose.Schema(
     images: { type: [String], default: [] },
     rentPricePerDay: { type: Number, default: 0, min: 0 },
     deposit: { type: Number, default: 0, min: 0 },
-    purchasePrice: { type: Number, default: 0, min: 0 },
-    installmentMonths: { type: Number, default: 0, min: 0 }, // 0 = not sold on installments
-    installmentMonthly: { type: Number, default: 0, min: 0 },
+    purchasePrice: { type: Number, default: 0, min: 0 }, // 0 = rent only, not for sale
+    // Delivery to the customer's address, for the price the supplier sets
+    // (0 = free). Without it customers pick the tool up.
+    deliveryAvailable: { type: Boolean, default: false },
+    deliveryFee: { type: Number, default: 0, min: 0 },
     // Supplier-controlled "listed" switch. Stock is tracked separately.
     available: { type: Boolean, default: true },
     stock: { type: Number, default: 1, min: 0 },
@@ -52,8 +54,8 @@ toolSchema.statics.EDITABLE = [
   'rentPricePerDay',
   'deposit',
   'purchasePrice',
-  'installmentMonths',
-  'installmentMonthly',
+  'deliveryAvailable',
+  'deliveryFee',
   'available',
   'stock'
 ];

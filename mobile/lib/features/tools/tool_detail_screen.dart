@@ -9,7 +9,7 @@ import '../wallet/wallet_screen.dart';
 import 'tool_form_screen.dart';
 
 /// A tool's page: photos, price, how handover works, and the request form
-/// to rent it or buy it in installments.
+/// to rent it or buy it (paid once), with pickup or delivery.
 class ToolDetailScreen extends StatefulWidget {
   final String toolId;
   const ToolDetailScreen({super.key, required this.toolId});
@@ -25,6 +25,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   int _days = 3;
   DateTime _start = DateTime.now();
   String _fulfillment = 'pickup';
+  String _mode = 'rent'; // rent | buy
   int _photo = 0;
   bool _busy = false;
 
@@ -42,7 +43,11 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     return true;
   }
 
-  Json? _handover() {
+  /// Delivery only where the supplier offers it.
+  bool _delivering(Tool tool) => tool.deliveryAvailable && _fulfillment == 'delivery';
+
+  Json? _handover(Tool tool) {
+    if (!tool.deliveryAvailable) return {'fulfillment': 'pickup', 'note': _note.text.trim()};
     if (_fulfillment == 'delivery' && _address.text.trim().isEmpty) {
       toast('Enter the address to deliver to');
       return null;
@@ -75,16 +80,16 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
 
   Future<void> _rent(Tool tool) async {
     if (_needLogin()) return;
-    final handover = _handover();
+    final handover = _handover(tool);
     if (handover == null) return;
-    final cost = _days * tool.rentPricePerDay;
+    final cost = _days * tool.rentPricePerDay + (_delivering(tool) ? tool.deliveryFee : 0);
     final method = await choosePayment(
       context,
       title: 'Rent ${tool.name}',
       amount: cost,
       deposit: tool.deposit,
       confirmLabel: 'Send request',
-      walletNote: 'The rental cost and deposit are held in escrow. If the supplier declines you are refunded in full; on return you get the deposit back, minus any late fee.',
+      walletNote: 'The rental cost${_delivering(tool) ? ', delivery' : ''} and deposit are held in escrow. If the supplier declines you are refunded in full; on return you get the deposit back, minus any late fee.',
       cashNote: 'You pay the supplier ${money(cost)}${tool.deposit > 0 ? ' plus the ${money(tool.deposit)} deposit' : ''} in person at handover.',
     );
     if (method == null) return;
@@ -96,16 +101,19 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
 
   Future<void> _buy(Tool tool) async {
     if (_needLogin()) return;
-    final handover = _handover();
+    final handover = _handover(tool);
     if (handover == null) return;
-    final ok = await confirm(
+    final total = tool.purchasePrice + (_delivering(tool) ? tool.deliveryFee : 0);
+    final method = await choosePayment(
       context,
-      title: 'Buy in ${tool.installmentMonths} monthly payments?',
-      message: '${money(tool.monthly)} a month, ${money(tool.purchasePrice)} in total. Once the supplier approves, pay each month from your wallet or in cash.',
+      title: 'Buy ${tool.name}',
+      amount: total,
       confirmLabel: 'Send request',
-      icon: AppIcons.calendar,
+      walletNote: 'Paid once. SureFix holds the money until you have the tool; if the supplier declines you are refunded in full.',
+      cashNote: 'You pay the supplier ${money(total)} in person when you get the tool.',
     );
-    if (ok) await _send(() => Api.post('/api/tools/${tool.id}/purchase', handover), 'Purchase request sent');
+    if (method == null) return;
+    await _send(() => Api.post('/api/tools/${tool.id}/purchase', {'paymentMethod': method, ...handover}), 'Purchase request sent');
   }
 
   @override
@@ -212,7 +220,8 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
           (
             AppIcons.store,
             'Pickup or delivery',
-            'Collect from the supplier in ${tool.place.isEmpty ? 'their city' : tool.place}${tool.distanceKm == null ? '' : ' (${distance(tool.distanceKm!)} from you)'}, or have it delivered. The exact address is shared once your request is approved.'
+            'Collect from the supplier in ${tool.place.isEmpty ? 'their city' : tool.place}${tool.distanceKm == null ? '' : ' (${distance(tool.distanceKm!)} from you)'}'
+                '${tool.deliveryAvailable ? ', or have it delivered for ${tool.deliveryFee > 0 ? money(tool.deliveryFee) : 'free'}' : ''}. The exact address is shared once your request is approved.'
           ),
           (AppIcons.shield, 'Refundable deposit', tool.deposit > 0 ? '${money(tool.deposit)} is held with your payment and returned when the tool is back.' : 'This tool needs no deposit.'),
           (AppIcons.timer, 'Late returns', 'Each late day costs one day of rent (${money(tool.rentPricePerDay)}), taken from the deposit.'),
@@ -257,74 +266,86 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         ]),
       );
     } else {
+      final buying = _mode == 'buy' && tool.forSale;
+      final delivery = _delivering(tool) ? tool.deliveryFee : 0.0;
+      final price = buying ? tool.purchasePrice : cost;
       booking = Panel(
         border: c.ink,
         borderWidth: 1.4,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text.rich(TextSpan(children: [
-            TextSpan(text: money(tool.rentPricePerDay), style: context.text.headlineLarge),
-            TextSpan(text: '  per day', style: context.text.bodyMedium),
-          ])),
-          if (tool.deposit > 0) Text('+ ${money(tool.deposit)} refundable deposit', style: context.text.bodySmall),
-          if (canRequest) ...[
-            Gap.h16,
-            Row(children: [
-              Expanded(child: Text('How long?', style: context.text.titleSmall)),
-              Counter(value: _days, min: 1, max: 90, format: (d) => plural(d, 'day'), onChanged: (v) => setState(() => _days = v)),
-            ]),
-            Gap.h12,
-            DateField(label: 'Starting', value: _start, last: DateTime.now().add(const Duration(days: 60)), onChanged: (d) => setState(() => _start = d ?? DateTime.now())),
-            Gap.h4,
-            Text('Return by ${longDate(end)}', style: context.text.bodySmall),
-            Gap.h16,
+          if (tool.forSale) ...[
             Segmented<String>(
-              options: const {'pickup': 'I will pick up', 'delivery': 'Deliver to me'},
-              icons: const {'pickup': AppIcons.store, 'delivery': AppIcons.truck},
-              value: _fulfillment,
-              onChanged: (v) => setState(() => _fulfillment = v),
+              options: const {'rent': 'Rent', 'buy': 'Buy'},
+              icons: const {'rent': AppIcons.calendar, 'buy': AppIcons.payments},
+              value: _mode,
+              onChanged: (v) => setState(() => _mode = v),
             ),
-            if (_fulfillment == 'delivery') ...[
+            Gap.h16,
+          ],
+          if (buying) ...[
+            Text(money(tool.purchasePrice), style: context.text.headlineLarge),
+            Text('One-time price · the tool is yours to keep', style: context.text.bodySmall),
+          ] else ...[
+            Text.rich(TextSpan(children: [
+              TextSpan(text: money(tool.rentPricePerDay), style: context.text.headlineLarge),
+              TextSpan(text: '  per day', style: context.text.bodyMedium),
+            ])),
+            if (tool.deposit > 0) Text('+ ${money(tool.deposit)} refundable deposit', style: context.text.bodySmall),
+            if (tool.forSale && !canRequest) Text('Also for sale: ${money(tool.purchasePrice)}', style: context.text.bodySmall),
+          ],
+          if (canRequest) ...[
+            if (!buying) ...[
+              Gap.h16,
+              Row(children: [
+                Expanded(child: Text('How long?', style: context.text.titleSmall)),
+                Counter(value: _days, min: 1, max: 90, format: (d) => plural(d, 'day'), onChanged: (v) => setState(() => _days = v)),
+              ]),
               Gap.h12,
-              Field(label: 'Delivery address', hint: 'House, street, area, city', controller: _address, icon: AppIcons.pin, maxLength: 300, maxLines: 2, minLines: 1),
+              DateField(label: 'Starting', value: _start, last: DateTime.now().add(const Duration(days: 60)), onChanged: (d) => setState(() => _start = d ?? DateTime.now())),
+              Gap.h4,
+              Text('Return by ${longDate(end)}', style: context.text.bodySmall),
             ],
+            Gap.h16,
+            if (tool.deliveryAvailable) ...[
+              Segmented<String>(
+                options: {'pickup': 'I will pick up', 'delivery': tool.deliveryFee > 0 ? 'Deliver (+${money(tool.deliveryFee)})' : 'Deliver (free)'},
+                icons: const {'pickup': AppIcons.store, 'delivery': AppIcons.truck},
+                value: _fulfillment,
+                onChanged: (v) => setState(() => _fulfillment = v),
+              ),
+              if (_fulfillment == 'delivery') ...[
+                Gap.h12,
+                Field(label: 'Delivery address', hint: 'House, street, area, city', controller: _address, icon: AppIcons.pin, maxLength: 300, maxLines: 2, minLines: 1),
+              ],
+            ] else
+              Row(children: [
+                Icon(AppIcons.store, size: 16, color: c.muted),
+                Gap.w8,
+                Expanded(child: Text('Pickup only: collect it from the supplier. This tool isn\'t delivered.', style: context.text.bodySmall)),
+              ]),
             Gap.h12,
-            Field(label: 'Note for the supplier', hint: 'e.g. I can collect after 5 pm', controller: _note, optional: true, maxLength: 500),
+            Field(label: 'Note for the supplier', hint: buying ? 'e.g. Is the box included?' : 'e.g. I can collect after 5 pm', controller: _note, optional: true, maxLength: 500),
             Gap.h16,
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: c.sunken, borderRadius: BorderRadius.circular(R.md)),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                KV('${money(tool.rentPricePerDay)} × ${plural(_days, 'day')}', money(cost)),
-                if (tool.deposit > 0) KV('Deposit (refundable)', money(tool.deposit)),
+                if (buying) KV('Price', money(tool.purchasePrice)) else KV('${money(tool.rentPricePerDay)} × ${plural(_days, 'day')}', money(cost)),
+                if (_delivering(tool)) KV('Delivery', delivery > 0 ? money(delivery) : 'Free'),
+                if (!buying && tool.deposit > 0) KV('Deposit (refundable)', money(tool.deposit)),
                 const Divider(),
-                KV('Total today', money(cost + tool.deposit), strong: true),
+                KV(buying ? 'Total' : 'Total today', money(price + delivery + (buying ? 0 : tool.deposit)), strong: true),
               ]),
             ),
             Gap.h16,
-            Btn(tool.rentable ? 'Request to rent' : 'Currently unavailable', size: BtnSize.lg, expand: true, loading: _busy, onPressed: tool.rentable ? () => _rent(tool) : null),
-            if (tool.hasInstallments) ...[
-              Gap.h12,
-              Row(children: [
-                const Expanded(child: Divider()),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or own it', style: context.text.bodySmall)),
-                const Expanded(child: Divider())
-              ]),
-              Gap.h12,
-              Panel(
-                color: c.brandSoft,
-                border: Colors.transparent,
-                padding: const EdgeInsets.all(14),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                  Text('${money(tool.monthly)} a month for ${tool.installmentMonths} months', style: context.text.titleMedium!.copyWith(color: c.brandDeep)),
-                  Text('Full price ${money(tool.purchasePrice)}. Pay monthly from your wallet or in cash.', style: context.text.bodySmall!.copyWith(color: c.brandDeep)),
-                  Gap.h12,
-                  Btn('Buy in installments', icon: AppIcons.calendar, kind: BtnKind.dark, expand: true, onPressed: tool.rentable && !_busy ? () => _buy(tool) : null),
-                ]),
-              ),
-            ],
+            if (buying)
+              Btn(tool.rentable ? 'Request to buy' : 'Currently unavailable',
+                  icon: AppIcons.payments, size: BtnSize.lg, expand: true, loading: _busy, onPressed: tool.rentable ? () => _buy(tool) : null)
+            else
+              Btn(tool.rentable ? 'Request to rent' : 'Currently unavailable', size: BtnSize.lg, expand: true, loading: _busy, onPressed: tool.rentable ? () => _rent(tool) : null),
           ] else ...[
             Gap.h12,
-            Notice(me.isSupplier ? 'Supplier accounts list tools. Use a customer account to rent.' : 'Admin view — renting is for customers and technicians.', tone: Tone.neutral),
+            Notice(me.isSupplier ? 'Supplier accounts list tools. Use a customer account to rent or buy.' : 'Admin view — renting and buying are for customers and technicians.', tone: Tone.neutral),
           ],
         ]),
       );

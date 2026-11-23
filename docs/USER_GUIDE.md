@@ -15,11 +15,11 @@ are not signed in can browse the landing page, technicians and tools.
 | Demo account | Who |
 |---|---|
 | `client@demo.com` | Sara Khan (DHA Phase 4, Lahore) — a job with three quotes, an AC job in escrow and in progress, a finished job waiting for her confirmation, reviewed jobs, an active rental, Rs 12,700 in the wallet |
-| `client2@demo.com` | Bilal Ahmed (Gulshan-e-Iqbal, Karachi) — a direct request to Ahmad, rental and installment requests |
+| `client2@demo.com` | Bilal Ahmed (Gulshan-e-Iqbal, Karachi) — a direct request to Ahmad, a rental and a purchase request (delivery) |
 | `tech@demo.com` | Ahmad Raza (Model Town, Lahore) — electrician & plumber, verified, one direct request, a job awaiting confirmation |
 | `tech3@demo.com` | Usman Ali (DHA Phase 5, Lahore — 2.6 km from Sara) — AC specialist, hired on Sara's AC job (payment in escrow) |
 | `tech2`, `tech4`…`tech8@demo.com` | Other trades: one with verification pending, one brand new, one marked busy |
-| `supplier@demo.com` | ToolCo Rentals (Garden Town, Lahore) — tools, requests to approve, a rental out, an overdue rental, an installment plan |
+| `supplier@demo.com` | ToolCo Rentals (Garden Town, Lahore) — tools, requests to approve, a rental out, an overdue rental, a completed sale |
 | `admin@demo.com` | Admin — a deposit and a withdrawal to review, a verification, an open report, revenue from fees |
 
 ---
@@ -98,8 +98,12 @@ distances are ever shown to others.
 2. The supplier approves or declines. Once approved you see the pickup address and their
    phone number under **My rentals**; if declined, a wallet payment is refunded in full.
 3. Return it on time: each late day costs one day of rent, taken from the deposit.
-4. Tools marked **Buy monthly** can be bought in installments: after approval, pay each
-   month from **My rentals** or in cash to the supplier.
+4. Tools marked **For sale** can be bought outright: choose **Buy** on the tool page, pickup or
+   delivery (at the supplier's delivery price), and wallet or cash. Once you have the tool, tap
+   **I received it** (a wallet payment is then released to the supplier).
+5. Every rental and purchase has a detailed **invoice** (INV-1001…) on its page: both parties,
+   dates, rent or price, delivery, deposit, late fees and refunds, and how it was paid, with
+   **Copy invoice**.
 
 ### Wallet
 
@@ -153,11 +157,12 @@ Use the switch on Home to mark yourself **busy**.
 1. **Add your pickup address and shop location** (Account → Edit profile). Customers see how
    far each of your tools is from them and can search within a distance; the street address is
    only shared after you approve a pickup.
-2. **List tools** (My tools → Add): photos, daily rate, deposit, stock, and optionally a full
-   price with a number of monthly installments.
+2. **List tools** (My tools → Add): photos, daily rate, deposit, stock, optionally a sale price
+   (**Also for sale**), and whether you deliver and for how much (**I deliver** → Delivery price).
 3. **Orders.** Approve or decline requests; stock is reserved automatically. **Mark returned**
    when a tool is back — you are paid, the deposit is refunded, and late fees are applied.
-4. **Installment plans.** Record a month paid in cash, or the customer pays from their wallet.
+4. **Sales.** After approving, hand the tool over (or deliver it) and tap **Mark handed over** /
+   **Mark delivered**; a wallet payment is then paid to you, minus the service fee.
 5. Hide a tool any time with the **Listed** switch instead of deleting it.
 
 ---

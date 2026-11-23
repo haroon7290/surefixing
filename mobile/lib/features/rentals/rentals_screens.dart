@@ -6,6 +6,7 @@ import '../../routes.dart';
 import '../jobs/job_detail_parts.dart';
 import '../shell/shell.dart';
 import '../tools/tool_widgets.dart';
+import 'invoice.dart';
 
 // ------------------------------------------------------------- actions
 
@@ -52,15 +53,22 @@ Future<void> _markReturned(BuildContext context, Rental r, VoidCallback onChange
   if (ok && await _call(() => Api.post('/api/rentals/${r.id}/return'), done: 'Marked as returned')) onChanged();
 }
 
-Future<void> _recordInstallment(BuildContext context, Rental r, VoidCallback onChanged, {bool all = false}) async {
+/// A purchase changes hands: the supplier hands it over (or delivers it),
+/// or the buyer says it arrived. Either way the supplier is paid.
+Future<void> _complete(BuildContext context, Rental r, VoidCallback onChanged, {required bool supplier}) async {
+  final delivered = r.handover.delivery ? 'delivered' : 'handed over';
   final ok = await confirm(
     context,
-    title: all ? 'Mark as fully paid?' : 'Record a cash payment?',
-    message: all ? 'Use this when the customer has paid the whole remaining amount.' : 'Record month ${r.monthsPaid + 1} of ${r.monthsTotal} (${money(r.monthlyAmount)}) as paid in cash.',
-    confirmLabel: all ? 'Fully paid' : 'Record payment',
-    icon: AppIcons.cash,
+    title: supplier ? 'Has the customer got it?' : 'Did you receive ${r.tool.name}?',
+    message: supplier
+        ? (r.payment.isWallet
+            ? 'Mark it $delivered and the ${money(r.payment.net)} held for it is paid to your wallet.'
+            : 'Mark it $delivered once the customer has paid you ${money(r.amount)} in cash.')
+        : (r.payment.isWallet ? 'This releases your payment to the supplier.' : 'Confirm once you have the tool and have paid the supplier.'),
+    confirmLabel: supplier ? 'Mark $delivered' : 'Yes, I have it',
+    icon: AppIcons.success,
   );
-  if (ok && await _call(() => Api.post('/api/rentals/${r.id}/record-installment', {'all': all}), done: 'Payment recorded')) onChanged();
+  if (ok && await _call(() => Api.post('/api/rentals/${r.id}/complete'), done: supplier ? 'Marked $delivered' : 'Thanks! Enjoy your tool')) onChanged();
 }
 
 /// Quick actions a supplier gets on a rental card.
@@ -68,10 +76,11 @@ List<Widget> supplierActions(BuildContext context, Rental r, VoidCallback onChan
       if (r.requested) ...[
         Btn('Decline', kind: BtnKind.outline, size: BtnSize.sm, expand: true, onPressed: () => _decline(context, r, onChanged)),
         Btn('Approve', icon: AppIcons.check, size: BtnSize.sm, expand: true, onPressed: () => _approve(context, r, onChanged)),
-      ] else if (r.active && !r.isInstallment)
+      ] else if (r.active && !r.isPurchase)
         Btn('Mark returned', icon: AppIcons.check, kind: BtnKind.dark, size: BtnSize.sm, expand: true, onPressed: () => _markReturned(context, r, onChanged))
-      else if (r.active && r.isInstallment)
-        Btn('Record cash payment', icon: AppIcons.cash, kind: BtnKind.dark, size: BtnSize.sm, expand: true, onPressed: () => _recordInstallment(context, r, onChanged)),
+      else if (r.active && r.isPurchase)
+        Btn(r.handover.delivery ? 'Mark delivered' : 'Mark handed over',
+            icon: AppIcons.check, kind: BtnKind.dark, size: BtnSize.sm, expand: true, onPressed: () => _complete(context, r, onChanged, supplier: true)),
     ];
 
 Future<void> openRental(BuildContext context, Rental r, {required bool forSupplier, VoidCallback? onChanged}) async {
@@ -99,18 +108,18 @@ class _RentalListState extends State<_RentalList> {
   Widget build(BuildContext context) {
     final supplier = widget.forSupplier;
     final filters = supplier
-        ? const {'open': 'To do', 'requested': 'Requests', 'active': 'Out now', 'plans': 'Installments', 'history': 'History'}
-        : const {'open': 'Current', 'plans': 'Installments', 'history': 'History'};
+        ? const {'open': 'To do', 'requested': 'Requests', 'active': 'Out now', 'sales': 'Sales', 'history': 'History'}
+        : const {'open': 'Current', 'purchases': 'Purchases', 'history': 'History'};
     bool match(Rental r, String key) => switch (key) {
           'requested' => r.requested,
-          'active' => r.active && !r.isInstallment,
-          'plans' => r.isInstallment && r.open,
+          'active' => r.active && !r.isPurchase,
+          'sales' || 'purchases' => r.isPurchase,
           'history' => !r.open,
-          _ => supplier ? (r.requested || (r.active && !r.isInstallment)) : (r.open && !r.isInstallment),
+          _ => r.open,
         };
     return AppPage(
       title: supplier ? 'Orders' : 'My rentals',
-      subtitle: supplier ? 'Approve requests, take tools back and track installment plans.' : 'Tools you rented or are buying in installments.',
+      subtitle: supplier ? 'Approve requests, take rented tools back and hand sold ones over.' : 'Tools you rented or bought.',
       actions: [
         if (!supplier)
           Btn(context.isWide ? 'Browse tools' : 'Browse', icon: AppIcons.tools, kind: BtnKind.soft, size: context.isWide ? BtnSize.md : BtnSize.sm, onPressed: () => openSection(context, 'tools'))
@@ -140,7 +149,7 @@ class _RentalListState extends State<_RentalList> {
                       icon: supplier ? AppIcons.orders : AppIcons.rentals,
                       title: all.isEmpty ? (supplier ? 'No orders yet' : 'No rentals yet') : 'Nothing here',
                       message:
-                          all.isEmpty ? (supplier ? 'Requests from customers will appear here.' : 'Rent a drill for the weekend, or buy a tool in monthly payments.') : 'Nothing matches this filter.',
+                          all.isEmpty ? (supplier ? 'Requests from customers will appear here.' : 'Rent a drill for the weekend, or buy one outright.') : 'Nothing matches this filter.',
                       action: all.isEmpty && !supplier ? Btn('Browse tools', icon: AppIcons.tools, onPressed: () => openSection(context, 'tools')) : null,
                     )
                   : PageList(
@@ -155,9 +164,9 @@ class _RentalListState extends State<_RentalList> {
                               actions: supplier
                                   ? supplierActions(context, r, _reload)
                                   : [
-                                      if (r.isInstallment && r.active)
-                                        Btn('Pay ${money(r.monthlyAmount)}',
-                                            icon: AppIcons.wallet, size: BtnSize.sm, expand: true, onPressed: () => openRental(context, r, forSupplier: false, onChanged: _reload)),
+                                      if (r.isPurchase && r.active)
+                                        Btn('I received it',
+                                            icon: AppIcons.check, size: BtnSize.sm, expand: true, onPressed: () => _complete(context, r, _reload, supplier: false)),
                                       if (r.canReview)
                                         Btn('Leave a review',
                                             icon: AppIcons.star, kind: BtnKind.dark, size: BtnSize.sm, expand: true, onPressed: () => openRental(context, r, forSupplier: false, onChanged: _reload)),
@@ -174,7 +183,7 @@ class _RentalListState extends State<_RentalList> {
   }
 }
 
-/// The renter's rentals and installment plans.
+/// The renter's rentals and purchases.
 class MyRentalsScreen extends StatelessWidget {
   const MyRentalsScreen({super.key});
 
@@ -182,7 +191,7 @@ class MyRentalsScreen extends StatelessWidget {
   Widget build(BuildContext context) => const _RentalList(forSupplier: false);
 }
 
-/// The supplier's incoming requests, tools out, and plans.
+/// The supplier's incoming requests, tools out, and sales.
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
@@ -192,7 +201,7 @@ class OrdersScreen extends StatelessWidget {
 
 // -------------------------------------------------------------- detail
 
-/// Everything about one rental or installment plan, with the actions that
+/// Everything about one rental or purchase, with its invoice and the actions that
 /// make sense for whoever is looking.
 class RentalDetailScreen extends StatefulWidget {
   final String rentalId;
@@ -225,10 +234,9 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
       );
 
   Widget _body(BuildContext context, Rental r) {
-    final c = context.colors;
     final supplier = widget.forSupplier;
     final other = supplier ? r.renter : r.supplier;
-    final status = rentalStatus(r.status, installment: r.isInstallment, overdue: r.overdue);
+    final status = rentalStatus(r.status, purchase: r.isPurchase, overdue: r.overdue);
     final cat = toolCategory(r.tool.category);
     final h = r.handover;
 
@@ -241,7 +249,11 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text(r.tool.name.isEmpty ? 'Tool' : r.tool.name, style: context.text.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis),
             Gap.h6,
-            Wrap(spacing: 6, runSpacing: 6, children: [Pill.status(status), Pill(r.isInstallment ? 'Installment purchase' : 'Rental')]),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              Pill.status(status),
+              Pill(r.isPurchase ? 'Purchase' : 'Rental'),
+              if (r.invoiceNo.isNotEmpty) Pill(r.invoiceNo, icon: AppIcons.payments),
+            ]),
           ]),
         ),
       ]),
@@ -274,7 +286,18 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
                             _do(() => Api.post('/api/rentals/${r.id}/cancel'), 'Request cancelled');
                           }
                         })),
-      'active' when r.isInstallment => null,
+      'active' when r.isPurchase => Notice(
+          supplier
+              ? (r.handover.delivery
+                  ? 'Deliver it to ${r.handover.address.isEmpty ? 'the customer' : r.handover.address}, then mark it delivered.'
+                  : '${r.renter.firstName} collects it from you. Mark it handed over when they have it.')
+              : (r.handover.delivery ? 'The supplier is bringing it to you. Tap below once you have it.' : 'Collect it from the supplier, then tap below.'),
+          title: supplier ? 'Sold: hand it over' : 'Approved',
+          tone: Tone.brand,
+          icon: r.handover.delivery ? AppIcons.truck : AppIcons.store,
+          action: Btn(supplier ? (r.handover.delivery ? 'Mark delivered' : 'Mark handed over') : 'I received it',
+              icon: AppIcons.check, kind: BtnKind.dark, size: BtnSize.sm, onPressed: _busy ? null : () => _complete(context, r, _reload, supplier: supplier)),
+        ),
       'active' => r.overdue
           ? Notice(
               supplier
@@ -298,73 +321,15 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
           title: 'Rental finished',
           tone: Tone.success,
         ),
-      'completed' => const Notice('Every installment is paid. The tool belongs to the customer.', title: 'Paid off', tone: Tone.success),
+      'completed' => Notice(
+          '${r.handover.delivery ? 'Delivered' : 'Handed over'}${r.completedAt == null ? '' : ' ${longDate(r.completedAt)}'}. The tool belongs to ${supplier ? r.renter.firstName : 'you'} now.',
+          title: 'Purchase complete',
+          tone: Tone.success),
       'rejected' => Notice(r.rejectionReason.isEmpty ? 'The supplier could not accept this request.' : r.rejectionReason, title: 'Request declined', tone: Tone.danger),
       _ => Notice(r.rejectionReason.isEmpty ? 'This request was cancelled.' : r.rejectionReason, title: 'Cancelled', tone: Tone.neutral),
     };
 
-    final plan = !r.isInstallment || !(r.active || r.status == 'completed')
-        ? null
-        : Panel(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-              Row(children: [
-                Expanded(child: Text('Payment plan', style: context.text.titleMedium)),
-                Text('${r.monthsPaid} / ${r.monthsTotal} months', style: context.text.titleSmall),
-              ]),
-              Gap.h12,
-              ProgressLine(r.monthsTotal == 0 ? 0 : r.monthsPaid / r.monthsTotal, height: 8),
-              Gap.h12,
-              KV('Monthly payment', money(r.monthlyAmount)),
-              KV('Paid so far', money(r.monthsPaid * r.monthlyAmount)),
-              KV('Remaining', money(r.monthsRemaining * r.monthlyAmount), strong: true),
-              if (r.active) ...[
-                Gap.h12,
-                if (supplier) ...[
-                  Btn('Record a cash payment', icon: AppIcons.cash, kind: BtnKind.dark, expand: true, onPressed: _busy ? null : () => _recordInstallment(context, r, _reload)),
-                  Gap.h8,
-                  Btn('Mark as fully paid', kind: BtnKind.outline, expand: true, onPressed: _busy ? null : () => _recordInstallment(context, r, _reload, all: true)),
-                ] else ...[
-                  Btn('Pay month ${r.monthsPaid + 1} · ${money(r.monthlyAmount)}', icon: AppIcons.wallet, size: BtnSize.lg, expand: true, loading: _busy, onPressed: () async {
-                    if (await confirm(context,
-                        title: 'Pay ${money(r.monthlyAmount)} from your wallet?',
-                        message: 'Month ${r.monthsPaid + 1} of ${r.monthsTotal} for ${r.tool.name}.',
-                        confirmLabel: 'Pay now',
-                        icon: AppIcons.wallet)) {
-                      _do(() => Api.post('/api/rentals/${r.id}/pay-installment'), 'Installment paid');
-                    }
-                  }),
-                  Gap.h8,
-                  Text('Paying in cash instead? The supplier records it on their side.', textAlign: TextAlign.center, style: context.text.bodySmall),
-                ],
-              ],
-            ]),
-          );
-
-    final money_ = Panel(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          Expanded(child: Text(r.isInstallment ? 'Purchase' : 'Rental', style: context.text.titleMedium)),
-          if (r.payment.exists) Pill.status(paymentStatus(r.payment.status)),
-        ]),
-        Gap.h8,
-        if (r.isInstallment) ...[
-          KV('Full price', money(r.totalCost)),
-          KV('Plan', '${r.monthsTotal} × ${money(r.monthlyAmount)}'),
-        ] else ...[
-          KV('Dates', '${shortDate(r.startDate)} → ${shortDate(r.endDate)}', icon: AppIcons.calendar),
-          KV('${money(r.dailyRate)} × ${plural(r.days, 'day')}', money(r.totalCost)),
-          if (r.deposit > 0) KV('Deposit (refundable)', money(r.deposit)),
-          if (r.lateFee > 0) KV('Late fee', money(r.lateFee), valueColor: c.danger),
-          const Divider(),
-          KV('Paid by', r.payment.isWallet ? 'SureFix Wallet' : 'Cash', strong: true),
-          if (supplier && r.payment.isWallet && r.payment.fee > 0) ...[
-            KV('SureFix fee', '− ${money(r.payment.fee)}'),
-            KV('You receive', money(r.payment.net + r.lateFee), strong: true),
-          ],
-        ],
-        if (r.note.isNotEmpty) ...[const Divider(), Gap.h4, Text('Note: ${r.note}', style: context.text.bodyMedium)],
-      ]),
-    );
+    final invoice = RentalInvoice(r, forSupplier: supplier);
 
     final handover = Panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -432,11 +397,11 @@ class _RentalDetailScreenState extends State<RentalDetailScreen> {
 
     Widget gap(Widget? w) => w == null ? const SizedBox.shrink() : Padding(padding: const EdgeInsets.only(bottom: 16), child: w);
     return AppPage(
-      title: r.isInstallment ? 'Installment plan' : 'Rental',
+      title: r.isPurchase ? 'Purchase' : 'Rental',
       maxWidth: 1000,
       body: PageList(onRefresh: () => _view.currentState!.reload(), children: [
         TwoCol(
-          main: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [gap(head), gap(what), gap(plan), gap(review), gap(money_)]),
+          main: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [gap(head), gap(what), gap(review), gap(invoice)]),
           side: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [gap(handover), gap(person)]),
         ),
       ]),

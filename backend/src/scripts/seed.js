@@ -344,25 +344,25 @@ async function run() {
   const tl = (o) => ({ supplier: toolco._id, city: 'Lahore', condition: 'good', stock: 2, ...o });
   const tools = await Tool.create([
     tl({ name: 'Bosch Cordless Drill 18V', category: 'power', condition: 'like_new', description: '18V cordless drill/driver with 2 batteries, charger and a 30-piece bit set.',
-      rentPricePerDay: 800, deposit: 5000, purchasePrice: 32000, installmentMonths: 6, installmentMonthly: 5500, stock: 4, rating: 4.8, ratingCount: 5, rentalsCount: 12 }),
+      rentPricePerDay: 800, deposit: 5000, purchasePrice: 32000, deliveryAvailable: true, deliveryFee: 300, stock: 4, rating: 4.8, ratingCount: 5, rentalsCount: 12 }),
     tl({ name: 'Pipe Wrench Set (3 pcs)', category: 'plumbing', description: '10", 14" and 18" heavy-duty adjustable pipe wrenches.',
       rentPricePerDay: 300, deposit: 1500, purchasePrice: 6500, stock: 6, rentalsCount: 4 }),
     tl({ name: 'Manual Tile Cutter 24"', category: 'hand', description: 'Cuts ceramic and porcelain tiles up to 24 inches. Includes spare wheel.',
-      rentPricePerDay: 600, deposit: 3000, purchasePrice: 14000, installmentMonths: 3, installmentMonthly: 4800, stock: 2, rating: 4.5, ratingCount: 2, rentalsCount: 3 }),
+      rentPricePerDay: 600, deposit: 3000, purchasePrice: 14000, stock: 2, rating: 4.5, ratingCount: 2, rentalsCount: 3 }),
     tl({ name: 'Aluminium Extension Ladder 12 ft', category: 'ladders', description: 'Lightweight two-section ladder, 150 kg load rating.',
-      rentPricePerDay: 500, deposit: 2500, purchasePrice: 18000, stock: 3, rating: 5, ratingCount: 1, rentalsCount: 6 }),
+      rentPricePerDay: 500, deposit: 2500, purchasePrice: 18000, deliveryAvailable: true, deliveryFee: 400, stock: 3, rating: 5, ratingCount: 1, rentalsCount: 6 }),
     tl({ name: 'Karcher Pressure Washer', category: 'cleaning', condition: 'like_new', description: '130 bar pressure washer for driveways, cars and terraces.',
-      rentPricePerDay: 1500, deposit: 8000, purchasePrice: 45000, installmentMonths: 6, installmentMonthly: 7800, stock: 2, rating: 4.6, ratingCount: 3, rentalsCount: 7 }),
+      rentPricePerDay: 1500, deposit: 8000, purchasePrice: 45000, deliveryAvailable: true, deliveryFee: 500, stock: 2, rating: 4.6, ratingCount: 3, rentalsCount: 7 }),
     tl({ name: 'Digital Multimeter', category: 'measurement', description: 'Auto-ranging multimeter with continuity buzzer and probes.',
       rentPricePerDay: 250, deposit: 1000, purchasePrice: 4500, stock: 5, rentalsCount: 2 }),
     tl({ name: 'Wet & Dry Vacuum 30L', category: 'cleaning', description: 'Industrial wet/dry vacuum with blower function.',
       rentPricePerDay: 900, deposit: 4000, purchasePrice: 26000, stock: 1, rentalsCount: 1 }),
     tl({ name: 'Angle Grinder 4.5"', category: 'power', description: '850W angle grinder with cutting and grinding discs. Safety glasses included.',
-      rentPricePerDay: 700, deposit: 3000, purchasePrice: 12600, installmentMonths: 3, installmentMonthly: 4200, stock: 3, rentalsCount: 1 }),
+      rentPricePerDay: 700, deposit: 3000, purchasePrice: 12600, stock: 3, rentalsCount: 1 }),
     tl({ supplier: buildpro._id, city: 'Karachi', name: 'Concrete Mixer (half bag)', category: 'power', condition: 'fair', description: 'Electric drum mixer for small construction jobs. Delivery available.',
-      rentPricePerDay: 3500, deposit: 15000, purchasePrice: 120000, stock: 1, rentalsCount: 2 }),
+      rentPricePerDay: 3500, deposit: 15000, purchasePrice: 120000, deliveryAvailable: true, deliveryFee: 1500, stock: 1, rentalsCount: 2 }),
     tl({ supplier: buildpro._id, city: 'Karachi', name: 'Petrol Lawn Mower', category: 'gardening', description: 'Self-propelled 21" petrol mower with grass bag.',
-      rentPricePerDay: 1200, deposit: 6000, purchasePrice: 55000, installmentMonths: 6, installmentMonthly: 9500, stock: 2 }),
+      rentPricePerDay: 1200, deposit: 6000, purchasePrice: 55000, deliveryAvailable: true, deliveryFee: 800, stock: 2 }),
     tl({ supplier: buildpro._id, city: 'Karachi', name: 'Self-levelling Laser Level', category: 'measurement', condition: 'new', description: 'Cross-line laser with tripod, ideal for tiling and shelving.',
       rentPricePerDay: 1000, deposit: 5000, purchasePrice: 28000, stock: 2 })
   ]);
@@ -371,13 +371,13 @@ async function run() {
 
   // --------------------------------------------------------------- rentals
   const rent = (o) => ({ supplier: toolco._id, type: 'rent', ...o });
-  const [drillRental, , ladderRental] = await Rental.create([
+  const [drillRental, , ladderRental, , , grinderSale] = await Rental.create([
     // Out with Sara right now, paid into escrow.
     rent({ tool: drill._id, renter: sara._id, days: 5, dailyRate: 800, startDate: ago(2 * DAY), endDate: ahead(3 * DAY), totalCost: 4000, deposit: 5000,
       payment: walletPay(4000, 'held', { deposit: 5000, heldAt: ago(2 * DAY + HOUR) }), status: 'active', approvedAt: ago(2 * DAY), fulfillment: 'pickup', createdAt: ago(2 * DAY + HOUR) }),
     // Waiting for the supplier's answer; delivery, cash.
-    rent({ tool: washer._id, renter: bilal._id, days: 2, dailyRate: 1500, startDate: ahead(DAY), endDate: ahead(3 * DAY), totalCost: 3000, deposit: 8000,
-      payment: cashPay(3000, 'cash_due', { deposit: 8000 }), status: 'requested', fulfillment: 'delivery',
+    rent({ tool: washer._id, renter: bilal._id, days: 2, dailyRate: 1500, startDate: ahead(DAY), endDate: ahead(3 * DAY), totalCost: 3000, deposit: 8000, deliveryFee: 500,
+      payment: cashPay(3500, 'cash_due', { deposit: 8000 }), status: 'requested', fulfillment: 'delivery',
       deliveryAddress: 'Flat 302, Block B, Gulshan-e-Iqbal, Karachi', note: 'Please deliver before 10am.', createdAt: ago(2 * HOUR) }),
     // Finished and reviewed.
     rent({ tool: ladder._id, renter: sara._id, days: 1, dailyRate: 500, startDate: ago(15 * DAY), endDate: ago(14 * DAY), totalCost: 500, deposit: 2500,
@@ -386,12 +386,13 @@ async function run() {
     // Overdue by a day (cash).
     rent({ tool: multimeter._id, renter: ahmad._id, days: 3, dailyRate: 250, startDate: ago(4 * DAY), endDate: ago(DAY), totalCost: 750, deposit: 1000,
       payment: cashPay(750, 'cash_due', { deposit: 1000 }), status: 'active', approvedAt: ago(4 * DAY), createdAt: ago(4 * DAY + HOUR) }),
-    // Installment purchase waiting for approval.
-    { tool: drill._id, renter: bilal._id, supplier: toolco._id, type: 'installment', totalCost: 32000, monthsTotal: 6, monthlyAmount: 5500,
-      payment: cashPay(32000, 'none'), status: 'requested', fulfillment: 'delivery', deliveryAddress: 'Flat 302, Block B, Gulshan-e-Iqbal, Karachi', createdAt: ago(HOUR) },
-    // Installment plan under way: 1 of 3 months paid.
-    { tool: grinder._id, renter: ahmad._id, supplier: toolco._id, type: 'installment', totalCost: 12600, monthsTotal: 3, monthsPaid: 1, monthlyAmount: 4200,
-      payment: { method: 'wallet', status: 'none', amount: 12600, net: 12600 }, status: 'active', approvedAt: ago(32 * DAY), fulfillment: 'pickup', createdAt: ago(33 * DAY) }
+    // Purchase waiting for approval: delivered, cash on delivery.
+    { tool: drill._id, renter: bilal._id, supplier: toolco._id, type: 'purchase', totalCost: 32000, deliveryFee: 300,
+      payment: cashPay(32300, 'cash_due'), status: 'requested', fulfillment: 'delivery', deliveryAddress: 'Flat 302, Block B, Gulshan-e-Iqbal, Karachi', createdAt: ago(HOUR) },
+    // Bought with the wallet and collected from the shop.
+    { tool: grinder._id, renter: ahmad._id, supplier: toolco._id, type: 'purchase', totalCost: 12600,
+      payment: walletPay(12600, 'released', { heldAt: ago(33 * DAY), settledAt: ago(31 * DAY) }), status: 'completed', approvedAt: ago(32 * DAY),
+      completedAt: ago(31 * DAY), fulfillment: 'pickup', createdAt: ago(33 * DAY) }
   ]);
   // Stock reflects what is out with customers.
   await Tool.updateOne({ _id: drill._id }, { $inc: { stock: -1 } });
@@ -403,12 +404,12 @@ async function run() {
   move(null, 'platform_fee', fee(500), ago(14 * DAY), { rental: ladderRental._id, note: ladder.name });
   move(sara, 'rental_refund', 2500, ago(14 * DAY), { rental: ladderRental._id, note: `Deposit returned — ${ladder.name}` });
   move(sara, 'rental_hold', -9000, ago(2 * DAY + HOUR), { rental: drillRental._id, note: drill.name });
-  move(ahmad, 'installment_payment', -4200, ago(31 * DAY), { note: grinder.name });
-  move(toolco, 'installment_earning', 4200 - fee(4200), ago(31 * DAY), { note: grinder.name });
-  move(null, 'platform_fee', fee(4200), ago(31 * DAY), { note: grinder.name });
+  move(ahmad, 'rental_hold', -12600, ago(33 * DAY), { rental: grinderSale._id, note: grinder.name });
+  move(toolco, 'rental_earning', 12600 - fee(12600), ago(31 * DAY), { rental: grinderSale._id, note: grinder.name });
+  move(null, 'platform_fee', fee(12600), ago(31 * DAY), { rental: grinderSale._id, note: grinder.name });
   move(usman, 'withdrawal', -20000, ago(6 * DAY), { note: 'Withdrawal to HBL · 0042-79118812-01' });
   move(ahmad, 'withdrawal', -3000, ago(5 * HOUR), { note: 'Withdrawal to Easypaisa · 0300-1234503' });
-  console.log('Seeded 6 rentals and installment plans');
+  console.log('Seeded 4 rentals and 2 purchases');
 
   // ---------------------------------------------------------------- wallets
   ledger.sort((a, b) => a.createdAt - b.createdAt);
@@ -497,7 +498,7 @@ async function run() {
     note(ahmad, 'review', 'New 5★ review', 'Quick, tidy and explained everything. Highly recommended!', { jobId: tap._id }, ago(10 * DAY), true),
     note(usman, 'job_status', 'You got the job!', `You were hired for "${ac.title}"`, { jobId: ac._id }, ago(DAY + 20 * HOUR), true),
     note(toolco, 'rental', 'New rental request', `Bilal Ahmed wants "${washer.name}" for 2 days`, { toolId: washer._id }, ago(2 * HOUR)),
-    note(toolco, 'rental', 'New purchase request', `Bilal Ahmed wants to buy "${drill.name}" on installments`, { toolId: drill._id }, ago(HOUR))
+    note(toolco, 'rental', 'New purchase request', `Bilal Ahmed wants to buy "${drill.name}"`, { toolId: drill._id }, ago(HOUR))
   ]);
 
   await Kyc.create({ user: zainab._id, fullName: 'Zainab Hussain', idType: 'cnic', idNumber: '35202-1234567-8', status: 'pending' });
@@ -547,6 +548,11 @@ async function run() {
   await Counter.deleteMany({ _id: 'job' });
   await Job.numberMissing();
   console.log('Numbered jobs SF-1001 onwards, oldest first');
+  // Invoice numbers likewise: INV-1001 is the oldest rental or purchase.
+  await Rental.updateMany({}, { $unset: { number: 1 } });
+  await Counter.deleteMany({ _id: 'invoice' });
+  await Rental.numberMissing();
+  console.log('Numbered invoices INV-1001 onwards, oldest first');
 
   await mongoose.disconnect();
   console.log('Done.');

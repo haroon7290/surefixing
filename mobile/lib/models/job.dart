@@ -11,7 +11,9 @@ class Payment {
   final double deposit;
   final double fee;
   final double net;
-  const Payment({this.method = 'cash', this.status = 'none', this.amount = 0, this.deposit = 0, this.fee = 0, this.net = 0});
+  final DateTime? heldAt;
+  final DateTime? settledAt;
+  const Payment({this.method = 'cash', this.status = 'none', this.amount = 0, this.deposit = 0, this.fee = 0, this.net = 0, this.heldAt, this.settledAt});
 
   bool get isWallet => method == 'wallet';
   bool get held => status == 'held';
@@ -28,6 +30,8 @@ class Payment {
       deposit: dbl(j['deposit']),
       fee: dbl(j['fee']),
       net: dbl(j['net']),
+      heldAt: date(j['heldAt']),
+      settledAt: date(j['settledAt']),
     );
   }
 }

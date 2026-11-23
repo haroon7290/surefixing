@@ -11,7 +11,7 @@ const isPopulated = (v) => Boolean(v) && Object.getPrototypeOf(v) === Object.pro
 
 function withoutContact(user) {
   if (!isPopulated(user)) return user;
-  const { phone, address, ...rest } = user;
+  const { phone, address, email, ...rest } = user;
   return rest;
 }
 
@@ -23,7 +23,7 @@ function lateDaysAt(rental, when = new Date()) {
 }
 
 // Adds what the app shows but the database doesn't store: overdue flag, days
-// left, months remaining, and how the tool changes hands.
+// left, the invoice number, and how the tool changes hands.
 function serializeRental(r) {
   const json = typeof r.toJSON === 'function' ? r.toJSON() : r;
   const end = json.endDate ? new Date(json.endDate).getTime() : null;
@@ -34,7 +34,7 @@ function serializeRental(r) {
     json.lateDays = lateDaysAt(json);
     json.lateFee = Math.min(json.lateDays * (json.dailyRate || 0), json.deposit || 0);
   }
-  json.monthsRemaining = Math.max(0, (json.monthsTotal || 0) - (json.monthsPaid || 0));
+  if (json.number) json.invoiceNo = `INV-${json.number}`;
 
   const approved = APPROVED.includes(json.status);
   if (!approved) {
@@ -59,9 +59,9 @@ function serializeRental(r) {
 
 function populateRental(query) {
   return query
-    .populate('tool', 'name images rentPricePerDay deposit category supplier city')
-    .populate('renter', 'name avatar city rating phone address')
-    .populate('supplier', 'name avatar city phone address kycStatus');
+    .populate('tool', 'name images rentPricePerDay deposit purchasePrice category condition supplier city')
+    .populate('renter', 'name avatar city rating phone address email')
+    .populate('supplier', 'name avatar city phone address kycStatus email');
 }
 
 async function listRentals(filter, { skip = 0, limit = 50 } = {}) {

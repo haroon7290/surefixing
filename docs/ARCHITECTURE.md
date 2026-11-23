@@ -96,9 +96,9 @@ erDiagram
 | **Payment** (embedded) | method (wallet / cash), status (none / held / released / refunded / cash_due / cash_paid), amount, deposit, fee, net |
 | **WalletRequest** | user, kind (deposit / withdrawal), amount, status (pending / approved / rejected / cancelled), deposit: companyAccount + sentTo snapshot, transactionId (normalised key for duplicate checks), proofImage · withdrawal: payout {method, provider, accountTitle, accountNumber} · adminNote, reference, reviewedBy, reviewedAt |
 | **PaymentAccount** | kind (bank / mobile_wallet), provider, accountTitle, accountNumber, iban, instructions, active |
-| **Transaction** | user (null = the platform), type (deposit, withdrawal, withdrawal_reversed, job_hold, job_refund, job_earning, rental_hold, rental_refund, rental_earning, installment_payment, installment_earning, platform_fee), signed amount, balanceAfter, job / rental, note |
-| **Tool** | supplier, name, description, category, condition, city, **geo** + area (the supplier's shop, kept in sync when they move), images[], rentPricePerDay, deposit, purchasePrice, installmentMonths / Monthly, available (listed), stock, rating, ratingCount, rentalsCount |
-| **Rental** | tool, renter, supplier, type (rent / installment), startDate, endDate, days, dailyRate, deposit, lateDays, lateFee, monthsTotal / monthsPaid / monthlyAmount, totalCost, **payment**, fulfillment (pickup / delivery), deliveryAddress, status (requested / active / returned / completed / rejected / cancelled) · computed in responses: overdue, daysLeft, monthsRemaining, handover `{method, address, city, revealed}` |
+| **Transaction** | user (null = the platform), type (deposit, withdrawal, withdrawal_reversed, job_hold, job_refund, job_earning, rental_hold, rental_refund, rental_earning, platform_fee; installment_payment / installment_earning on older records), signed amount, balanceAfter, job / rental, note |
+| **Tool** | supplier, name, description, category, condition, city, **geo** + area (the supplier's shop, kept in sync when they move), images[], rentPricePerDay, deposit, purchasePrice (0 = rent only), deliveryAvailable, deliveryFee, available (listed), stock, rating, ratingCount, rentalsCount |
+| **Rental** | tool, renter, supplier, type (rent / purchase), **number** (invoice), startDate, endDate, days, dailyRate, deposit, lateDays, lateFee, totalCost (rent or price), deliveryFee, **payment**, fulfillment (pickup / delivery), deliveryAddress, status (requested / active / returned / completed / rejected / cancelled) · completedAt · computed in responses: overdue, daysLeft, invoiceNo, handover `{method, address, city, revealed}` |
 | **Message** | job *or* tool *or* support (the user whose support conversation it is), sender, recipient (none when a user writes to the team), about (the team's topic), text, image, readAt |
 | **Notification** | user, type, title, body, data {jobId / toolId / rentalId …}, readAt |
 | **Kyc** | user, fullName, idType, idNumber, idFrontImage, idBackImage, selfieImage, status, rejectionReason |
@@ -148,11 +148,11 @@ cash:    hire ──▶ cash_due ──confirm──▶ cash_paid        (no fee
 two payments cannot both succeed; every change writes a `Transaction` with the balance after
 it. The fee is `PLATFORM_FEE_PERCENT` (10) of wallet payments.
 
-### Rental and installment plan
+### Rental and purchase
 
 ```
-requested ──approve──▶ active ──return──▶ returned        (rent)
-requested ──approve──▶ active ──last month paid──▶ completed (installment)
+requested ──approve──▶ active ──return──▶ returned                     (rent)
+requested ──approve──▶ active ──handed over / received──▶ completed   (purchase)
 requested ──reject───▶ rejected      requested ──cancel (renter)──▶ cancelled
 ```
 
@@ -160,10 +160,15 @@ requested ──reject───▶ rejected      requested ──cancel (renter)
   cancelled. On return the supplier is paid the cost minus the fee, plus any late fee; the
   renter gets the deposit back minus the late fee.
 - **Late fee**: one daily rate per late day, capped at the deposit.
-- **Installments**: each month is paid from the renter's wallet or recorded by the supplier
-  as cash; the plan completes when the last month is paid.
+- **Purchase**: one payment for the sale price (+ delivery). By wallet it is held at request
+  time and released to the supplier (minus the fee) when the supplier marks it handed over /
+  delivered or the buyer confirms receipt; cash is paid on handover.
+- **Delivery**: only where the supplier offers it (`deliveryAvailable`), at their
+  `deliveryFee`, which is copied onto the rental / purchase and added to what is paid.
+- **Invoice numbers**: every rental and purchase gets `INV-1001`, `INV-1002`, … (atomic
+  counter). Older installment plans were turned into purchases on startup.
 - Stock is reserved on approve with an atomic `findOneAndUpdate({ stock: { $gt: 0 } })` and
-  released on return. The pickup address and both phone numbers are revealed on approval.
+  released on return (a sold tool doesn't come back). The pickup address and both phone numbers are revealed on approval.
 
 ## Location and near-me search
 
@@ -254,14 +259,14 @@ Lists accept `?page=&limit=` and return a plain array with the total in `X-Total
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/tools` · `/tools/:id` 🌐 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&installment=1&sort=distance\|popular\|rating\|price_asc\|price_desc\|newest`, near-me `&lat=&lng=&radius=` (adds `distanceKm`); supplier `?mine=1` · detail includes reviews and the distance |
+| GET | `/tools` · `/tools/:id` 🌐 | `?q=&category=&city=&minPrice=&maxPrice=&available=1&forSale=1&delivery=1&sort=distance\|popular\|rating\|price_asc\|price_desc\|newest`, near-me `&lat=&lng=&radius=` (adds `distanceKm`); supplier `?mine=1` · detail includes reviews and the distance |
 | POST / PATCH / DELETE | `/tools` · `/tools/:id` 🔒 supplier | multipart; `images` (≤ 4) appended, `removeImages` list. Delete refunds pending requests |
 | POST | `/tools/:id/rent` 🔒 | `{days \| startDate+endDate, fulfillment, deliveryAddress?, paymentMethod, note}` |
-| POST | `/tools/:id/purchase` 🔒 | Installment request |
+| POST | `/tools/:id/purchase` 🔒 | Buy outright `{paymentMethod, fulfillment, deliveryAddress?, note}`; 400 for rent-only tools or delivery the supplier doesn't offer |
 | GET | `/rentals` · `/rentals/:id` 🔒 | `?as=renter\|supplier&status=a,b` |
 | POST | `/rentals/:id/approve` · `/reject` · `/return` 🔒 supplier | Approving a pickup needs the supplier's address on their profile |
-| POST | `/rentals/:id/record-installment` 🔒 supplier | Cash month `{all?}` |
-| POST | `/rentals/:id/cancel` · `/pay-installment` · `/review` 🔒 renter | |
+| POST | `/rentals/:id/complete` 🔒 supplier or buyer | Purchase handed over / received: pays the supplier |
+| POST | `/rentals/:id/cancel` · `/review` 🔒 renter | |
 
 ### Messages, KYC, reports, AI, admin
 

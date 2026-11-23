@@ -24,7 +24,7 @@ class ToolCard extends StatelessWidget {
             Positioned(
               left: 10,
               top: 10,
-              child: !tool.rentable ? const Pill('Unavailable', tone: Tone.neutral) : (tool.hasInstallments ? const Pill('Buy monthly', solid: true) : const SizedBox.shrink()),
+              child: !tool.rentable ? const Pill('Unavailable', tone: Tone.neutral) : (tool.forSale ? const Pill('For sale', solid: true) : const SizedBox.shrink()),
             ),
             if (showFavorite) Positioned(right: 8, top: 8, child: FavoriteButton(type: 'tool', id: tool.id, size: 34, onImage: true)),
           ]),
@@ -56,7 +56,7 @@ class ToolCard extends StatelessWidget {
   }
 }
 
-/// A rental or installment plan in a list.
+/// A rental or purchase in a list.
 class RentalCard extends StatelessWidget {
   final Rental rental;
   final bool forSupplier;
@@ -69,9 +69,12 @@ class RentalCard extends StatelessWidget {
     final c = context.colors;
     final r = rental;
     final cat = toolCategory(r.tool.category);
-    final status = rentalStatus(r.status, installment: r.isInstallment, overdue: r.overdue);
+    final status = rentalStatus(r.status, purchase: r.isPurchase, overdue: r.overdue);
     final other = forSupplier ? r.renter : r.supplier;
-    final period = r.isInstallment ? '${r.monthsPaid} of ${r.monthsTotal} months paid' : '${shortDate(r.startDate)} → ${shortDate(r.endDate)}  ·  ${plural(r.days, 'day')}';
+    final period = [
+      if (r.invoiceNo.isNotEmpty) r.invoiceNo,
+      r.isPurchase ? 'Bought ${shortDate(r.createdAt)}' : '${shortDate(r.startDate)} → ${shortDate(r.endDate)}  ·  ${plural(r.days, 'day')}',
+    ].join('  ·  ');
 
     return Panel(
       onTap: onTap,
@@ -90,19 +93,18 @@ class RentalCard extends StatelessWidget {
               Gap.h6,
               Wrap(spacing: 6, runSpacing: 6, children: [
                 Pill.status(status),
-                Pill(r.isInstallment ? 'Installments' : (r.handover.delivery ? 'Delivery' : 'Pickup'),
-                    icon: r.isInstallment ? AppIcons.calendar : (r.handover.delivery ? AppIcons.truck : AppIcons.store)),
+                if (r.isPurchase) const Pill('Purchase', icon: AppIcons.payments),
+                Pill(r.handover.delivery ? 'Delivery' : 'Pickup', icon: r.handover.delivery ? AppIcons.truck : AppIcons.store),
                 if (r.payment.held) const Pill('In escrow', tone: Tone.info, icon: AppIcons.lock),
               ]),
             ]),
           ),
           Gap.w8,
           Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-            Text(money(r.isInstallment ? r.monthlyAmount : r.totalCost), style: context.text.titleMedium),
-            Text(r.isInstallment ? 'per month' : 'total', style: context.text.bodySmall!.copyWith(fontSize: 11.5)),
+            Text(money(r.amount), style: context.text.titleMedium),
+            Text(r.deliveryFee > 0 ? 'incl. delivery' : 'total', style: context.text.bodySmall!.copyWith(fontSize: 11.5)),
           ]),
         ]),
-        if (r.isInstallment && r.active) ...[Gap.h12, ProgressLine(r.monthsTotal == 0 ? 0 : r.monthsPaid / r.monthsTotal)],
         if (r.overdue) ...[
           Gap.h12,
           Notice(
@@ -111,7 +113,7 @@ class RentalCard extends StatelessWidget {
                 : '${plural(r.lateDays, 'day')} overdue — return it soon. Late fee so far: ${money(r.lateFee)} from your deposit.',
             tone: Tone.danger,
           ),
-        ] else if (r.active && !r.isInstallment && r.daysLeft != null) ...[
+        ] else if (r.active && !r.isPurchase && r.daysLeft != null) ...[
           Gap.h8,
           Meta(AppIcons.timer, r.daysLeft! <= 0 ? 'Due back today' : 'Due back in ${plural(r.daysLeft!, 'day')}', color: r.daysLeft! <= 1 ? c.warning : null),
         ],

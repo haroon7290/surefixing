@@ -15,7 +15,7 @@ class _Data {
 }
 
 /// The supplier's dashboard: revenue, requests to approve, tools out on
-/// rent and installment plans.
+/// rent and sales.
 class SupplierHome extends StatefulWidget {
   const SupplierHome({super.key});
 
@@ -56,7 +56,7 @@ class _SupplierHomeState extends State<SupplierHome> {
             final hero = EarningsHero(
               label: 'Total revenue',
               amount: dbl(s['revenue']),
-              caption: 'From approved rentals and installment sales',
+              caption: 'From approved rentals and sales',
               figures: [
                 HeroFigure(label: 'Wallet', value: moneyCompact(me.walletBalance), icon: AppIcons.wallet, onTap: () => openSection(context, 'wallet')),
                 HeroFigure(label: 'Tools listed', value: '${integer(s['tools'])}', icon: AppIcons.tools, onTap: () => openSection(context, 'inventory')),

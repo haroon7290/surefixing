@@ -26,7 +26,7 @@ const faqs = [
   (
     'How does tool rental work?',
     'Choose a tool, pick your dates, and choose pickup or delivery. The supplier approves the request and you get the handover address and their phone number. '
-        'A refundable deposit covers late returns: each late day costs one day of rent, taken from the deposit. Some tools can also be bought in monthly installments.'
+        'A refundable deposit covers late returns: each late day costs one day of rent, taken from the deposit. Many tools can also be bought outright for a one-time price, and some suppliers deliver for a fee they set.'
   ),
   (
     'How are technicians verified?',

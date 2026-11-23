@@ -612,7 +612,7 @@ Future<String?> choosePayment(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: c.sunken, borderRadius: BorderRadius.circular(R.md)),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                KV(deposit > 0 ? 'Rental cost' : 'Price', money(amount)),
+                KV(deposit > 0 ? 'Rental cost' : 'Amount', money(amount)),
                 if (deposit > 0) KV('Refundable deposit', money(deposit)),
                 if (deposit > 0) ...[const Divider(), KV('Total', money(total), strong: true)],
               ]),

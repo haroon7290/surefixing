@@ -1,6 +1,6 @@
-// Rental and installment-purchase lifecycle. Suppliers approve, decline and
-// take tools back; renters cancel pending requests, pay installments and
-// review finished rentals. See models/Rental.js for the states.
+// Rental and purchase lifecycle. Suppliers approve, decline, take rented
+// tools back and hand sold ones over; renters cancel pending requests,
+// confirm a purchase arrived and review. See models/Rental.js for the states.
 const express = require('express');
 const mongoose = require('mongoose');
 const { body } = require('express-validator');
@@ -75,6 +75,7 @@ router.post('/:id/approve', authRequired, async (req, res) => {
 
   // Reserve one unit atomically so two approvals can't oversell the last one.
   const tool = await Tool.findOneAndUpdate({ _id: rental.tool._id, stock: { $gt: 0 } }, { $inc: { stock: -1, rentalsCount: 1 } }, { new: true });
+  // (A sold unit doesn't come back; a rented one does, on return.)
   if (!tool) throw conflict('Out of stock — mark another rental returned or increase stock first');
 
   rental.status = 'active';
@@ -89,7 +90,7 @@ router.post('/:id/approve', authRequired, async (req, res) => {
   await notify(
     rental.renter,
     'rental',
-    `Your ${rental.type === 'installment' ? 'purchase' : 'rental'} was approved`,
+    `Your ${rental.type === 'purchase' ? 'purchase' : 'rental'} was approved`,
     rental.fulfillment === 'delivery'
       ? `"${tool.name}" will be delivered to ${rental.deliveryAddress}`
       : `Collect "${tool.name}" from ${supplier.address}`,
@@ -153,54 +154,31 @@ router.post('/:id/return', authRequired, async (req, res) => {
   await respond(res, rental);
 });
 
-async function installmentPaid(rental) {
-  rental.monthsPaid += 1;
-  if (rental.monthsPaid >= rental.monthsTotal) {
-    rental.status = 'completed';
-    rental.payment.status = rental.payment.method === 'wallet' ? 'released' : 'cash_paid';
-    rental.payment.settledAt = new Date();
-  }
+// A purchase changes hands: the supplier says it was handed over or
+// delivered, or the buyer says they received it. The supplier is paid
+// (wallet: released from escrow; cash: marked paid).
+router.post('/:id/complete', authRequired, async (req, res) => {
+  const rental = await loadRental(req.params.id);
+  const isSupplier = sameId(rental.supplier, req.user._id) || req.user.role === 'admin';
+  if (!isSupplier && !sameId(rental.renter, req.user._id)) throw forbidden('Not your purchase');
+  if (rental.type !== 'purchase' || rental.status !== 'active') throw badRequest('Only an approved purchase can be completed');
+
+  await wallet.settleRental(rental, toolName(rental));
+  rental.status = 'completed';
+  rental.completedAt = new Date();
   await rental.save();
+
+  const delivered = rental.fulfillment === 'delivery' ? 'delivered' : 'handed over';
+  if (isSupplier) {
+    await notify(rental.renter, 'rental', 'Purchase completed', `"${toolName(rental)}" was ${delivered}. Enjoy it! Leave a review?`, {
+      rentalId: rental._id,
+      toolId: rental.tool._id
+    });
+  } else {
+    const paid = rental.payment.method === 'wallet' ? ' The payment was released to your wallet.' : '';
+    await notify(rental.supplier, 'rental', 'Purchase received', `${req.user.name} received "${toolName(rental)}".${paid}`, { rentalId: rental._id });
+  }
   push(rental);
-}
-
-function assertActivePlan(rental) {
-  if (rental.type !== 'installment' || rental.status !== 'active') throw badRequest('This is not an active installment plan');
-}
-
-// Buyer pays this month's installment from their wallet.
-router.post('/:id/pay-installment', authRequired, async (req, res) => {
-  const rental = await loadRental(req.params.id);
-  assertRenter(rental, req.user);
-  assertActivePlan(rental);
-  await wallet.payInstallment(rental, toolName(rental));
-  rental.payment.method = 'wallet';
-  await installmentPaid(rental);
-  await notify(
-    rental.supplier,
-    'rental',
-    'Installment received',
-    `${req.user.name} paid month ${rental.monthsPaid} of ${rental.monthsTotal} for "${toolName(rental)}"`,
-    { rentalId: rental._id }
-  );
-  await respond(res, rental);
-});
-
-// Supplier records a month paid in cash. `all: true` settles the whole plan.
-router.post('/:id/record-installment', authRequired, [body('all').optional().isBoolean().toBoolean()], validate, async (req, res) => {
-  const rental = await loadRental(req.params.id);
-  assertSupplier(rental, req.user);
-  assertActivePlan(rental);
-  if (req.body.all) rental.monthsPaid = rental.monthsTotal - 1;
-  await installmentPaid(rental);
-  const done = rental.status === 'completed';
-  await notify(
-    rental.renter,
-    'rental',
-    done ? 'Purchase completed' : 'Installment recorded',
-    done ? `"${toolName(rental)}" is fully paid. Enjoy!` : `Month ${rental.monthsPaid} of ${rental.monthsTotal} for "${toolName(rental)}" was recorded as paid.`,
-    { rentalId: rental._id }
-  );
   await respond(res, rental);
 });
 
@@ -215,7 +193,7 @@ router.post(
   async (req, res) => {
     const rental = await loadRental(req.params.id);
     assertRenter(rental, req.user);
-    if (!['returned', 'completed'].includes(rental.status)) throw badRequest('You can review a tool after the rental ends');
+    if (!['returned', 'completed'].includes(rental.status)) throw badRequest('You can review a tool after the rental ends or the purchase is handed over');
     if (rental.rating) throw conflict('You already reviewed this rental');
     rental.rating = req.body.rating;
     rental.review = (req.body.review || '').trim();

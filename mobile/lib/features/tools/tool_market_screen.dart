@@ -22,24 +22,24 @@ class ToolFilters {
   final String city;
   final int band; // index into _priceBands
   final bool inStock;
-  final bool installment;
+  final bool forSale;
   final int radius;
-  const ToolFilters({this.category = '', this.city = '', this.band = 0, this.inStock = false, this.installment = false, this.radius = 0});
+  const ToolFilters({this.category = '', this.city = '', this.band = 0, this.inStock = false, this.forSale = false, this.radius = 0});
 
-  ToolFilters copy({String? category, String? city, int? band, bool? inStock, bool? installment, int? radius}) => ToolFilters(
+  ToolFilters copy({String? category, String? city, int? band, bool? inStock, bool? forSale, int? radius}) => ToolFilters(
         category: category ?? this.category,
         city: city ?? this.city,
         band: band ?? this.band,
         inStock: inStock ?? this.inStock,
-        installment: installment ?? this.installment,
+        forSale: forSale ?? this.forSale,
         radius: radius ?? this.radius,
       );
 
-  int get count => [category.isNotEmpty, city.isNotEmpty, band > 0, inStock, installment, radius > 0].where((on) => on).length;
-  String get key => '$category|$city|$band|$inStock|$installment|$radius';
+  int get count => [category.isNotEmpty, city.isNotEmpty, band > 0, inStock, forSale, radius > 0].where((on) => on).length;
+  String get key => '$category|$city|$band|$inStock|$forSale|$radius';
 }
 
-/// The tool market: rent by the day or buy in installments, from suppliers
+/// The tool market: rent by the day or buy outright, from suppliers
 /// near you. Public.
 class ToolMarketScreen extends StatefulWidget {
   const ToolMarketScreen({super.key});
@@ -83,7 +83,7 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
       'q': _query,
       'category': f.category,
       'available': f.inStock ? 1 : null,
-      'installment': f.installment ? 1 : null,
+      'forSale': f.forSale ? 1 : null,
       'minPrice': min > 0 ? min : null,
       'maxPrice': max > 0 ? max : null,
       'city': f.city.isEmpty ? null : f.city,
@@ -114,11 +114,11 @@ class _ToolMarketScreenState extends State<ToolMarketScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             FilterToggle(label: 'In stock now', icon: AppIcons.check, value: f.inStock, onChanged: (v) => set(f.copy(inStock: v))),
             FilterToggle(
-                label: 'Buy monthly',
-                subtitle: 'Can be bought in installments',
-                icon: AppIcons.calendar,
-                value: f.installment,
-                onChanged: (v) => set(f.copy(installment: v))),
+                label: 'For sale',
+                subtitle: 'Can be bought outright',
+                icon: AppIcons.payments,
+                value: f.forSale,
+                onChanged: (v) => set(f.copy(forSale: v))),
           ]),
         ),
         FilterGroup(

@@ -6,6 +6,7 @@ const realtime = require('./utils/realtime');
 const firebase = require('./utils/firebase');
 const User = require('./models/User');
 const Job = require('./models/Job');
+const Rental = require('./models/Rental');
 
 const app = createApp();
 const httpServer = http.createServer(app);
@@ -18,6 +19,13 @@ mongoose
     Job.numberMissing()
       .then((n) => n && console.log(`Gave job numbers to ${n} older jobs`))
       .catch((err) => console.error('Job numbering failed:', err.message));
+    Rental.migrateInstallments()
+      .then(async (n) => {
+        if (n) console.log(`Turned ${n} installment plans into one-time purchases`);
+        const numbered = await Rental.numberMissing();
+        if (numbered) console.log(`Gave invoice numbers to ${numbered} older rentals`);
+      })
+      .catch((err) => console.error('Rental upgrade failed:', err.message));
     // Copy accounts that aren't in Firebase yet (keeps their passwords).
     if (firebase.canManage()) {
       firebase

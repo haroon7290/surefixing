@@ -69,7 +69,8 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
                                 Gap.h6,
                                 Wrap(spacing: 6, runSpacing: 6, children: [
                                   Pill(t.stock == 0 ? 'All out' : '${t.stock} in stock', tone: t.stock == 0 ? Tone.warning : Tone.success, dot: true),
-                                  if (t.hasInstallments) const Pill('Sells monthly', icon: AppIcons.calendar),
+                                  if (t.forSale) Pill('For sale ${money(t.purchasePrice)}', icon: AppIcons.payments),
+                                  if (t.deliveryAvailable) Pill(t.deliveryFee > 0 ? 'Delivers ${money(t.deliveryFee)}' : 'Free delivery', icon: AppIcons.truck),
                                   if (t.ratingCount > 0) Pill(t.rating.toStringAsFixed(1), icon: AppIcons.starFill, tone: Tone.warning),
                                 ]),
                               ]),

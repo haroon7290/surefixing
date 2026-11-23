@@ -13,7 +13,7 @@ const TYPES = [
   'rental_hold', // renter → escrow (rental cost + deposit)
   'rental_refund', // escrow → renter (deposit back, or everything if declined)
   'rental_earning', // escrow → supplier on return
-  'installment_payment', // buyer → supplier, one month
+  'installment_payment', // older records: monthly installments (no longer offered)
   'installment_earning',
   'platform_fee'
 ];

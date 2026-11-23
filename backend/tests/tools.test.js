@@ -27,8 +27,8 @@ describe('tools & rental requests', () => {
       rentPricePerDay: 800,
       deposit: 5000,
       purchasePrice: 30000,
-      installmentMonths: 6,
-      installmentMonthly: 5500,
+      deliveryAvailable: true,
+      deliveryFee: 200,
       stock: 1,
       supplier: otherSupplier.id,
       rating: 5,
@@ -74,7 +74,8 @@ describe('tools & rental requests', () => {
     const end = new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString();
     const req1 = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ startDate: start, endDate: end, fulfillment: 'delivery', deliveryAddress: 'House 9, Model Town' });
     expect(req1.status).toBe(201);
-    expect(req1.body).toMatchObject({ status: 'requested', days: 3, totalCost: 2400, deposit: 5000, fulfillment: 'delivery' });
+    expect(req1.body).toMatchObject({ status: 'requested', days: 3, totalCost: 2400, deliveryFee: 200, deposit: 5000, fulfillment: 'delivery' });
+    expect(req1.body.payment).toMatchObject({ method: 'cash', amount: 2600 });
     const req2 = await renter2.api('post', `/api/tools/${tool._id}/rent`).send({ days: 1 });
     expect(req2.status).toBe(201);
 
@@ -122,7 +123,7 @@ describe('tools & rental requests', () => {
 
     const b = await renter.api('post', `/api/tools/${tool._id}/purchase`);
     expect(b.status).toBe(201);
-    expect(b.body).toMatchObject({ type: 'installment', monthsTotal: 6, monthsRemaining: 6, monthlyAmount: 5500, status: 'requested' });
+    expect(b.body).toMatchObject({ type: 'purchase', totalCost: 30000, deliveryFee: 0, status: 'requested' });
     const rejected = await supplier.api('post', `/api/rentals/${b.body._id}/reject`).send({ reason: 'Sold out' });
     expect(rejected.body).toMatchObject({ status: 'rejected', rejectionReason: 'Sold out' });
   });
