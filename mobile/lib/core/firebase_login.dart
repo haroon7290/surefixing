@@ -56,7 +56,9 @@ abstract final class FirebaseLogin {
   static Future<void> init() async {
     if (!FirebaseConfig.configured || _ready) return;
     try {
-      await Firebase.initializeApp(options: FirebaseConfig.options);
+      // Firebase's script comes from www.gstatic.com; where that is slow or
+      // blocked, don't leave the app on its splash screen.
+      await Firebase.initializeApp(options: FirebaseConfig.options).timeout(const Duration(seconds: 10));
       _ready = true;
     } catch (e) {
       debugPrint('Firebase unavailable, using the backend login: $e');

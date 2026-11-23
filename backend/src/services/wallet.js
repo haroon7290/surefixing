@@ -108,9 +108,10 @@ async function refundJob(job) {
 
 // --------------------------------------------------------------- rentals
 
-// Requesting a rental with the wallet holds the rental cost and the deposit.
+// Requesting a rental or purchase with the wallet holds what it costs
+// (rent or price, plus any delivery fee) and the deposit.
 async function holdForRental(rental, method, note) {
-  const amount = round(rental.totalCost);
+  const amount = round((rental.totalCost || 0) + (rental.deliveryFee || 0));
   const deposit = round(rental.deposit);
   rental.payment = { method, status: 'cash_due', amount, deposit, fee: 0, net: amount, heldAt: null, settledAt: null };
   if (method !== 'wallet') return;
@@ -132,8 +133,9 @@ async function refundRental(rental, note) {
   }
 }
 
-// Returned: the supplier is paid (rental minus fee, plus any late fee) and
-// the renter gets the deposit back minus that late fee.
+// Returned (or a purchase handed over): the supplier is paid (amount minus
+// fee, plus any late fee) and the renter gets the deposit back minus that
+// late fee.
 async function settleRental(rental, note) {
   const p = rental.payment;
   if (!p || p.status === 'released' || p.status === 'cash_paid') return;
@@ -141,21 +143,12 @@ async function settleRental(rental, note) {
     const late = Math.min(round(rental.lateFee), p.deposit);
     await credit(rental.supplier, p.net + late, 'rental_earning', { rental: rental._id, note });
     await platformFee(p.fee, { rental: rental._id, note });
-    await credit(rental.renter, p.deposit - late, 'rental_refund', { rental: rental._id, note: `Deposit returned — ${note}` });
+    if (p.deposit - late > 0) await credit(rental.renter, p.deposit - late, 'rental_refund', { rental: rental._id, note: `Deposit returned — ${note}` });
     p.status = 'released';
   } else if (p.status === 'cash_due') {
     p.status = 'cash_paid';
   }
   p.settledAt = new Date();
-}
-
-// One monthly installment from the buyer's wallet to the supplier.
-async function payInstallment(rental, note) {
-  const amount = round(rental.monthlyAmount);
-  await debit(rental.renter, amount, 'installment_payment', { rental: rental._id, note });
-  const fee = feeFor(amount);
-  await credit(rental.supplier, amount - fee, 'installment_earning', { rental: rental._id, note });
-  await platformFee(fee, { rental: rental._id, note });
 }
 
 module.exports = {
@@ -167,6 +160,5 @@ module.exports = {
   refundJob,
   holdForRental,
   refundRental,
-  settleRental,
-  payInstallment
+  settleRental
 };

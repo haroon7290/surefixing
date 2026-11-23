@@ -21,13 +21,14 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
   late final _rent = TextEditingController(text: _num(_tool?.rentPricePerDay));
   late final _deposit = TextEditingController(text: _num(_tool?.deposit));
   late final _price = TextEditingController(text: _num(_tool?.purchasePrice));
-  late final _months = TextEditingController(text: (_tool?.installmentMonths ?? 0) == 0 ? '' : '${_tool!.installmentMonths}');
+  late final _deliveryFee = TextEditingController(text: _num(_tool?.deliveryFee));
   late String _category = _tool?.category ?? 'power';
   late String _condition = _tool?.condition ?? 'good';
   late String? _city = cities.contains(_tool?.city ?? Session.instance.user?.city) ? (_tool?.city ?? Session.instance.user!.city) : null;
   late int _stock = _tool?.stock ?? 1;
   late bool _available = _tool?.available ?? true;
-  late bool _sells = _tool?.hasInstallments ?? false;
+  late bool _sells = _tool?.forSale ?? false;
+  late bool _delivers = _tool?.deliveryAvailable ?? false;
   late List<String> _existing = [...?_tool?.images];
   final List<String> _removed = [];
   List<XFile> _photos = [];
@@ -35,16 +36,10 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _description, _rent, _deposit, _price, _months]) {
+    for (final c in [_name, _description, _rent, _deposit, _price, _deliveryFee]) {
       c.dispose();
     }
     super.dispose();
-  }
-
-  double get _monthly {
-    final price = double.tryParse(_price.text) ?? 0;
-    final months = int.tryParse(_months.text) ?? 0;
-    return months <= 0 ? 0 : (price / months).ceilToDouble();
   }
 
   Future<void> _save() async {
@@ -61,8 +56,8 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
       'stock': '$_stock',
       'available': '$_available',
       'purchasePrice': _sells ? _price.text : '0',
-      'installmentMonths': _sells ? _months.text : '0',
-      'installmentMonthly': _sells ? '${_monthly.round()}' : '0',
+      'deliveryAvailable': '$_delivers',
+      'deliveryFee': _delivers && _deliveryFee.text.isNotEmpty ? _deliveryFee.text : '0',
       if (_removed.isNotEmpty) 'removeImages': _removed.join(','),
     };
     try {
@@ -182,44 +177,44 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
           Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text('Also sell in installments', style: context.text.titleSmall),
-                Text('Customers pay monthly until it is theirs.', style: context.text.bodySmall),
+                Text('Also for sale', style: context.text.titleSmall),
+                Text('Customers can buy it outright, paid once.', style: context.text.bodySmall),
               ]),
             ),
             Switch(value: _sells, onChanged: (v) => setState(() => _sells = v)),
           ]),
           if (_sells) ...[
             Gap.h16,
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Field(
-                    label: 'Full price',
-                    hint: '24000',
-                    prefixText: 'Rs  ',
-                    controller: _price,
-                    keyboardType: TextInputType.number,
-                    formatters: Field.digits,
-                    onChanged: (_) => setState(() {}),
-                    validator: _sells ? positiveNumber('Enter the price') : null),
-              ),
-              Gap.w12,
-              Expanded(
-                child: Field(
-                  label: 'Months',
-                  hint: '6',
-                  controller: _months,
-                  keyboardType: TextInputType.number,
-                  formatters: Field.digits,
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) {
-                    if (!_sells) return null;
-                    final n = int.tryParse(v ?? '') ?? 0;
-                    return n < 1 || n > 60 ? '1–60 months' : null;
-                  },
-                ),
-              ),
-            ]),
-            if (_monthly > 0) ...[Gap.h12, Notice('Customers pay ${money(_monthly)} a month for ${_months.text} months.', tone: Tone.neutral)],
+            Field(
+                label: 'Sale price',
+                hint: '24000',
+                prefixText: 'Rs  ',
+                controller: _price,
+                keyboardType: TextInputType.number,
+                formatters: Field.digits,
+                validator: _sells ? positiveNumber('Enter the price') : null),
+          ],
+          const Divider(height: 28),
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('I deliver', style: context.text.titleSmall),
+                Text('Customers can have it delivered for your price. Otherwise they pick it up.', style: context.text.bodySmall),
+              ]),
+            ),
+            Switch(value: _delivers, onChanged: (v) => setState(() => _delivers = v)),
+          ]),
+          if (_delivers) ...[
+            Gap.h16,
+            Field(
+                label: 'Delivery price',
+                hint: '300',
+                helper: 'Leave empty for free delivery. Added to rentals and sales that are delivered.',
+                prefixText: 'Rs  ',
+                controller: _deliveryFee,
+                keyboardType: TextInputType.number,
+                formatters: Field.digits,
+                optional: true),
           ],
         ]),
       ),

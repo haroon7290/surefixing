@@ -227,7 +227,7 @@ router.get('/me/summary', authRequired, async (req, res) => {
       Rental.aggregate([{ $match: { supplier: id } }, { $group: { _id: '$status', n: { $sum: 1 } } }]),
       Rental.aggregate([
         { $match: { supplier: id, status: { $in: ['active', 'returned', 'completed'] } } },
-        { $group: { _id: null, total: { $sum: '$totalCost' } } }
+        { $group: { _id: null, total: { $sum: { $add: ['$totalCost', { $ifNull: ['$deliveryFee', 0] }] } } } }
       ])
     ]);
     return res.json({ ...base, tools, rentals: Object.fromEntries(byStatus.map((s) => [s._id, s.n])), revenue: revenueAgg[0]?.total || 0 });

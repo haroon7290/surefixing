@@ -16,7 +16,7 @@ describe('pickup / delivery details and tool chat', () => {
     stranger = await makeUser('client');
     const res = await supplier
       .api('post', '/api/tools')
-      .send({ name: 'Hammer drill', rentPricePerDay: 500, stock: 3, purchasePrice: 20000, installmentMonths: 4, installmentMonthly: 5000 });
+      .send({ name: 'Hammer drill', rentPricePerDay: 500, stock: 3, purchasePrice: 20000, deliveryAvailable: true, deliveryFee: 250 });
     tool = res.body;
   });
 
@@ -77,10 +77,28 @@ describe('pickup / delivery details and tool chat', () => {
     expect(incoming.body.handover.address).toBe('Flat 3, DHA');
   });
 
-  test('installment purchases choose pickup or delivery too', async () => {
+  test('purchases choose pickup or delivery too, at the supplier delivery price', async () => {
     const p = await renter.api('post', `/api/tools/${tool._id}/purchase`).send({ fulfillment: 'delivery', deliveryAddress: 'Office 2, Blue Area' });
     expect(p.status).toBe(201);
-    expect(p.body).toMatchObject({ type: 'installment', fulfillment: 'delivery', deliveryAddress: 'Office 2, Blue Area' });
+    expect(p.body).toMatchObject({ type: 'purchase', fulfillment: 'delivery', deliveryAddress: 'Office 2, Blue Area', deliveryFee: 250 });
+    expect(p.body.payment.amount).toBe(20250);
+    const pickup = await renter.api('post', `/api/tools/${tool._id}/purchase`).send({});
+    expect(pickup.body).toMatchObject({ fulfillment: 'pickup', deliveryFee: 0 });
+  });
+
+  test('invoice numbers count up; old installment plans become purchases', async () => {
+    const a = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ days: 1 });
+    const b = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ days: 1 });
+    expect(Number(b.body.invoiceNo.slice(4))).toBe(Number(a.body.invoiceNo.slice(4)) + 1);
+
+    const Rental = require('../src/models/Rental');
+    const { insertedId: _id } = await Rental.collection.insertOne({ tool: tool._id, renter: renter.id, supplier: supplier.id, type: 'installment', monthsTotal: 3, status: 'active', totalCost: 9000 });
+    expect(await Rental.migrateInstallments()).toBeGreaterThanOrEqual(1);
+    expect(await Rental.numberMissing()).toBeGreaterThanOrEqual(1);
+    const old = await Rental.findById(_id).lean();
+    expect(old).toMatchObject({ type: 'purchase', totalCost: 9000 });
+    expect(old.monthsTotal).toBeUndefined();
+    expect(old.number).toBeGreaterThan(1000);
   });
 
   test('customer and supplier chat about a tool; strangers are not reachable', async () => {

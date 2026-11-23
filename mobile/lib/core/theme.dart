@@ -440,10 +440,20 @@ abstract final class AppTheme {
         headerForegroundColor: c.onHero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(R.xl)),
       ),
+      // Scrollbars (website and desktop; phones scroll by touch): always
+      // shown, so the handle is there to grab. A hidden one only appeared
+      // while the wheel turned, and a click where it should be hit the track
+      // and jumped the page instead.
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor: WidgetStatePropertyAll(c.muted.withValues(alpha: 0.45)),
+        thumbVisibility: const WidgetStatePropertyAll(true),
+        trackVisibility: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.dragged)),
+        thumbColor: WidgetStateProperty.resolveWith(
+            (s) => c.muted.withValues(alpha: s.contains(WidgetState.dragged) ? 0.8 : (s.contains(WidgetState.hovered) ? 0.65 : 0.45))),
+        trackColor: WidgetStatePropertyAll(c.line.withValues(alpha: 0.5)),
+        trackBorderColor: const WidgetStatePropertyAll(Colors.transparent),
         radius: const Radius.circular(8),
-        thickness: const WidgetStatePropertyAll(6),
+        thickness: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.dragged) ? 10 : 7),
+        minThumbLength: 48,
       ),
       textSelectionTheme: TextSelectionThemeData(cursorColor: c.brand, selectionColor: c.brand.withValues(alpha: 0.25), selectionHandleColor: c.brand),
     );

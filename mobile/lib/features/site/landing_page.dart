@@ -515,7 +515,7 @@ class _Bento extends StatelessWidget {
       tile(AppIcons.sparkle, 'AI that explains itself', 'Every match shows its score and the reasons behind it: skills, ratings, reliability, distance and price.'),
       tile(AppIcons.verify, 'Verified identities', 'Technicians and suppliers prove who they are with a government ID before they earn the blue seal.'),
       tile(AppIcons.route, 'Live progress', 'Hired, on the way, working, finished. You see each step the moment it happens.'),
-      tile(AppIcons.tools, 'Tools by the day', 'Drills, ladders, pressure washers: rent what you need, or buy in monthly installments.'),
+      tile(AppIcons.tools, 'Tools by the day', 'Drills, ladders, pressure washers: rent what you need, or buy it outright, picked up or delivered.'),
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -673,7 +673,7 @@ class _JoinCards extends StatelessWidget {
         dark: false,
         icon: AppIcons.toolsFill,
         title: 'Tools gathering dust?\nPut them to work.',
-        body: 'List your equipment, approve rental requests, and earn from deposits-protected rentals and monthly installment sales.',
+        body: 'List your equipment, approve rental requests, and earn from deposit-protected rentals and tool sales, with your own delivery price.',
         cta: 'List your tools',
         role: 'supplier',
       ),

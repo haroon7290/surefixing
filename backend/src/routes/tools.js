@@ -29,9 +29,9 @@ const toolValidators = (optional) => {
     body('city').optional().trim().isLength({ max: 60 }),
     body('rentPricePerDay').optional().isFloat({ min: 0, max: 1000000 }).withMessage('Rent price must be a positive number').toFloat(),
     body('deposit').optional().isFloat({ min: 0, max: 1000000 }).toFloat(),
-    body('purchasePrice').optional().isFloat({ min: 0, max: 10000000 }).toFloat(),
-    body('installmentMonths').optional().isInt({ min: 0, max: 60 }).withMessage('Installment months must be 0–60').toInt(),
-    body('installmentMonthly').optional().isFloat({ min: 0, max: 10000000 }).toFloat(),
+    body('purchasePrice').optional().isFloat({ min: 0, max: 10000000 }).withMessage('Sale price must be a positive number').toFloat(),
+    body('deliveryAvailable').optional().isBoolean().toBoolean(),
+    body('deliveryFee').optional().isFloat({ min: 0, max: 100000 }).withMessage('Delivery price must be 0–100,000').toFloat(),
     body('stock').optional().isInt({ min: 0, max: 10000 }).withMessage('Stock must be 0 or more').toInt(),
     body('available').optional().isBoolean().toBoolean()
   ];
@@ -57,11 +57,11 @@ async function loadTool(id) {
 
 // --------------------------------------------------------------- browse
 
-// ?q= ?category= ?city= ?minPrice= ?maxPrice= ?available=1 ?installment=1
+// ?q= ?category= ?city= ?minPrice= ?maxPrice= ?available=1 ?forSale=1 ?delivery=1
 // ?sort=newest|price_asc|price_desc|rating|popular|distance ?mine=1 (supplier)
 // ?lat=&lng= (distances in the results) ?radius=5 (only within 5 km)
 router.get('/', optionalAuth, async (req, res) => {
-  const { mine, q: text, category, city, minPrice, maxPrice, available, installment, sort } = req.query;
+  const { mine, q: text, category, city, minPrice, maxPrice, available, forSale, delivery, sort } = req.query;
   const q = {};
   if (req.user?.role === 'supplier' && mine === '1') q.supplier = req.user._id;
   else q.available = true;
@@ -77,7 +77,8 @@ router.get('/', optionalAuth, async (req, res) => {
     if (maxPrice) q.rentPricePerDay.$lte = Number(maxPrice) || 0;
   }
   if (available === '1') q.stock = { $gt: 0 };
-  if (installment === '1') q.installmentMonths = { $gt: 0 };
+  if (forSale === '1') q.purchasePrice = { $gt: 0 };
+  if (delivery === '1') q.deliveryAvailable = true;
 
   const sorts = {
     newest: { createdAt: -1 },
@@ -196,17 +197,19 @@ router.delete('/:id', authRequired, requireRole('supplier', 'admin'), async (req
 const requestValidators = [
   body('fulfillment').optional().isIn(['pickup', 'delivery']).withMessage('Choose pickup or delivery'),
   body('deliveryAddress').optional().isString().trim().isLength({ max: 300 }).withMessage('Address is too long (max 300 characters)'),
-  body('note').optional().isString().isLength({ max: 500 })
+  body('note').optional().isString().isLength({ max: 500 }),
+  body('paymentMethod').optional().isIn(PAYMENT_METHODS).withMessage('Choose wallet or cash')
 ];
 
 // Pickup (from the supplier) or delivery (to an address the customer gives;
-// their saved profile address is the default).
-function handover(req) {
+// their saved profile address is the default) at the supplier's price.
+function handover(req, tool) {
   const fulfillment = req.body?.fulfillment === 'delivery' ? 'delivery' : 'pickup';
-  if (fulfillment === 'pickup') return { fulfillment, deliveryAddress: '' };
+  if (fulfillment === 'pickup') return { fulfillment, deliveryAddress: '', deliveryFee: 0 };
+  if (!tool.deliveryAvailable) throw badRequest("This supplier doesn't deliver this tool. Choose pickup instead.");
   const deliveryAddress = String(req.body?.deliveryAddress || req.user.address || '').trim();
   if (!deliveryAddress) throw badRequest('Enter the address to deliver to');
-  return { fulfillment, deliveryAddress };
+  return { fulfillment, deliveryAddress, deliveryFee: Math.round((tool.deliveryFee || 0) * 100) / 100 };
 }
 
 async function loadRentable(req, verb) {
@@ -230,7 +233,6 @@ router.post(
     body('days').optional().isInt({ min: 1, max: 90 }).withMessage('Rental length must be 1–90 days').toInt(),
     body('startDate').optional().isISO8601().withMessage('Invalid start date'),
     body('endDate').optional().isISO8601().withMessage('Invalid end date'),
-    body('paymentMethod').optional().isIn(PAYMENT_METHODS).withMessage('Choose wallet or cash'),
     ...requestValidators
   ],
   validate,
@@ -260,7 +262,7 @@ router.post(
       dailyRate: tool.rentPricePerDay,
       totalCost: Math.round(days * tool.rentPricePerDay * 100) / 100,
       deposit: tool.deposit || 0,
-      ...handover(req),
+      ...handover(req, tool),
       note: req.body.note || '',
       status: 'requested'
     });
@@ -272,28 +274,27 @@ router.post(
   }
 );
 
-// Buy on a monthly installment plan. Each month is paid from the wallet or
-// recorded by the supplier when paid in cash.
+// Buy the tool outright, paid once: from the wallet (held by SureFix until
+// the tool is handed over) or in cash on handover. Delivery costs extra.
 router.post('/:id/purchase', authRequired, requestValidators, validate, async (req, res) => {
   const tool = await loadRentable(req, 'buy');
-  if (!tool.installmentMonths) throw badRequest('This tool is not offered on installments');
+  if (!(tool.purchasePrice > 0)) throw badRequest('This tool is for rent only, not for sale');
 
-  const rental = await Rental.create({
+  const rental = new Rental({
     tool: tool._id,
     renter: req.user._id,
     supplier: tool.supplier,
-    type: 'installment',
+    type: 'purchase',
     totalCost: tool.purchasePrice,
-    monthsTotal: tool.installmentMonths,
-    monthsPaid: 0,
-    monthlyAmount: tool.installmentMonthly || Math.ceil(tool.purchasePrice / tool.installmentMonths),
-    payment: { method: 'cash', status: 'none', amount: tool.purchasePrice, net: tool.purchasePrice },
+    deposit: 0,
     startDate: new Date(),
-    ...handover(req),
+    ...handover(req, tool),
     note: req.body.note || '',
     status: 'requested'
   });
-  await announce(tool, rental, req.user, 'New purchase request', `${req.user.name} wants to buy "${tool.name}" on installments`);
+  await wallet.holdForRental(rental, req.body.paymentMethod || 'cash', tool.name); // 402 if the wallet is short
+  await rental.save();
+  await announce(tool, rental, req.user, 'New purchase request', `${req.user.name} wants to buy "${tool.name}"`);
   res.status(201).json(serializeRental(rental));
 });
 

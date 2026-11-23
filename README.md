@@ -5,7 +5,7 @@ in one mobile app **and website**. A customer describes a problem in their own w
 **AI engine works out the trade, the urgency and a fair price**, ranks the technicians who
 quote and **explains why each one fits**. The payment waits in **escrow** while the customer
 follows the job live, and is released only when they confirm the work. Anything a job needs
-can be rented by the day from local suppliers, or bought in monthly installments.
+can be rented by the day from local suppliers, or bought outright, picked up or delivered.
 
 <p align="center">
   <img src="docs/screenshots/app-client-home.jpg" width="200" alt="Customer home">
@@ -48,8 +48,8 @@ and tool market for visitors, and a sidebar web app for every role.
 - **Hire with escrow or cash.** Wallet payments are held by SureFix, not paid out.
 - **Follow the job live**: hired → on the way → working → finished, with the technician's
   work report and photos. **Confirm** to release the payment, then rate and review.
-- **Rent tools** by the day (pickup or delivery, refundable deposit, late fees) or **buy in
-  monthly installments**; save favourite technicians and tools.
+- **Rent tools** by the day (pickup or delivery, refundable deposit, late fees) or **buy them for
+  a one-time price**, with a detailed invoice for every rental and purchase; save favourite technicians and tools.
 
 **Technician** — earnings dashboard (this month, in escrow, wallet) · availability switch ·
 direct requests · jobs matching their skills with live alerts · **jobs near them** with the
@@ -57,9 +57,9 @@ distance, filtered by radius, urgency and budget · how far they travel for work
 the fee shown up front · one-tap progress updates · finish with a note and photos · profile
 with skills, rates and a **portfolio** · identity verification for the blue seal.
 
-**Supplier** — revenue dashboard · shop location (customers see how far each tool is) · tool listings with photos, deposit, stock and installment
-terms · approve / decline requests (stock reserved atomically) · take tools back with
-automatic late fees · record installment payments · chat with customers.
+**Supplier** — revenue dashboard · shop location (customers see how far each tool is) · tool listings with photos, deposit, stock, a sale price and
+their own delivery price · approve / decline requests (stock reserved atomically) · take tools back with
+automatic late fees · hand sold tools over · detailed invoices · chat with customers.
 
 **Admin** — **support chat**: message anyone as "SureFix Support" while resolving an issue ·
 **payments desk**: check deposits against the statement and approve or reject
@@ -94,7 +94,7 @@ Everything runs natively — see **[WINDOWS_SETUP.md](./WINDOWS_SETUP.md)** for 
 > loads fresh demo data).
 
 The demo data has 13 accounts, jobs in every state, quotes, reviews, tools, rentals,
-installment plans, wallet history and chats. All demo passwords are `password123`:
+sales, wallet history and chats. All demo passwords are `password123`:
 
 | Role | Email |
 |---|---|
@@ -130,7 +130,7 @@ docker compose exec backend npm run seed -- --force   # optional demo data
 
 | Suite | Command | What it covers |
 |---|---|---|
-| Backend (92) | `cd backend && npm test` | Auth and password reset, the job lifecycle, escrow hold / release / refund, fees, deposits and withdrawals with admin approval (duplicate transaction IDs, double approval, held payouts), **near-me search** (radius, coverage, distances without leaking coordinates), rentals, late fees, installments, chat, privacy, admin disputes and cascading delete, uploads, AI fallback — against a real MongoDB |
+| Backend (92) | `cd backend && npm test` | Auth and password reset, the job lifecycle, escrow hold / release / refund, fees, deposits and withdrawals with admin approval (duplicate transaction IDs, double approval, held payouts), **near-me search** (radius, coverage, distances without leaking coordinates), rentals, purchases, delivery prices, invoice numbers, late fees, chat, privacy, admin disputes and cascading delete, uploads, AI fallback — against a real MongoDB |
 | AI service (34) | `cd ai-service && pytest` | Stemming, held-out classifier accuracy, urgency, scoring properties (nearer ranks higher), API contract, **JS ↔ Python parity** |
 | App (43) | `cd mobile && flutter test` | Models and formatting; **every screen rendered at phone and desktop size** against a fake backend to catch layout overflows; hiring, confirming, quoting, approving, deposit, withdrawal and payment-review flows; near-me filters, the area picker and profile location |
 

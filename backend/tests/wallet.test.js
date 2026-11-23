@@ -11,7 +11,7 @@ afterAll(disconnect);
 const balance = async (user) => (await User.findById(user.id)).walletBalance;
 const DAY = 24 * 3600 * 1000;
 
-describe('wallet, rentals in escrow and installments', () => {
+describe('wallet, rentals and purchases in escrow', () => {
   let supplier;
   let renter;
   let tool;
@@ -25,9 +25,7 @@ describe('wallet, rentals in escrow and installments', () => {
         rentPricePerDay: 1000,
         deposit: 3000,
         stock: 5,
-        purchasePrice: 12000,
-        installmentMonths: 3,
-        installmentMonthly: 4000
+        purchasePrice: 12000
       })
     ).body;
   });
@@ -203,39 +201,65 @@ describe('wallet, rentals in escrow and installments', () => {
     expect(await balance(renter)).toBe(before);
   });
 
-  test('installment plan: monthly payments by wallet or cash, completes when all are paid', async () => {
+  test('buying a tool: paid once, held until handed over; delivery at the supplier price', async () => {
     const stock = (await Tool.findById(tool._id)).stock;
-    const plan = await renter.api('post', `/api/tools/${tool._id}/purchase`).send({});
-    expect(plan.body).toMatchObject({ type: 'installment', monthsTotal: 3, monthsPaid: 0, monthlyAmount: 4000, monthsRemaining: 3 });
-    await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`).expect(400); // not approved yet
-    await supplier.api('post', `/api/rentals/${plan.body._id}/approve`).expect(200);
-    expect((await Tool.findById(tool._id)).stock).toBe(stock - 1);
+    // Delivery only where the supplier offers it.
+    const noDelivery = await renter.api('post', `/api/tools/${tool._id}/purchase`).send({ fulfillment: 'delivery', deliveryAddress: 'House 1, Gulberg' });
+    expect(noDelivery.status).toBe(400);
+    await supplier.api('patch', `/api/tools/${tool._id}`).send({ deliveryAvailable: true, deliveryFee: 500 }).expect(200);
 
+    await fund(renter, 12500);
     const before = { renter: await balance(renter), supplier: await balance(supplier) };
-    await supplier.api('post', `/api/rentals/${plan.body._id}/pay-installment`).expect(403);
-    const first = await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`);
-    expect(first.body).toMatchObject({ monthsPaid: 1, monthsRemaining: 2, status: 'active' });
-    expect(await balance(renter)).toBe(before.renter - 4000);
-    expect(await balance(supplier)).toBe(before.supplier + 3600);
+    const buy = await renter
+      .api('post', `/api/tools/${tool._id}/purchase`)
+      .send({ paymentMethod: 'wallet', fulfillment: 'delivery', deliveryAddress: 'House 1, Gulberg' });
+    expect(buy.status).toBe(201);
+    expect(buy.body).toMatchObject({ type: 'purchase', totalCost: 12000, deliveryFee: 500, deposit: 0, status: 'requested' });
+    expect(buy.body.payment).toMatchObject({ method: 'wallet', status: 'held', amount: 12500, deposit: 0, fee: 1250, net: 11250 });
+    expect(buy.body.invoiceNo).toMatch(/^INV-\d+$/);
+    expect(await balance(renter)).toBe(before.renter - 12500);
 
-    await renter.api('post', `/api/rentals/${plan.body._id}/record-installment`).expect(403);
-    const second = await supplier.api('post', `/api/rentals/${plan.body._id}/record-installment`).send({});
-    expect(second.body.monthsPaid).toBe(2);
-    // An empty wallet can't pay; the plan simply stays where it is.
-    const short = await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`);
-    expect(short.status).toBe(402);
-    expect((await renter.api('get', `/api/rentals/${plan.body._id}`)).body.monthsPaid).toBe(2);
-    await fund(renter, 5000);
-    const last = await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`);
-    expect(last.body).toMatchObject({ monthsPaid: 3, monthsRemaining: 0, status: 'completed' });
-    await renter.api('post', `/api/rentals/${plan.body._id}/pay-installment`).expect(400);
-    // A bought tool stays sold.
+    const id = buy.body._id;
+    await renter.api('post', `/api/rentals/${id}/complete`).expect(400); // not approved yet
+    await supplier.api('post', `/api/rentals/${id}/approve`).expect(200);
+    expect((await Tool.findById(tool._id)).stock).toBe(stock - 1);
+    const outsider = await makeUser('client');
+    await outsider.api('post', `/api/rentals/${id}/complete`).expect(403);
+
+    // The buyer confirms it arrived: the supplier is paid.
+    const done = await renter.api('post', `/api/rentals/${id}/complete`);
+    expect(done.body).toMatchObject({ status: 'completed' });
+    expect(done.body.payment.status).toBe('released');
+    expect(done.body.completedAt).toBeTruthy();
+    expect(await balance(supplier)).toBe(before.supplier + 11250);
+    expect(await balance(renter)).toBe(before.renter - 12500);
+    await supplier.api('post', `/api/rentals/${id}/complete`).expect(400);
+    // A sold tool doesn't come back into stock.
     expect((await Tool.findById(tool._id)).stock).toBe(stock - 1);
 
-    const cashPlan = await renter.api('post', `/api/tools/${tool._id}/purchase`).send({});
-    await supplier.api('post', `/api/rentals/${cashPlan.body._id}/approve`).expect(200);
-    const settled = await supplier.api('post', `/api/rentals/${cashPlan.body._id}/record-installment`).send({ all: true });
-    expect(settled.body).toMatchObject({ status: 'completed', monthsPaid: 3 });
+    // Cash: paid on handover, which the supplier records.
+    const cash = await renter.api('post', `/api/tools/${tool._id}/purchase`).send({});
+    expect(cash.body.payment).toMatchObject({ method: 'cash', status: 'cash_due', amount: 12000 });
+    await supplier.api('post', `/api/rentals/${cash.body._id}/approve`).expect(200);
+    const handed = await supplier.api('post', `/api/rentals/${cash.body._id}/complete`);
+    expect(handed.body).toMatchObject({ status: 'completed', payment: { status: 'cash_paid' } });
+    await renter.api('post', `/api/rentals/${cash.body._id}/review`).send({ rating: 5 }).expect(200);
+
+    // Rent-only tools can't be bought.
+    const rentOnly = (await supplier.api('post', '/api/tools').send({ name: 'Scaffold', rentPricePerDay: 900 })).body;
+    await renter.api('post', `/api/tools/${rentOnly._id}/purchase`).send({}).expect(400);
+  });
+
+  test('a rental delivered to the door adds the delivery price to what is paid', async () => {
+    await fund(renter, 3000);
+    const before = await balance(renter);
+    const r = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ days: 1, paymentMethod: 'wallet', fulfillment: 'delivery', deliveryAddress: 'Flat 9, DHA' });
+    expect(r.status).toBe(201);
+    expect(r.body).toMatchObject({ totalCost: 1000, deliveryFee: 500 });
+    expect(r.body.payment).toMatchObject({ amount: 1500, deposit: 3000, fee: 150, net: 1350 });
+    expect(await balance(renter)).toBe(before - 4500);
+    await renter.api('post', `/api/rentals/${r.body._id}/cancel`).expect(200);
+    expect(await balance(renter)).toBe(before);
   });
 
   test('deleting a tool refunds wallet-paid pending requests', async () => {

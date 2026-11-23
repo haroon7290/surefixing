@@ -89,38 +89,42 @@ final List<Json> fakeJobs = [
   _job('j6', 'Install new distribution box', 'electrical', 'pending', extra: {'requestedTechnician': _card(_tech1)}),
 ];
 
-Json _tool(String id, String name, String category, {int months = 0}) => {
+Json _tool(String id, String name, String category, {bool forSale = false, double deliveryFee = -1}) => {
       '_id': id, 'supplier': {'_id': 's1', 'name': 'ToolCo Rentals', 'avatar': '', 'city': 'Lahore', 'kycStatus': 'approved', 'createdAt': _ago(const Duration(days: 150))},
       'name': name, 'description': '18V cordless drill/driver with 2 batteries, charger and a 30-piece bit set.', 'category': category, 'condition': 'like_new', 'city': 'Lahore', 'area': 'Garden Town',
-      'images': <String>[], 'rentPricePerDay': 800, 'deposit': 5000, 'purchasePrice': months > 0 ? 32000 : 0, 'installmentMonths': months, 'installmentMonthly': months > 0 ? 5500 : 0,
+      'images': <String>[], 'rentPricePerDay': 800, 'deposit': 5000, 'purchasePrice': forSale ? 32000 : 0,
+      'deliveryAvailable': deliveryFee >= 0, 'deliveryFee': deliveryFee < 0 ? 0 : deliveryFee,
       'available': true, 'stock': 3, 'rating': 4.8, 'ratingCount': 5, 'rentalsCount': 12,
     };
 
 final List<Json> fakeTools = [
-  _tool('tool1', 'Bosch Cordless Drill 18V', 'power', months: 6),
+  _tool('tool1', 'Bosch Cordless Drill 18V', 'power', forSale: true, deliveryFee: 300),
   _tool('tool2', 'Aluminium Extension Ladder 12 ft', 'ladders'),
   _tool('tool3', 'Karcher Pressure Washer K2', 'cleaning'),
 ];
 
-Json _rental(String id, String type, String status, {bool overdue = false, Json? payment}) => {
+Json _rental(String id, String type, String status, {bool overdue = false, Json? payment, int number = 1001, double deliveryFee = 0}) => {
       '_id': id, 'tool': {'_id': 'tool1', 'name': 'Bosch Cordless Drill 18V', 'images': <String>[], 'category': 'power', 'city': 'Lahore'},
       'renter': {'_id': 'c1', 'name': 'Sara Khan', 'avatar': '', 'city': 'Lahore', if (status == 'active') 'phone': '0300-1234501'},
       'supplier': {'_id': 's1', 'name': 'ToolCo Rentals', 'avatar': '', 'city': 'Lahore', 'kycStatus': 'approved', if (status == 'active') 'phone': '042-1234567'},
-      'type': type, 'startDate': _ago(const Duration(days: 5)), 'endDate': overdue ? _ago(const Duration(days: 2)) : _in(const Duration(days: 2)), 'days': 3,
-      'dailyRate': 800, 'deposit': 5000, 'totalCost': type == 'rent' ? 2400 : 32000, 'monthsTotal': type == 'rent' ? 0 : 6, 'monthsPaid': type == 'rent' ? 0 : 2,
-      'monthlyAmount': type == 'rent' ? 0 : 5500, 'monthsRemaining': type == 'rent' ? 0 : 4,
+      'type': type, 'number': number, 'invoiceNo': 'INV-$number', 'startDate': _ago(const Duration(days: 5)), 'endDate': overdue ? _ago(const Duration(days: 2)) : _in(const Duration(days: 2)), 'days': 3,
+      'dailyRate': 800, 'deposit': 5000, 'totalCost': type == 'rent' ? 2400 : 32000, 'deliveryFee': deliveryFee,
       'payment': payment ?? {'method': 'wallet', 'status': 'held', 'amount': 2400, 'deposit': 5000, 'fee': 240, 'net': 2160},
-      'fulfillment': 'pickup', 'note': 'I can collect after 5 pm', 'status': status, 'overdue': overdue, 'daysLeft': overdue ? -2 : 2,
+      'fulfillment': deliveryFee > 0 ? 'delivery' : 'pickup', 'note': 'I can collect after 5 pm', 'status': status, 'overdue': overdue, 'daysLeft': overdue ? -2 : 2,
       if (overdue) 'lateDays': 2, if (overdue) 'lateFee': 1600,
-      'handover': {'method': 'pickup', 'address': status == 'active' ? 'Shop 12, Hall Road, Lahore' : '', 'city': 'Lahore', 'revealed': status == 'active'},
+      'handover': deliveryFee > 0
+          ? {'method': 'delivery', 'address': 'House 14, Street 7, DHA Phase 4, Lahore', 'city': '', 'revealed': true}
+          : {'method': 'pickup', 'address': status == 'active' ? 'Shop 12, Hall Road, Lahore' : '', 'city': 'Lahore', 'revealed': status == 'active'},
+      if (status != 'requested') 'approvedAt': _ago(const Duration(days: 5)),
       'createdAt': _ago(const Duration(days: 6)),
     };
 
 final List<Json> fakeRentals = [
-  _rental('r1', 'rent', 'requested'),
-  _rental('r2', 'rent', 'active', overdue: true),
-  _rental('r3', 'installment', 'active', payment: {'method': 'cash', 'status': 'none', 'amount': 32000, 'net': 32000}),
-  _rental('r4', 'rent', 'returned', payment: {'method': 'wallet', 'status': 'released', 'amount': 2400, 'deposit': 5000, 'fee': 240, 'net': 2160}),
+  _rental('r1', 'rent', 'requested', number: 1004),
+  _rental('r2', 'rent', 'active', overdue: true, number: 1003),
+  _rental('r3', 'purchase', 'active', number: 1002, deliveryFee: 300,
+      payment: {'method': 'wallet', 'status': 'held', 'amount': 32300, 'deposit': 0, 'fee': 3230, 'net': 29070, 'heldAt': _ago(const Duration(days: 6))}),
+  _rental('r4', 'rent', 'returned', number: 1001, payment: {'method': 'wallet', 'status': 'released', 'amount': 2400, 'deposit': 5000, 'fee': 240, 'net': 2160}),
 ];
 
 const Json _payout = {'method': 'mobile_wallet', 'provider': 'JazzCash', 'accountTitle': 'Sara Khan', 'accountNumber': '0300-1234501'};

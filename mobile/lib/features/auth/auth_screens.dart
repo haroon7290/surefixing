@@ -61,7 +61,7 @@ class _AuthLayout extends StatelessWidget {
                 for (final (icon, text) in const [
                   (AppIcons.sparkleFill, 'Match scores with plain-language reasons'),
                   (AppIcons.shieldFill, 'Escrow wallet: pay only for finished work'),
-                  (AppIcons.toolsFill, 'Rent tools by the day, or buy monthly'),
+                  (AppIcons.toolsFill, 'Rent tools by the day, or buy them outright'),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(bottom: 14),

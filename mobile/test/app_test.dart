@@ -147,8 +147,11 @@ void main() {
 
     test('Tool and Rental computed helpers', () {
       final tool = Tool.fromJson(fakeTools.first);
-      expect(tool.hasInstallments, isTrue);
-      expect(tool.monthly, 5500);
+      expect(tool.forSale, isTrue);
+      expect(tool.deliveryAvailable, isTrue);
+      expect(tool.deliveryFee, 300);
+      expect(Tool.fromJson(fakeTools[1]).forSale, isFalse);
+      expect(Tool.fromJson(fakeTools[1]).deliveryAvailable, isFalse);
       expect(tool.rentable, isTrue);
       expect(Tool.fromJson({'_id': 't', 'supplier': 's', 'stock': 0}).rentable, isFalse);
 
@@ -157,9 +160,11 @@ void main() {
       expect(late.lateFee, 1600);
       expect(late.handover.revealed, isTrue);
       expect(late.supplier.phone, '042-1234567');
-      final plan = Rental.fromJson(fakeRentals[2]);
-      expect(plan.isInstallment, isTrue);
-      expect(plan.monthsRemaining, 4);
+      final sale = Rental.fromJson(fakeRentals[2]);
+      expect(sale.isPurchase, isTrue);
+      expect(sale.amount, 32300);
+      expect(sale.invoiceNo, 'INV-1002');
+      expect(sale.handover.delivery, isTrue);
       expect(Rental.fromJson(fakeRentals[0]).handover.address, isEmpty);
       expect(Rental.fromJson(fakeRentals[3]).canReview, isTrue);
     });
@@ -425,6 +430,51 @@ void main() {
       await tapOn(tester, find.text('Send quote'));
       expect(sent, contains('POST /api/jobs/j1/bids'));
       expect(sentBodies['POST /api/jobs/j1/bids']['amount'], 3000);
+    });
+
+    testWidgets('customer buys a tool outright, delivered at the supplier price', (tester) async {
+      await pumpApp(tester, role: 'client');
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const ToolDetailScreen(toolId: 'tool1')));
+      await settle(tester);
+      await tapOn(tester, find.text('Buy'));
+      expect(find.text('One-time price · the tool is yours to keep'), findsOneWidget);
+      expect(find.text('Request to rent'), findsNothing);
+      await tapOn(tester, find.text('Deliver (+Rs 300)'));
+      expect(find.text('Rs 32,300'), findsOneWidget); // price + delivery
+      await tapOn(tester, find.text('Request to buy'));
+      await tapOn(tester, find.text('Cash'));
+      await tester.tap(find.text('Send request'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(sentBodies['POST /api/tools/tool1/purchase'],
+          {'paymentMethod': 'cash', 'fulfillment': 'delivery', 'deliveryAddress': 'House 14, Street 7, DHA Phase 4, Lahore', 'note': ''});
+      expect(find.text('Request sent'), findsOneWidget);
+      await tester.tap(find.text('Stay here'));
+      await tester.pump(const Duration(seconds: 6)); // let the toast go
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('a tool without delivery is pickup only', (tester) async {
+      await pumpApp(tester, role: 'client');
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const ToolDetailScreen(toolId: 'tool2')));
+      await settle(tester);
+      expect(find.text('Buy'), findsNothing); // rent only
+      expect(find.textContaining('Pickup only'), findsOneWidget);
+      expect(find.textContaining('Deliver'), findsNothing);
+    });
+
+    testWidgets('the invoice lists every charge; the supplier marks a sale delivered', (tester) async {
+      await pumpApp(tester, role: 'supplier', size: desktop);
+      navigatorKey.currentState!.push(MaterialPageRoute(builder: (_) => const RentalDetailScreen(rentalId: 'r3', forSupplier: true)));
+      await settle(tester);
+      for (final text in ['Invoice', 'Tool price', 'Delivery', 'Subtotal', 'Rs 32,300', 'SureFix service fee', 'You receive', 'Rs 29,070', 'From (supplier)', 'Billed to (customer)']) {
+        expect(find.text(text), findsWidgets, reason: text);
+      }
+      expect(find.textContaining('INV-1002'), findsWidgets);
+      await tapOn(tester, find.text('Mark delivered').first);
+      await tapOn(tester, find.text('Mark delivered').last);
+      expect(sent, contains('POST /api/rentals/r3/complete'));
     });
 
     testWidgets('supplier approves a rental request from the dashboard', (tester) async {

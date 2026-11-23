@@ -40,11 +40,11 @@ panel on the website and a filter sheet on phones.
 ranking for Smart Match and quotes (proximity from real distance), responsiveness measured from real quote times, an
 in-process JavaScript fallback kept identical by a parity test.
 
-**Tools & rentals** — listings with photos, deposit, condition, stock and installment terms;
+**Tools & rentals** — listings with photos, deposit, condition, stock, a sale price and the supplier's delivery price;
 search, filters, sorting; rental requests with dates, pickup or delivery and a payment
 choice; supplier approve (atomic stock reservation) / decline / mark returned; **late fees**
-taken from the deposit; **installment plans** paid monthly from the wallet or recorded as
-cash; renter cancel; reviews; favourites.
+taken from the deposit; **one-time purchases** (wallet held until handover, or cash); detailed **invoices**
+(INV-1001…); renter cancel; reviews; favourites.
 
 **Communication** — job chat between a client and each technician, tool chat between a
 customer and the supplier, inbox with unread counts, read receipts, typing indicator, photo
@@ -78,8 +78,6 @@ analyzer-clean Flutter code.
   with one tap; nothing closes it on a timer.
 - **Maps** — the map picker needs internet for OpenStreetMap tiles and distances are straight
   lines, not driving routes. Areas cover 10 cities; elsewhere users pick a spot on the map.
-- **Installment reminders** — due dates are not scheduled; the buyer pays or the supplier
-  records each month.
 - **File storage** — uploads live on the backend's disk (`backend/uploads`); production would
   use object storage.
 - **Scale** — recommendation scores every active technician per request (fine for thousands).

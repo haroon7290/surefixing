@@ -37,7 +37,7 @@ class AboutPage extends StatelessWidget {
       'supplier',
       'List your tools',
       [
-        ('List in minutes', 'Add photos, a daily rate, a deposit and stock. Offer monthly installments if you sell.'),
+        ('List in minutes', 'Add photos, a daily rate, a deposit and stock. Set a sale price if you also sell, and your delivery price if you deliver.'),
         ('Approve each request', 'You decide who rents. Stock is reserved automatically and released on return.'),
         ('Protected rentals', 'Deposits cover late returns, and wallet payments are settled the moment a tool is back.'),
       ]
