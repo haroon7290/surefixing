@@ -1268,7 +1268,7 @@ The Data Layer is a MongoDB Atlas database holding all the system's data, includ
 Combined with real-time communication through Socket.IO, this layered design keeps the system flexible and efficient, and able to handle many users and complex workflows at the same time.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Architecture.PNG}
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{Architecture.PNG}
     \caption{Architectural Design}
     \label{fig:placeholder}
 \end{figure}
@@ -1280,7 +1280,7 @@ We used UML models to describe the design of SureFix. The use case diagram shows
 
 
 \subsection{Activity Diagram}
-This activity diagram gives a compact view of the main flow for each role. After signing up and confirming their email, clients post jobs, hire from AI-ranked quotes using the wallet (escrow) or cash, and confirm completion, which releases the payment; they can also rent or buy tools. Technicians find nearby jobs and send quotes, suppliers list tools and approve requests, and the admin checks KYC (optional, but it earns a verified seal) and reviews payments.
+The activity diagram is shown in two parts so that it stays readable in print: the client workflow, and the technician, supplier and admin workflows. After signing up and confirming their email, clients post jobs, hire from AI-ranked quotes using the wallet (escrow) or cash, and confirm completion, which releases the payment; they can also rent or buy tools. Technicians find nearby jobs and send quotes, suppliers list tools and approve requests, and the admin checks KYC (optional, but it earns a verified seal) and reviews payments.
 
 
 
@@ -1288,58 +1288,105 @@ This activity diagram gives a compact view of the main flow for each role. After
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\linewidth]{Compact.png}
-    \caption{Activity Diagram – System Workflow (Compact)}
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{act_client.png}
+    \caption{Activity Diagram – Client Workflow}
+    \label{fig:placeholder}
+\end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{act_others.png}
+    \caption{Activity Diagram – Technician, Supplier and Admin Workflows}
     \label{fig:placeholder}
 \end{figure}
 
 
 \subsection{Usecase Diagram}
-The use case diagram shows how each actor uses SureFix. Clients post jobs or use Smart Match, find technicians near them, hire from AI-ranked quotes, confirm completion, rent or buy tools and use the wallet. Technicians find jobs, send quotes and update the job stage, while suppliers list tools and approve rentals and sales; both can submit KYC. The admin verifies KYC, reviews deposits and withdrawals, manages the company accounts and handles support. The diagram also shows how use cases depend on each other, for example on login, email verification and the wallet.
+The use case diagram is shown in two parts, one for clients and technicians and one for suppliers and administrators. Clients post jobs or use Smart Match, find technicians near them, hire from AI-ranked quotes, confirm completion, rent or buy tools and use the wallet. Technicians find jobs, send quotes and update the job stage, while suppliers list tools and approve rentals and sales; both can submit KYC. The admin verifies KYC, reviews deposits and withdrawals, manages the company accounts and handles support. The diagram also shows how use cases depend on each other, for example on login, email verification and the wallet.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{mermaid-diagram.png}
-    \caption{Use Case Diagram}
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{uc_client_tech.png}
+    \caption{Use Case Diagram – Client and Technician}
+    \label{fig:placeholder}
+\end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{uc_supplier_admin.png}
+    \caption{Use Case Diagram – Supplier and Admin}
     \label{fig:placeholder}
 \end{figure}
 
 
 \subsection{Class Diagram}
-The class diagram shows the main parts of the system: users, jobs, quotes, embedded payments, tools, rentals and purchases, wallet transactions and requests, company payment accounts, messages, notifications, KYC, reports and the AI ranker. It shows how users post jobs, quote, rent or buy tools, move money and communicate.
+The class diagram is split into four smaller diagrams so that every class can be read clearly. It shows the main parts of the system: users, jobs, quotes, embedded payments, tools, rentals and purchases, wallet transactions and requests, company payment accounts, messages, notifications, KYC, reports and the AI ranker. It shows how users post jobs, quote, rent or buy tools, move money and communicate.
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{image1.png}
-    \caption{Class Diagram}
-    \label{fig:enter-label}
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{class_jobs.png}
+    \caption{Class Diagram – Users, Jobs, Quotes and the AI Ranker}
+    \label{fig:placeholder}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{class_tools.png}
+    \caption{Class Diagram – Tools, Rentals and Purchases}
+    \label{fig:placeholder}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{class_wallet.png}
+    \caption{Class Diagram – Wallet and Payments}
+    \label{fig:placeholder}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{class_comm.png}
+    \caption{Class Diagram – Messages, Notifications, KYC and Reports}
+    \label{fig:placeholder}
 \end{figure}
 \subsection{Sequence Diagram}
-The sequence diagram follows a typical job from start to finish. When a client posts a job, the backend asks the AI service for its category and urgency, saves the job with its number and alerts nearby technicians straight away. Technicians send quotes, which the AI service ranks with a score, a match percentage and reasons before the client sees them. The client hires a technician and pays into escrow. The technician reports each stage (on the way, working, done), the client confirms the work, and the payment, minus the 10\% fee, is released to the technician's wallet. Finally, the client leaves a review.
+The sequence diagram is shown in two parts, posting a job and ranking quotes, then hiring, completion and payment. It follows a typical job from start to finish. When a client posts a job, the backend asks the AI service for its category and urgency, saves the job with its number and alerts nearby technicians straight away. Technicians send quotes, which the AI service ranks with a score, a match percentage and reasons before the client sees them. The client hires a technician and pays into escrow. The technician reports each stage (on the way, working, done), the client confirms the work, and the payment, minus the 10\% fee, is released to the technician's wallet. Finally, the client leaves a review.
 
 In this way it shows how data moves between the app, the backend, the AI service, the database and the people involved.
 
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{mermaid-diagram (6).png}
-    \caption{Sequence Diagram}
-    \label{fig:enter-label}
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{seq_post.png}
+    \caption{Sequence Diagram – Posting a Job and Ranking Quotes}
+    \label{fig:placeholder}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{seq_pay.png}
+    \caption{Sequence Diagram – Hiring, Completion and Payment}
+    \label{fig:placeholder}
 \end{figure}
 
 \newpage
 
 \subsection{State Transition Diagram }
-The state transition diagram shows the two main life cycles in SureFix. A job stays pending while quotes come in, moves to in progress once the client hires someone (passing through the stages hired, on the way, working and done), and becomes completed when the client confirms or 72 hours pass, after which the client can leave a review; a pending job can also be cancelled. A tool request is either approved or declined by the supplier; an approved rental ends when the tool comes back, and an approved purchase ends when the tool is handed over.
+The state transition diagram shows the two main life cycles in SureFix, each in its own figure. A job stays pending while quotes come in, moves to in progress once the client hires someone (passing through the stages hired, on the way, working and done), and becomes completed when the client confirms or 72 hours pass, after which the client can leave a review; a pending job can also be cancelled. A tool request is either approved or declined by the supplier; an approved rental ends when the tool comes back, and an approved purchase ends when the tool is handed over.
 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.63\linewidth]{mermaid-diagram (8).png}
-    \caption{State Transition Diagram}
-    \label{fig:enter-label}
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{state_job.png}
+    \caption{State Transition Diagram – Job Life Cycle}
+    \label{fig:placeholder}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{state_tool.png}
+    \caption{State Transition Diagram – Tool Rental and Purchase}
+    \label{fig:placeholder}
 \end{figure}
 
 
@@ -1647,7 +1694,7 @@ This section describes the main objects on each screen and what happens when the
 
 \textbf{Object:} Sidebar (wide screens) or bottom dock (phones) with the role's sections and the account menu.    
 
-\textbf{Action:} The user selects any option from the drawer.  
+\textbf{Action:} The user selects any section from the sidebar or the dock.  
 
 \textbf{System Response:} The system navigates to the selected screen or performs the logout action.
 
@@ -1773,7 +1820,7 @@ Express.js & 5.2.1 & Framework for building REST APIs and managing routing and m
 
 Socket.IO & 4.7.5 & Enables real-time communication for messaging and notifications. \\ \hline
 
-MongoDB & Atlas / 7 & NoSQL database for storing users, jobs, bids, tools, and transactions, with geospatial indexes. \\ \hline
+MongoDB & Atlas (cloud) & NoSQL database for storing users, jobs, bids, tools, and transactions, with geospatial indexes. \\ \hline
 
 Mongoose & 8.0.3 & ODM for schema validation and structured database interaction. \\ \hline
 
@@ -1789,7 +1836,7 @@ JWT (jsonwebtoken) & 9.0.2 & Provides secure session authorization across the sy
 
 Firebase Authentication & firebase\_auth 7 / firebase-admin 13 & Sign-in, email verification and password-reset emails. \\ \hline
 
-Jest / flutter\_test / pytest & 29 / SDK / 8 & Automated test suites for backend, app and AI service. \\ \hline
+Jest / flutter\_test / pytest & 29 / SDK / $\geq$7.4 & Automated test suites for backend, app and AI service. \\ \hline
 
 GitHub Actions & -- & Continuous integration, website publishing and APK builds. \\ \hline
 
@@ -1853,7 +1900,7 @@ This is the entry point of the application, as shown in Figure X.X.
 
 -- \textbf{Description:} This screen allows users to log in or register using email and password. Users select their role (client, technician, or supplier) during registration and confirm their email before the first login.
 
--- \textbf{Features:} It includes input validation, Firebase Authentication with JWT sessions, password-reset links, and one-tap demo accounts for quick testing.
+-- \textbf{Features:} It includes input validation, Firebase Authentication with JWT sessions, and password-reset links; demo builds also show one-tap demo accounts for quick testing.
 
 -- \textbf{Context:} After successful login, users are redirected to their respective dashboards based on their role.
 
