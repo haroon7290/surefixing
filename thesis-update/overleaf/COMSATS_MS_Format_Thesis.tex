@@ -482,10 +482,10 @@ In short, SureFix brings hiring, payment and tools together in one trustworthy p
 \vspace{1cm} % adjust space after title
 
 % --- Chapter introduction text (not numbered) ---
-This chapter introduces the background, motivation, and problem
-statement of the project. It highlights the research gap and explains
-why this study is important. The chapter also outlines the objectives
-and structure of the work.
+This chapter explains why we built SureFix. It describes how people find
+technicians today and what goes wrong, states the problem we set out to
+solve, and lists our objectives, the limits of the system, what we
+delivered and how the project relates to our coursework.
 
 \end{spacing}
 
@@ -567,7 +567,7 @@ The project, titled “SureFix – Marketplace for Home Repairs and Tool Rentals
     \item \textbf{Software Engineering Concepts \& Software Design and Architecture:} Guided us through the whole life cycle, from requirements and design to a modular architecture and implementation.
         \item \textbf{Database Management Systems:} Used to design the MongoDB database, including geospatial indexes and atomic updates, for users, jobs, bids, wallet transactions and tools.
     \item \textbf{Artificial Intelligence / Machine Learning:} Applied in the AI service that classifies problems and ranks technicians by performance.
-    \item \textbf{Programming and Object-Oriented Programming:} Provided the programming foundation for the app logic, backend services and well-structured code.
+    \item \textbf{Programming and Object-Oriented Programming:} Gave us the programming base we needed for the app, the backend services and clean, organised code.
     \item \textbf{Report Writing:} Used for the proposal, this thesis, project documentation and presentations.
 \end{itemize}
 
@@ -575,9 +575,9 @@ The project, titled “SureFix – Marketplace for Home Repairs and Tool Rentals
 
 This project contributes to digital service marketplaces and home maintenance in the following ways:
 \begin{itemize}
-        \item \textbf{Development of a Unified Service Platform:} Job posting, competitive bidding, hiring, an escrow wallet, tool rental and one-time tool purchase with delivery all live in one application, instead of being spread across separate services.
+        \item \textbf{One Platform for the Whole Job:} Job posting, competitive bidding, hiring, an escrow wallet, tool rental and one-time tool purchase with delivery all live in one application, instead of being spread across separate services.
         \item \textbf{Introduction of AI-Based Technician Ranking:} Technicians are scored on skill match, ratings, completion rate, response time, experience, distance, price and verification, and the reasons behind each score are shown, so clients can see why someone is recommended.
-    \item \textbf{Enhancement of Transparency and Trust:} KYC verification, honest ratings and real-time communication make it easier for clients, technicians and suppliers to trust each other.
+    \item \textbf{More Transparency and Trust:} KYC verification, honest ratings and real-time communication make it easier for clients, technicians and suppliers to trust each other.
         \item \textbf{Improved Accessibility to Tools and Services:} Clients and technicians can rent a tool for a few days or buy it outright, with pickup or delivery at the supplier's price, instead of buying expensive equipment they rarely use.
     \item \textbf{Practical and Scalable Solution:} SureFix is not just a prototype; it is live on Android and the web, suits towns and cities such as Attock, and is built so that new features can be added easily.
 \end{itemize}
@@ -631,7 +631,7 @@ To shape SureFix, we studied existing systems and noted what each one lacks, as 
 
 Building on this comparison, SureFix brings the missing pieces into one platform. It is designed for real situations: different kinds of jobs, changing demand, and constant interaction between clients, technicians and suppliers. Rather than focusing on a single feature, it combines job bidding, AI-based evaluation of technicians and access to tools.
 
-Technicians are ranked on their actual performance, including ratings, completion rate, response time, distance and price. An escrow wallet, real-time chat and notifications keep payments safe and communication smooth. By filling the gaps shown in Table \ref{tab:sample}, SureFix offers a more efficient, transparent and scalable way to handle home repair and maintenance.
+Technicians are ranked on their actual performance, including ratings, completion rate, response time, distance and price. An escrow wallet, real-time chat and notifications keep payments safe and everyone in touch. By filling the gaps shown in Table \ref{tab:sample}, SureFix gives people a faster, clearer and fairer way to handle home repair and maintenance.
 
 \begin{table}[h!] 
     \centering 
@@ -747,7 +747,7 @@ The functional requirements below are written in plain language and grouped by f
 \end{tabular}
 \end{table}
 
-This requirement lets people sign up in the role that fits them (client, technician or supplier) and makes sure every account belongs to a real, working email address. Everything else in the system depends on these role-based accounts.
+People sign up in the role that fits them (client, technician or supplier), and every account must belong to a real, working email address. Everything else in the system depends on these role-based accounts.
 
 \begin{table}[h!]
 \centering
@@ -758,13 +758,13 @@ This requirement lets people sign up in the role that fits them (client, technic
 \textbf{Title} & User Login \\ \hline
 \textbf{Requirement} & The system shall authenticate users with Firebase Authentication (email and password), exchange the Firebase ID token for a SureFix JWT session, and let users reset a forgotten password by an emailed link. \\ \hline
 \textbf{Source} & Security Requirement \\ \hline
-\textbf{Rationale} & To ensure secure access to the platform. \\ \hline
+\textbf{Rationale} & Only genuine, verified users should get in. \\ \hline
 \textbf{Business Rule} & Valid credentials and a verified email are required; suspended accounts cannot sign in. \\ \hline
 \textbf{Dependencies} & FR-1 \\ \hline
 \textbf{Priority} & High \\ \hline
 \end{tabular}
 \end{table}
-This requirement makes sure only genuine users get in. After a successful sign-in, the system issues a JWT session token that keeps the session secure and protects user data.
+Only genuine users get in. After a successful sign-in, the system issues a JWT session token that keeps the session secure and protects user data.
 \newline
 
 \subsection{Job Management System}
@@ -804,7 +804,7 @@ Posting a job is where most activity on SureFix begins. The client describes wha
 \end{tabular}
 \end{table}
 
-This requirement lets technicians quote on a client's job with their price, when they can start and an optional message. Because several technicians can quote on the same job, prices stay fair and the client has real choices to compare on cost, experience and availability, which leads to better decisions and happier customers.
+Technicians quote on a client's job with their price, when they can start and an optional message. Because several technicians can quote on the same job, prices stay fair and the client has real choices to compare on cost, experience and availability, which leads to better decisions and happier customers.
 \newline
 
 
@@ -844,7 +844,7 @@ Accepting a quote assigns the job to one technician and moves it from searching 
 \end{tabular}
 \end{table}
 
-This requirement makes sure technicians are judged on several measures, such as ratings, completed jobs, response time and reliability, rather than on a single star average. The AI turns these into one score that reflects the quality and consistency of each technician's work, which helps clients compare their options. It also encourages technicians to keep their standards high, which improves the quality of service across the platform.
+Technicians are judged on several measures, such as ratings, completed jobs, response time and reliability, rather than on a single star average. The AI turns these into one score that reflects the quality and consistency of each technician's work, which helps clients compare their options. It also encourages technicians to keep their standards high, which improves the quality of service across the platform.
 \newline
 
 \subsection {Tool Rental and Purchase System}
@@ -865,7 +865,7 @@ This requirement makes sure technicians are judged on several measures, such as 
 \end{tabular}
 \end{table}
 
-This requirement lets suppliers add and update their tools, so that customers always see accurate details and availability.
+Suppliers can add and update their tools at any time, so that customers always see accurate details and availability.
 
 \begin{table}[h!]
 \centering
@@ -883,7 +883,7 @@ This requirement lets suppliers add and update their tools, so that customers al
 \end{tabular}
 \end{table}
 
-This requirement lets users rent a tool for a set number of days or buy it outright. Rentals carry a refundable deposit, and each late day costs one day's rent, taken from the deposit. A purchase is paid once, either from the wallet, where SureFix holds the money until the tool is handed over, or in cash at handover. If the supplier delivers, their delivery price is added to the total. Each rental and purchase gets an invoice number (INV-1001 onwards) and a detailed invoice showing both parties, dates, charges, deposit, late fee, refunds and payment status. This makes tools affordable to access while protecting both sides.
+A tool can be rented for a set number of days or bought outright. Rentals carry a refundable deposit, and each late day costs one day's rent, taken from the deposit. A purchase is paid once, either from the wallet, where SureFix holds the money until the tool is handed over, or in cash at handover. If the supplier delivers, their delivery price is added to the total. Each rental and purchase gets an invoice number (INV-1001 onwards) and a detailed invoice showing both parties, dates, charges, deposit, late fee, refunds and payment status. This makes tools affordable to access while protecting both sides.
 
 
 \newline
@@ -906,7 +906,7 @@ This requirement lets users rent a tool for a set number of days or buy it outri
 \end{tabular}
 \end{table}
 
-This requirement lets clients, technicians and suppliers talk in real time, and lets administrators reach anyone as SureFix Support when sorting out a problem. Clear communication means fewer misunderstandings and smoother jobs.
+Clients, technicians and suppliers can talk in real time, and administrators can reach anyone as SureFix Support when sorting out a problem. Talking things through in the app means fewer misunderstandings on the day of the job.
 
 \begin{table}[h!]
 \centering
@@ -924,7 +924,7 @@ This requirement lets clients, technicians and suppliers talk in real time, and 
 \end{tabular}
 \end{table}
 
-This requirement keeps users informed the moment something happens, such as a new quote, a change in job status, a rental update or a KYC decision.
+Users are told straight away when something happens, such as a new quote, a change in job status, a rental update or a KYC decision.
 
 \subsection{Wallet, Escrow and Payments}
 
@@ -944,7 +944,7 @@ This requirement keeps users informed the moment something happens, such as a ne
 \end{tabular}
 \end{table}
 
-This requirement makes payments safe for both sides: the technician or supplier knows the money is there, and the client knows it is released only for finished work. Every movement is recorded in a ledger together with the balance after it.
+Escrow makes payments safe for both sides: the technician or supplier knows the money is there, and the client knows it is released only for finished work. Every movement is recorded in a ledger together with the balance after it.
 
 \begin{table}[h!]
 \centering
@@ -962,7 +962,7 @@ This requirement makes payments safe for both sides: the technician or supplier 
 \end{tabular}
 \end{table}
 
-This requirement links the wallet to real money through the company's own accounts, and it guards against the same transaction being claimed twice or a request being approved twice.
+Here the wallet is linked to real money through the company's own accounts, and the system guards against the same transaction being claimed twice or a request being approved twice.
 
 \subsection{Location and Search}
 
@@ -982,7 +982,7 @@ This requirement links the wallet to real money through the company's own accoun
 \end{tabular}
 \end{table}
 
-This requirement lets a client in Attock see the closest technicians first, or switch the city filter to hire someone from Rawalpindi, without ever revealing anyone's exact location.
+With this, a client in Attock sees the closest technicians first, or switches the city filter to hire someone from Rawalpindi, without ever revealing anyone's exact location.
 
 
 
@@ -1001,9 +1001,9 @@ This requirement lets a client in Attock see the closest technicians first, or s
     
     \item \textbf{NFR-4:} The system shall provide immediate feedback (within 3 seconds) for invalid inputs such as incorrect login credentials or missing fields.
     
-        \item \textbf{NFR-5:} The application shall be responsive and user-friendly across supported platforms (Android and the web, from phone to desktop widths), in light and dark themes.
+        \item \textbf{NFR-5:} The application shall be easy to use and adapt its layout on all supported platforms (Android and the web, from phone to desktop widths), in light and dark themes.
     
-    \item \textbf{NFR-6:} The system shall support concurrent users without significant performance degradation.
+    \item \textbf{NFR-6:} The system shall stay responsive when many people use it at the same time.
     
     \item \textbf{NFR-7:} The system shall be available 24/7 with a target uptime of 99.5\%.
     
@@ -1032,7 +1032,7 @@ This requirement lets a client in Attock see the closest technicians first, or s
 \begin{itemize}
     \item \textbf{USE-1 (Ease of Learning):} A new user shall be able to perform key actions (register, post job, place bid) within 2 minutes without training.
     
-    \item \textbf{USE-2 (Ease of Use):} The system shall provide a simple and intuitive interface with clear navigation between features.
+    \item \textbf{USE-2 (Ease of Use):} The system shall keep screens simple, with clear labels and short paths between features.
     
     \item \textbf{USE-3 (Error Avoidance):} The system shall provide immediate feedback (within 3 seconds) for invalid inputs or actions.
     
@@ -1048,7 +1048,7 @@ This requirement lets a client in Attock see the closest technicians first, or s
     
     \item \textbf{PER-3 (System Load):} The system shall handle multiple users simultaneously without performance degradation.
     
-    \item \textbf{PER-4 (Data Processing):} Job, bid, and tool operations shall be completed efficiently with minimal delay.
+    \item \textbf{PER-4 (Data Processing):} Posting a job, sending a quote or requesting a tool shall finish within a few seconds.
 \end{itemize}
 
 \subsection{Security}
@@ -1073,13 +1073,13 @@ This section explains how SureFix connects with its users and with outside softw
 The system shall provide a Graphical User Interface (GUI) for Android phones and the web that adapts from phone to desktop screen sizes, with the following characteristics:
 
 \begin{itemize}
-    \item \textbf{GUI Standards:} The interface shall follow a modern, clean, and user-friendly design suitable for mobile applications.
+    \item \textbf{GUI Standards:} The interface shall use a clean, consistent layout that works well on phone screens.
     
         \item \textbf{Layout and Navigation:} The system shall provide role-based navigation: a bottom dock on phones and a sidebar on wide screens, with sections such as Home, Jobs, Technicians, Tools, Messages, Notifications, Wallet and Account.
     
     \item \textbf{Screen Design:} The application shall include structured screens for job posting, bidding, tool rental, messaging, and profile management.
     
-        \item \textbf{Color Scheme:} The interface shall use a consistent design system (brand orange, neutral surfaces, light and dark themes) to enhance readability and user experience.
+        \item \textbf{Color Scheme:} The interface shall use a consistent design system (brand orange, neutral surfaces, light and dark themes) so that screens are easy to read.
     
     \item \textbf{Message Display:} The system shall display feedback messages (e.g., success, error, notifications) using snackbars/toasts for clear user communication.
     
@@ -1220,7 +1220,7 @@ This module handles real-time interactions using Socket.IO.
 
 \subsubsection{Module 4: KYC and Admin Management Module}
 
-This module ensures system security and administrative control.
+This module keeps the platform safe and gives administrators control over it.
 
 \begin{itemize}
     \item BE9: Allow technicians and suppliers to submit KYC information.
@@ -1250,7 +1250,7 @@ This module handles all data storage and retrieval operations.
 \begin{itemize}
         \item DB1: Store user, job, bid, tool, rental, wallet transaction, wallet request, payment account, message, notification, KYC and report data.
     \item DB2: Maintain relationships between entities (users, jobs, tools, etc.).
-    \item DB3: Ensure data consistency and integrity across the system.
+    \item DB3: Keep data consistent, for example money is moved in single atomic updates.
 \end{itemize}
 
 
@@ -1265,7 +1265,7 @@ The AI Service Layer is a separate Python FastAPI microservice that classifies p
 
 The Data Layer is a MongoDB Atlas database holding all the system's data, including users, jobs, quotes, tools, rentals, wallet transactions, messages and notifications.
 
-Combined with real-time communication through Socket.IO, this layered design keeps the system flexible and efficient, and able to handle many users and complex workflows at the same time.
+Combined with real-time communication through Socket.IO, this layered design lets each part be changed or scaled on its own, and copes with many users working at once.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth,height=0.75\textheight,keepaspectratio]{Architecture.PNG}
@@ -1280,7 +1280,7 @@ We used UML models to describe the design of SureFix. The use case diagram shows
 
 
 \subsection{Activity Diagram}
-The activity diagram is shown in two parts so that it stays readable in print: the client workflow, and the technician, supplier and admin workflows. After signing up and confirming their email, clients post jobs, hire from AI-ranked quotes using the wallet (escrow) or cash, and confirm completion, which releases the payment; they can also rent or buy tools. Technicians find nearby jobs and send quotes, suppliers list tools and approve requests, and the admin checks KYC (optional, but it earns a verified seal) and reviews payments.
+To keep it readable on paper, we drew the activity diagram as two figures: one for clients and one for technicians, suppliers and admins. After signing up and confirming their email, clients post jobs, hire from AI-ranked quotes using the wallet (escrow) or cash, and confirm completion, which releases the payment; they can also rent or buy tools. Technicians find nearby jobs and send quotes, suppliers list tools and approve requests, and the admin checks KYC (optional, but it earns a verified seal) and reviews payments.
 
 
 
@@ -1302,7 +1302,7 @@ The activity diagram is shown in two parts so that it stays readable in print: t
 
 
 \subsection{Usecase Diagram}
-The use case diagram is shown in two parts, one for clients and technicians and one for suppliers and administrators. Clients post jobs or use Smart Match, find technicians near them, hire from AI-ranked quotes, confirm completion, rent or buy tools and use the wallet. Technicians find jobs, send quotes and update the job stage, while suppliers list tools and approve rentals and sales; both can submit KYC. The admin verifies KYC, reviews deposits and withdrawals, manages the company accounts and handles support. The diagram also shows how use cases depend on each other, for example on login, email verification and the wallet.
+We split the use case diagram into two figures, one for clients and technicians and one for suppliers and administrators. Clients post jobs or use Smart Match, find technicians near them, hire from AI-ranked quotes, confirm completion, rent or buy tools and use the wallet. Technicians find jobs, send quotes and update the job stage, while suppliers list tools and approve rentals and sales; both can submit KYC. The admin verifies KYC, reviews deposits and withdrawals, manages the company accounts and handles support. The diagram also shows how use cases depend on each other, for example on login, email verification and the wallet.
 
 \begin{figure}[H]
     \centering
@@ -1320,7 +1320,7 @@ The use case diagram is shown in two parts, one for clients and technicians and 
 
 
 \subsection{Class Diagram}
-The class diagram is split into four smaller diagrams so that every class can be read clearly. It shows the main parts of the system: users, jobs, quotes, embedded payments, tools, rentals and purchases, wallet transactions and requests, company payment accounts, messages, notifications, KYC, reports and the AI ranker. It shows how users post jobs, quote, rent or buy tools, move money and communicate.
+With this many classes, one large figure would be too small to read, so the class diagram comes in four parts. Together they cover users, jobs, quotes, embedded payments, tools, rentals and purchases, wallet transactions and requests, company payment accounts, messages, notifications, KYC, reports and the AI ranker. They show how users post jobs, quote, rent or buy tools, move money and communicate.
 
 \begin{figure}[H]
     \centering
@@ -1350,7 +1350,7 @@ The class diagram is split into four smaller diagrams so that every class can be
     \label{fig:placeholder}
 \end{figure}
 \subsection{Sequence Diagram}
-The sequence diagram is shown in two parts, posting a job and ranking quotes, then hiring, completion and payment. It follows a typical job from start to finish. When a client posts a job, the backend asks the AI service for its category and urgency, saves the job with its number and alerts nearby technicians straight away. Technicians send quotes, which the AI service ranks with a score, a match percentage and reasons before the client sees them. The client hires a technician and pays into escrow. The technician reports each stage (on the way, working, done), the client confirms the work, and the payment, minus the 10\% fee, is released to the technician's wallet. Finally, the client leaves a review.
+The sequence diagram follows a typical job from start to finish, in two figures: posting a job and ranking quotes, then hiring, completion and payment. When a client posts a job, the backend asks the AI service for its category and urgency, saves the job with its number and alerts nearby technicians straight away. Technicians send quotes, which the AI service ranks with a score, a match percentage and reasons before the client sees them. The client hires a technician and pays into escrow. The technician reports each stage (on the way, working, done), the client confirms the work, and the payment, minus the 10\% fee, is released to the technician's wallet. Finally, the client leaves a review.
 
 In this way it shows how data moves between the app, the backend, the AI service, the database and the people involved.
 
@@ -1372,7 +1372,7 @@ In this way it shows how data moves between the app, the backend, the AI service
 \newpage
 
 \subsection{State Transition Diagram }
-The state transition diagram shows the two main life cycles in SureFix, each in its own figure. A job stays pending while quotes come in, moves to in progress once the client hires someone (passing through the stages hired, on the way, working and done), and becomes completed when the client confirms or 72 hours pass, after which the client can leave a review; a pending job can also be cancelled. A tool request is either approved or declined by the supplier; an approved rental ends when the tool comes back, and an approved purchase ends when the tool is handed over.
+SureFix has two main life cycles, and each gets its own state diagram. A job stays pending while quotes come in, moves to in progress once the client hires someone (passing through the stages hired, on the way, working and done), and becomes completed when the client confirms or 72 hours pass, after which the client can leave a review; a pending job can also be cancelled. A tool request is either approved or declined by the supplier; an approved rental ends when the tool comes back, and an approved purchase ends when the tool is handed over.
 
 
 \begin{figure}[H]
@@ -1540,7 +1540,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{login desk.png}
-        \caption{This screen allows users to log in using their email and password through Firebase Authentication, with a forgot-password link. After login users are redirected to their role's dashboard.}
+        \caption{Login: users sign in with email and password through Firebase Authentication, or use the forgot-password link. Each role then lands on its own dashboard.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1549,7 +1549,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{register desk.png}
-        \caption{This screen enables new users to create an account by choosing a role (client, technician or supplier) and entering their details; the email must then be confirmed.}
+        \caption{Registration: a new user picks a role (client, technician or supplier), fills in a few details, and then confirms the email address.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1559,7 +1559,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{clientscreen.png}
-        \caption{This screen displays all jobs posted by the client with their number, status, stage, payment state and quotes, filtered by status.}
+        \caption{My jobs: every job the client has posted, with its number, status, stage, payment state and quotes, and filters by status.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1569,7 +1569,7 @@ The screenshots below show the current SureFix system as users see it. They were
     \centering
     \includegraphics[width=1
     \linewidth]{job post desk.png}
-        \caption{This screen allows clients to create a new job by describing the problem (the AI suggests the category and urgency), with budget, date, city and map location.}
+        \caption{Posting a job: the client describes the problem in their own words, and the AI suggests the category and urgency. Budget, date, city and location are optional extras.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1580,7 +1580,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{job details.png}
-        \caption{This screen shows the job with quotes ranked by AI: each shows a match percentage, the reasons and the distance, and the client can hire with one tap.}
+        \caption{Job details: quotes ranked by the AI, each with a match percentage, the reasons and the distance. Hiring takes one tap.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1592,7 +1592,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\linewidth]{bid.png}
-        \caption{This screen allows technicians to send a quote with the price (with a fair-price hint and the fee shown), start time and a message.}
+        \caption{Sending a quote: the technician sets a price (with a fair-price hint and the fee shown up front), picks a start time and adds a message.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1602,7 +1602,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{tool.png}
-        \caption{This screen displays tools near the user with distance, price per day and a For sale badge, with filters for distance, city, price and stock.}
+        \caption{Tool market: tools near the user with distance, daily price and a For sale badge, plus filters for distance, city, price and stock.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1610,7 +1610,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\linewidth]{admin.png}
-        \caption{This screen allows the administrator to monitor revenue, escrow, deposits and withdrawals to review, KYC requests, reports and weekly activity.}
+        \caption{Admin overview: revenue, money in escrow, deposits and withdrawals waiting for review, KYC requests, open reports and the past week's activity.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1619,7 +1619,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{tool_buy.png}
-    \caption{This screen lets a customer rent a tool by the day or buy it for a one-time price, with pickup or delivery at the supplier's price.}
+    \caption{Renting or buying a tool: rent by the day or buy outright, with pickup or delivery at the supplier's price.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1627,7 +1627,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{invoice.png}
-    \caption{This screen shows the detailed invoice of a rental or purchase: parties, dates, charges, deposit, late fee, refunds and payment status.}
+    \caption{Invoice: both parties, the dates, every charge, the deposit, any late fee or refund, and the payment status.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1636,7 +1636,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{wallet.png}
-    \caption{This screen shows the wallet balance, money held in escrow, deposits and withdrawals with their review status, and the full history.}
+    \caption{Wallet: the balance, money held in escrow, deposits and withdrawals with their review status, and the full history.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1644,7 +1644,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{chat.png}
-    \caption{This screen shows real-time conversations about jobs and tools, and with SureFix Support, with photos and read receipts.}
+    \caption{Messages: live chats about jobs and tools, and with SureFix Support, with photos and read receipts.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1653,7 +1653,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{technicians.png}
-    \caption{This screen lists technicians nearest to the saved location first, with distance, rating, rates and filters for distance and city.}
+    \caption{Find technicians: the closest technicians appear first, with distance, rating and rates, and filters for distance and city.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1661,7 +1661,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{supplier_orders.png}
-    \caption{This screen lets suppliers approve or decline rental and purchase requests, mark rentals returned and hand sold tools over.}
+    \caption{Supplier orders: approve or decline requests, mark rentals as returned and hand sold tools over.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1670,7 +1670,7 @@ The screenshots below show the current SureFix system as users see it. They were
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{admin_accounts.png}
-    \caption{This screen lets the administrator add, edit, show or hide the company bank and mobile-wallet accounts that users send deposits to.}
+    \caption{Company accounts: the admin adds, edits, shows or hides the bank and mobile-wallet accounts that users send deposits to.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -1814,7 +1814,7 @@ The following tools and technologies were used in the development of the SureFix
 \hline
 \textbf{Tools and Technologies} & \textbf{Version} & \textbf{Rationale (Purpose/Justification)} \\ \hline
 
-Node.js & 22 LTS & Runtime environment for backend server; supports scalable and non-blocking API handling. \\ \hline
+Node.js & 22 LTS & Runs the backend server; its non-blocking design suits many small API requests. \\ \hline
 
 Express.js & 5.2.1 & Framework for building REST APIs and managing routing and middleware. \\ \hline
 
@@ -1826,7 +1826,7 @@ Mongoose & 8.0.3 & ODM for schema validation and structured database interaction
 
 Python & $\geq$3.10 & Used for implementing AI classification and ranking in the microservice. \\ \hline
 
-FastAPI & $\geq$0.109 & High-performance framework for building AI service APIs. \\ \hline
+FastAPI & $\geq$0.109 & Python framework for the AI service's HTTP API. \\ \hline
 
 Flutter & 3.35 & Cross-platform framework for building the Android app and the website. \\ \hline
 
@@ -1865,7 +1865,7 @@ Mongoose & \textasciicircum{}8.0.3 & ODM SDK used for schema-based data modeling
 FastAPI & $\geq$0.109 & Used to build the AI microservice with high-performance asynchronous APIs. \\ \hline
 
 
-Uvicorn & $\geq$0.27 & ASGI server used to run the FastAPI application efficiently. \\ \hline
+Uvicorn & $\geq$0.27 & ASGI server that runs the FastAPI application. \\ \hline
 
 Flutter SDK & 3.35 & Used to build the Android app and the website with a single codebase. \\ \hline
 
@@ -1890,13 +1890,13 @@ Socket.IO Client (Dart) & \textasciicircum{}2.0.3+1 & Connects Flutter app to ba
 
 \section{User Interface}
 
-This section provides details and descriptions of the user interface for the SureFix system’s sub-systems.
+This section walks through the main parts of the SureFix interface and what each one is for.
 
 SureFix has three parts that users touch: the Flutter application (Android app and website), the backend server, and the admin portal, which lives inside the same app. Every interaction happens in the app, which shows a different interface to clients, technicians, suppliers and administrators.
 
 \subsection{Mobile Application: Authentication Interface}
 
-This is the entry point of the application, as shown in Figure X.X.
+This is the first thing users see (the login and registration screens are shown in Section 4.5.1).
 
 -- \textbf{Description:} This screen allows users to log in or register using email and password. Users select their role (client, technician, or supplier) during registration and confirm their email before the first login.
 
@@ -1920,7 +1920,7 @@ This is the first screen after login, and it changes with the user's role (clien
 
 \subsection{Mobile Application: Job Management Interface}
 
-This interface allows users to interact with job-related features, as shown in Figure X.X.
+This is where all the work on jobs happens (see the job screens in Section 4.5.1).
 
 -- \textbf{Description:} Clients post jobs and review quotes, while technicians browse jobs and send quotes.
 
@@ -1930,9 +1930,9 @@ This interface allows users to interact with job-related features, as shown in F
 
 \subsection{Mobile Application: Tool Management Interface}
 
-This interface enables users to rent or purchase tools.
+Here users rent or buy tools.
 
--- \textbf{Description:} Displays a list of available tools with pricing details.
+-- \textbf{Description:} Lists the tools available nearby with their prices.
 
 -- \textbf{Features:} Users can rent tools for specific days or buy them for a one-time price, with pickup or delivery at the supplier's price, and view a detailed invoice.
 
@@ -1940,9 +1940,9 @@ This interface enables users to rent or purchase tools.
 
 \subsection{Mobile Application: Messaging and Notifications Interface}
 
-This interface handles communication and alerts between users.
+This part keeps users talking to each other and up to date.
 
--- \textbf{Description:} Provides a chat system for real-time messaging between clients and technicians.
+-- \textbf{Description:} A chat where clients, technicians and suppliers talk in real time.
 
 -- \textbf{Dynamic Feedback:} Messages and notifications are updated instantly using Socket.IO.
 
@@ -1950,13 +1950,13 @@ This interface handles communication and alerts between users.
 
 \subsection{Admin Panel Interface}
 
-This interface is used by the system administrator.
+Only administrators see this part of the app.
 
--- \textbf{Description:} Allows monitoring and management of users, jobs, tools, payments, reports and KYC verification requests.
+-- \textbf{Description:} Lets the admin watch over and manage users, jobs, tools, payments, reports and KYC requests.
 
 -- \textbf{Features:} Includes an overview dashboard, user management (suspend, delete), approval of deposits and withdrawals, a wallet ledger, company payment accounts, KYC review, report resolution, a support inbox and read-only access to all chats.
 
--- \textbf{Context:} Ensures system security and smooth operation by providing administrative control.
+-- \textbf{Context:} Gives the SureFix team the tools to keep the platform safe and to help users when something goes wrong.
 \section{Deployment}
 SureFix runs as a set of connected cloud services. GitHub Actions builds the website and publishes it on GitHub Pages, and builds a new Android APK after every change. The Node.js backend runs on Render, where it handles API requests, sign-in and real-time messaging through Socket.IO; a scheduled job keeps it awake. The FastAPI AI service runs as its own microservice and is called over HTTP, and the backend has a built-in fallback in case it is unavailable. MongoDB Atlas stores the data, and Firebase Authentication (project surefix-app) handles sign-in and emails. Every change goes through a pull request, and all three test suites must pass before it is merged and deployed, which lets us update the system while it is live.
 
@@ -1965,7 +1965,7 @@ SureFix runs as a set of connected cloud services. GitHub Actions builds the web
 \section{Chapter Summary}
 This chapter presented the complete design and architecture of the SureFix system, covering the Flutter Application, Backend Server, and AI Service. It explained the major backend modules, including authentication, job management, bidding, escrow wallet, tool rentals, real-time communication, and admin management. The AI service and its technician classification and ranking algorithms were also discussed, along with the core system algorithms, MongoDB data design, and data dictionary.
 
-Additionally, the chapter covered the user interface designs, implementation technologies, external APIs/SDKs, and deployment strategy using Render, MongoDB Atlas, GitHub Pages, and Firebase. It also highlighted how these components work together to provide a reliable, scalable, and efficient home repair and tool rental marketplace. Overall, this detailed design provides a strong foundation for the implementation, deployment, and operation of the SureFix system.
+We also covered the user interface designs, implementation technologies, external APIs/SDKs, and deployment strategy using Render, MongoDB Atlas, GitHub Pages, and Firebase. It also highlighted how these components work together to run a dependable marketplace for home repairs and tool rentals. This design is what the implementation, deployment and operation of the SureFix system.
 
 \chapter{Testing and Evaluation}
 \thispagestyle{empty}
@@ -2011,7 +2011,7 @@ TC-U1.6 & Request to register as admin & Request refused & Admin role cannot be 
 \end{spacing}
 \end{table}
 
-These tests show that every account starts with a confirmed email address and a valid role. Duplicate emails, weak passwords and attempts to sign up as an admin are all stopped before an account is created.
+So every account starts with a confirmed email address and a valid role. Duplicate emails, weak passwords and attempts to sign up as an admin are all stopped before an account is created.
 
 \textbf{Unit Test 2: Login and Password Reset}
 
@@ -2062,7 +2062,7 @@ TC-U3.6 & Two equal quotes, one cheaper and closer & Cheaper, closer quote ranke
 \end{spacing}
 \end{table}
 
-These results show that the classifier works well on descriptions it has never seen and that the ranking behaves the way a person would expect: the right skill, a solid track record, a fair price and a short distance all push a technician up. The Python service and the JavaScript fallback in the backend were also checked to give identical scores.
+The classifier copes well with descriptions it has never seen, and the ranking behaves the way a person would expect: the right skill, a solid track record, a fair price and a short distance all push a technician up. The Python service and the JavaScript fallback in the backend were also checked to give identical scores.
 
 \textbf{Unit Test 4: Escrow Wallet}
 
@@ -2112,7 +2112,7 @@ TC-U5.5 & Ask for delivery on a pickup-only tool & Request refused & Server answ
 \end{spacing}
 \end{table}
 
-These tests show that deposits, late fees and delivery charges are always calculated correctly and that each rental and purchase receives its own invoice number.
+Deposits, late fees and delivery charges came out right in every case and that each rental and purchase receives its own invoice number.
 
 \section{Functional Testing}
 
@@ -2189,7 +2189,7 @@ TC-F3.4 & Client confirms and rates the job & Payment released; review saved & T
 \end{spacing}
 \end{table}
 
-The hiring tests show the whole job cycle working smoothly, from the first payment to the final review, with both sides kept informed at every step.
+The whole job cycle worked, from the first payment to the final review, and both sides were kept informed at every step.
 
 \textbf{Functional Test 4: Renting and Buying Tools}
 
@@ -2264,7 +2264,7 @@ TC-F6.5 & Admin edits a company account & New details shown to users & Updated a
 \end{spacing}
 \end{table}
 
-Messaging, notifications and the admin tools all worked as intended, so users stay informed and administrators can support them and keep the platform running smoothly.
+Chat, notifications and the admin tools all behaved as expected, so users stay informed and administrators can step in when they are needed.
 
 \section{Business Rules Testing}
 
@@ -2445,7 +2445,7 @@ This end-to-end test confirms that the wallet, escrow, job workflow and admin re
 
 \section{Chapter Summary}
 
-This chapter described how SureFix was tested. Unit tests checked sign-up, login, the AI, the escrow wallet and the tool rules on their own; functional tests checked each feature from the user's point of view; decision tables confirmed the key business rules; and integration tests followed complete journeys across the app, Firebase, the backend, the AI service and the database. All 195 automated tests pass on every change, and the manual tests on the website and the Android app gave the same results, which gives us confidence that SureFix works reliably and as intended.
+This chapter described how SureFix was tested. Unit tests checked sign-up, login, the AI, the escrow wallet and the tool rules on their own; functional tests checked each feature from the user's point of view; decision tables confirmed the key business rules; and integration tests followed complete journeys across the app, Firebase, the backend, the AI service and the database. All 195 automated tests pass on every change, and the manual tests on the website and the Android app gave the same results, so we are confident that SureFix works as intended.
 
 \newpage
 
@@ -2473,11 +2473,11 @@ SureFix was built to make home repairs simpler and safer for everyone involved. 
 
 Looking back at our objectives, all four were met. Clients can post a job and receive several competing quotes, or hire a nearby technician directly, and every job has a short number for easy reference (PO1). The AI service turns a plain description into a category and urgency, and ranks technicians and quotes with a clear match percentage and the reasons behind it; on 36 descriptions it had never seen before it chose the right category 33 times, an accuracy of 91.7\% (PO2). Suppliers rent tools by the day with a deposit and automatic late fees, sell tools for a one-time price, set their own delivery charge and issue a detailed invoice for every rental and sale (PO3). Payments are held safely until the work is confirmed, sign-in uses Firebase with email verification, and KYC checks, live chat, SureFix Support and phone notifications keep the platform trustworthy and everyone informed (PO4).
 
-The system is backed by 195 automated tests that run on every change, and it is updated through reviewed pull requests while it stays online. Using it every day also taught us the value of small details, such as job numbers for support, scrollbars that are easy to grab on the website, and prices that already include delivery. Overall, SureFix shows that a single, well-designed platform can bring transparency, fairness and trust to home repair services in towns and cities like Attock.
+The system is backed by 195 automated tests that run on every change, and it is updated through reviewed pull requests while it stays online. Using it every day also taught us the value of small details, such as job numbers for support, scrollbars that are easy to grab on the website, and prices that already include delivery. In the end, SureFix shows that one well-designed platform can bring transparency, fairness and trust to home repair services in towns and cities like Attock.
 
 \section{Future Work}
 
-SureFix meets its main goals, but there is plenty of room to make it better:
+SureFix does what we set out to do, but there are clear next steps:
 
 \begin{itemize}
     \item \textbf{Payment Gateway:} Connect a payment gateway such as JazzCash, Easypaisa or card payments, so that deposits and payouts are confirmed automatically instead of by an administrator.
