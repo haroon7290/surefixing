@@ -141,8 +141,60 @@ router.get('/stats', async (_req, res) => {
 
 // ------------------------------------------------------------------ users
 
+// Open reports seen as disputes between two people: whoever raised it, and
+// whoever it is about (the reported user, the tool's supplier, or the other
+// people on the job). Returns userId -> [{ side, withName, withRole, ... }].
+async function openDisputes() {
+  const reports = await Report.find({ status: 'open' }).sort({ createdAt: -1 }).limit(500);
+  const byUser = new Map();
+  if (!reports.length) return byUser;
+  const ids = (type) => reports.filter((r) => r.targetType === type).map((r) => r.targetId);
+  const [tools, jobs] = await Promise.all([
+    Tool.find({ _id: { $in: ids('tool') } }).select('supplier'),
+    Job.find({ _id: { $in: ids('job') } }).select('client assignedTechnician number')
+  ]);
+  const toolOwner = new Map(tools.map((t) => [String(t._id), String(t.supplier)]));
+  const jobById = new Map(jobs.map((j) => [String(j._id), j]));
+
+  const sides = reports.map((r) => {
+    const reporter = String(r.reporter);
+    let against = [];
+    if (r.targetType === 'user') against = [String(r.targetId)];
+    if (r.targetType === 'tool' && toolOwner.has(String(r.targetId))) against = [toolOwner.get(String(r.targetId))];
+    const job = r.targetType === 'job' ? jobById.get(String(r.targetId)) : null;
+    if (job) against = [job.client, job.assignedTechnician].filter(Boolean).map(String);
+    return { r, reporter, against: [...new Set(against)].filter((id) => id !== reporter), job };
+  });
+  const people = await User.find({ _id: { $in: [...new Set(sides.flatMap((s) => [s.reporter, ...s.against]))] } }).select('name role');
+  const who = new Map(people.map((p) => [String(p._id), p]));
+
+  const add = (userId, entry) => {
+    if (!byUser.has(userId)) byUser.set(userId, []);
+    byUser.get(userId).push(entry);
+  };
+  for (const { r, reporter, against, job } of sides) {
+    const base = {
+      reportId: r._id,
+      reason: r.reason,
+      targetType: r.targetType,
+      about: r.targetLabel,
+      jobNumber: job?.number || null,
+      createdAt: r.createdAt
+    };
+    const other = against.map((id) => who.get(id)).filter(Boolean);
+    add(reporter, { ...base, side: 'raised', withName: other.map((o) => o.name).join(', '), withRole: other[0]?.role || '' });
+    const raiser = who.get(reporter);
+    for (const id of against) add(id, { ...base, side: 'against', withName: raiser?.name || 'A user', withRole: raiser?.role || '' });
+  }
+  return byUser;
+}
+
+// ?role= ?status= ?q= ?dispute=1 (only people in an open dispute). Each user
+// carries `disputes`: their open disputes and who they are with.
 router.get('/users', async (req, res) => {
   const q = {};
+  const disputes = await openDisputes();
+  if (req.query.dispute === '1') q._id = { $in: [...disputes.keys()] };
   if (req.query.role) q.role = req.query.role;
   if (req.query.status) q.status = req.query.status;
   if (req.query.q) {
@@ -152,7 +204,7 @@ router.get('/users', async (req, res) => {
   const { limit, skip } = paginate(req, { defaultLimit: 100, maxLimit: 200 });
   const [users, count] = await Promise.all([User.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit), User.countDocuments(q)]);
   setTotal(res, count);
-  res.json(users.map((u) => ({ ...u.toPrivateJSON(), online: realtime.isOnline(u._id) })));
+  res.json(users.map((u) => ({ ...u.toPrivateJSON(), online: realtime.isOnline(u._id), disputes: disputes.get(String(u._id)) || [] })));
 });
 
 router.patch(
@@ -407,7 +459,9 @@ router.get('/transactions', async (req, res) => {
   if (req.query.type) q.type = req.query.type;
   const { limit, skip } = paginate(req, { defaultLimit: 100, maxLimit: 200 });
   const [items, count] = await Promise.all([
-    Transaction.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('user', 'name role avatar').populate('job', 'title'),
+    Transaction.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('user', 'name role avatar')
+      .populate('job', 'title number')
+      .populate({ path: 'rental', select: 'tool number', populate: { path: 'tool', select: 'name' } }),
     Transaction.countDocuments(q)
   ]);
   setTotal(res, count);

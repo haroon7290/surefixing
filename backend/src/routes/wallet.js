@@ -23,7 +23,7 @@ const pendingSum = (user, kind) =>
   WalletRequest.aggregate([{ $match: { user, kind, status: 'pending' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
 
 const withRefs = (query) =>
-  query.populate('job', 'title').populate({ path: 'rental', select: 'tool', populate: { path: 'tool', select: 'name' } });
+  query.populate('job', 'title number').populate({ path: 'rental', select: 'tool number', populate: { path: 'tool', select: 'name' } });
 
 // Balance, money in escrow (paid in by me / waiting to be paid to me),
 // deposits and withdrawals waiting for an admin, and the latest movements.

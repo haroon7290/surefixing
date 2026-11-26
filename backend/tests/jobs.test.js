@@ -161,8 +161,11 @@ describe('job lifecycle', () => {
 
     const wallet = await plumber.api('get', '/api/wallet');
     expect(wallet.body.recent[0]).toMatchObject({ type: 'job_earning', amount: 2700 });
+    // Ledger rows carry the job's number (shown as SF-1001 onwards).
+    expect(wallet.body.recent[0].job.number).toBeGreaterThanOrEqual(1001);
     const fees = await admin.api('get', '/api/admin/transactions?type=platform_fee');
     expect(fees.body[0]).toMatchObject({ amount: 300, user: null });
+    expect(fees.body[0].job.number).toBe(wallet.body.recent[0].job.number);
     expect((await admin.api('get', '/api/admin/stats')).body.platformRevenue).toBe(300);
   });
 

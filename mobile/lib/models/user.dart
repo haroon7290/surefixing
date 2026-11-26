@@ -40,6 +40,8 @@ class User {
   final bool online;
   final DateTime? lastSeenAt;
   final DateTime? createdAt;
+  /// Admin view: open reports this person raised or is the subject of.
+  final List<Dispute> disputes;
 
   const User({
     required this.id,
@@ -74,6 +76,7 @@ class User {
     this.online = false,
     this.lastSeenAt,
     this.createdAt,
+    this.disputes = const [],
   });
 
   bool get isClient => role == 'client';
@@ -133,6 +136,7 @@ class User {
         online: j['online'] == true,
         lastSeenAt: date(j['lastSeenAt']),
         createdAt: date(j['createdAt']),
+        disputes: asJsonList(j['disputes']).map(Dispute.fromJson).toList(),
       );
 
   Json toJson() => {
@@ -342,6 +346,45 @@ class AppNotification {
         body: str(j['body']),
         data: asJson(j['data']),
         read: j['readAt'] != null,
+        createdAt: date(j['createdAt']),
+      );
+}
+
+/// An open report seen from one person's side (admin Users list): they
+/// raised it, or it is against them, and who the other side is.
+class Dispute {
+  final String reportId;
+  final String reason;
+  final String side; // raised | against
+  final String withName;
+  final String withRole;
+  final String targetType; // user | job | tool
+  final String about;
+  final int jobNumber;
+  final DateTime? createdAt;
+  const Dispute({
+    required this.reportId,
+    this.reason = '',
+    this.side = 'raised',
+    this.withName = '',
+    this.withRole = '',
+    this.targetType = 'user',
+    this.about = '',
+    this.jobNumber = 0,
+    this.createdAt,
+  });
+
+  bool get raised => side == 'raised';
+
+  factory Dispute.fromJson(Json j) => Dispute(
+        reportId: str(j['reportId']),
+        reason: str(j['reason']),
+        side: str(j['side'], 'raised'),
+        withName: str(j['withName']),
+        withRole: str(j['withRole']),
+        targetType: str(j['targetType'], 'user'),
+        about: str(j['about']),
+        jobNumber: integer(j['jobNumber']),
         createdAt: date(j['createdAt']),
       );
 }

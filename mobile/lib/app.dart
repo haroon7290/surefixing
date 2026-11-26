@@ -150,6 +150,22 @@ class _SureFixAppState extends State<SureFixApp> with WidgetsBindingObserver {
           payload: {'k': 'section', 's': 'payments'},
           actionLabel: 'Review',
         );
+      case 'kyc:new':
+        if (!me.isAdmin) return;
+        _alert(
+          title: 'ID check to review',
+          body: '${str(e.data['name'], 'Someone')} sent their documents',
+          payload: {'k': 'section', 's': 'verify'},
+          actionLabel: 'Review',
+        );
+      case 'report:new':
+        if (!me.isAdmin) return;
+        _alert(
+          title: 'New report',
+          body: 'A ${str(e.data['targetType'], 'user')} was reported (${str(e.data['reason']).replaceAll('_', ' ')})',
+          payload: {'k': 'section', 's': 'reports'},
+          actionLabel: 'Open',
+        );
       case 'message:new':
         final sender = str(e.data['sender']);
         if (sender == me.id) return;

@@ -53,6 +53,33 @@ describe('admin & trust and safety', () => {
     await admin.api('post', `/api/admin/reports/${r.body._id}/resolve`).send({ status: 'dismissed' }).expect(400);
   });
 
+  test('open disputes show on both people in the Users list', async () => {
+    const shop = await makeUser('supplier');
+    const fixer = await makeUser('technician');
+    const drill = (await shop.api('post', '/api/tools').send({ name: 'Hammer Drill', rentPricePerDay: 500 })).body;
+    // The technician reports the supplier's tool; the supplier reports the technician.
+    await fixer.api('post', '/api/reports').send({ targetType: 'tool', targetId: drill._id, reason: 'poor_quality' }).expect(201);
+    await shop.api('post', '/api/reports').send({ targetType: 'user', targetId: fixer.id, reason: 'payment' }).expect(201);
+
+    const inDispute = (await admin.api('get', '/api/admin/users?dispute=1')).body;
+    const byId = Object.fromEntries(inDispute.map((u) => [u.id || u._id, u]));
+    expect(Object.keys(byId)).toEqual(expect.arrayContaining([shop.id, fixer.id]));
+    expect(byId[shop.id].disputes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ side: 'against', reason: 'poor_quality', withName: fixer.user.name, withRole: 'technician', targetType: 'tool' }),
+        expect.objectContaining({ side: 'raised', reason: 'payment', withName: fixer.user.name })
+      ])
+    );
+    expect(byId[fixer.id].disputes).toHaveLength(2);
+
+    // Everyone else has none, and a resolved report stops counting.
+    const all = (await admin.api('get', '/api/admin/users')).body;
+    expect(all.find((u) => (u.id || u._id) === admin.id).disputes).toEqual([]);
+    const open = (await admin.api('get', '/api/admin/reports?status=open')).body;
+    for (const r of open) await admin.api('post', `/api/admin/reports/${r._id}/resolve`).send({ status: 'dismissed' }).expect(200);
+    expect((await admin.api('get', '/api/admin/users?dispute=1')).body).toHaveLength(0);
+  });
+
   test('KYC review flow', async () => {
     const supplier = await makeUser('supplier');
     // Images are mandatory.

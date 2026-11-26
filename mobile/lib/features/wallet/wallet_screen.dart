@@ -153,7 +153,12 @@ class TxnList extends StatelessWidget {
             final t = items[i];
             final (title, icon) = txnInfo(t.type);
             final who = showUser ? (t.user?.name ?? 'SureFix') : null;
-            final detail = [if (who != null) who, if (t.subject.isNotEmpty) t.subject else if (t.note.isNotEmpty && !showUser) t.note, dateTime(t.createdAt)].join('  ·  ');
+            final detail = [
+              if (who != null) who,
+              if (t.ref.isNotEmpty) t.ref,
+              if (t.subject.isNotEmpty) t.subject else if (t.note.isNotEmpty && !showUser) t.note,
+              dateTime(t.createdAt),
+            ].join('  ·  ');
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(children: [

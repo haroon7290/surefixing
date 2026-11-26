@@ -60,9 +60,10 @@ router.patch(
       req.user.skills = [...new Set(req.body.skills.map((s) => String(s).trim().toLowerCase()).filter(Boolean))];
     }
     await req.user.save();
-    if (locationChanged && req.user.role === 'supplier') {
+    if ((locationChanged || req.body.city !== undefined) && req.user.role === 'supplier') {
       // A supplier's tools are wherever their shop is.
-      const update = req.user.geo ? { $set: { geo: req.user.geo, area: req.user.area } } : { $unset: { geo: 1 }, $set: { area: '' } };
+      const place = { area: req.user.area || '', city: req.user.city || '' };
+      const update = req.user.geo ? { $set: { geo: req.user.geo, ...place } } : { $unset: { geo: 1 }, $set: place };
       await Tool.updateMany({ supplier: req.user._id }, update);
     }
     res.json(me(req));

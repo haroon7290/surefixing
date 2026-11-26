@@ -9,15 +9,19 @@ class Txn {
   final double balanceAfter;
   final String note;
   final String subject; // job title or tool name it relates to
+  final String ref; // "SF-1083" for a job, "INV-1001" for a rental or purchase
   final User? user; // admin view
   final DateTime? createdAt;
-  const Txn({required this.id, this.type = '', this.amount = 0, this.balanceAfter = 0, this.note = '', this.subject = '', this.user, this.createdAt});
+  const Txn({required this.id, this.type = '', this.amount = 0, this.balanceAfter = 0, this.note = '', this.subject = '', this.ref = '', this.user, this.createdAt});
 
   bool get incoming => amount >= 0;
 
   factory Txn.fromJson(Json j) {
     final job = asJson(j['job']);
-    final tool = asJson(asJson(j['rental'])['tool']);
+    final rental = asJson(j['rental']);
+    final tool = asJson(rental['tool']);
+    final jobNo = dbl(job['number']).toInt();
+    final invoiceNo = dbl(rental['number']).toInt();
     return Txn(
       id: idOf(j),
       type: str(j['type']),
@@ -25,6 +29,7 @@ class Txn {
       balanceAfter: dbl(j['balanceAfter']),
       note: str(j['note']),
       subject: str(job['title'], str(tool['name'])),
+      ref: jobNo > 0 ? 'SF-$jobNo' : (invoiceNo > 0 ? 'INV-$invoiceNo' : ''),
       user: j['user'] is Map ? User.fromJson(asJson(j['user'])) : null,
       createdAt: date(j['createdAt']),
     );
