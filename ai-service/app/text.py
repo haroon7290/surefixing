@@ -14,7 +14,10 @@ STOPWORDS = set(
         "just so too can could would should will shall may might must do does did done have has had not "
         "no need needs needed want wants please help someone somebody get got fix fixed fixing repair "
         "repaired repairing service work working come out up down again still what when where how which "
-        "who why dont doesnt cant wont isnt about around one two three since than then them they their"
+        "who why dont doesnt cant wont isnt about around one two three since than then them they their "
+        "hai hain ho raha rahi rahe mera meri mere ka ki ke ko se mein aur bhi ye yeh wo woh kar karna karni "
+        "karwana karwani karo chahiye gaya gayi ga gi hy plz pls bhai sir nahi nahin bohat bahut ap aap hum "
+        "humara hamara liye"
     ).split()
 )
 
