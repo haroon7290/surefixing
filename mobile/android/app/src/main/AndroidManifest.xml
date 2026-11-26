@@ -4,6 +4,10 @@
     <!-- "Near me" search: asked the first time someone taps "Use my current location". -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Phone notifications in the notification bar. Android 13+ only shows
+         them (and only asks the user) when the app declares this. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- usesCleartextTraffic lets the app reach a local http:// backend
          (localhost via adb reverse, or a LAN IP). Remove it once the API
          is served over HTTPS. -->

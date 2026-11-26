@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../kit.dart';
+import '../account/edit_profile_screen.dart';
 
 /// Add or edit a tool listing.
 class ToolFormScreen extends StatefulWidget {
@@ -24,7 +25,6 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
   late final _deliveryFee = TextEditingController(text: _num(_tool?.deliveryFee));
   late String _category = _tool?.category ?? 'power';
   late String _condition = _tool?.condition ?? 'good';
-  late String? _city = cities.contains(_tool?.city ?? Session.instance.user?.city) ? (_tool?.city ?? Session.instance.user!.city) : null;
   late int _stock = _tool?.stock ?? 1;
   late bool _available = _tool?.available ?? true;
   late bool _sells = _tool?.forSale ?? false;
@@ -50,7 +50,6 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
       'description': _description.text.trim(),
       'category': _category,
       'condition': _condition,
-      'city': _city ?? '',
       'rentPricePerDay': _rent.text,
       'deposit': _deposit.text.isEmpty ? '0' : _deposit.text,
       'stock': '$_stock',
@@ -89,6 +88,39 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
       toastError(e);
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Tools are at the supplier's shop: the place comes from the profile, so
+  /// the form only shows it, with a way to change it there.
+  Widget _shopLocation(BuildContext context) {
+    final c = context.colors;
+    final place = Session.instance.user?.place ?? '';
+    final missing = place.isEmpty;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      const FieldLabel('Location'),
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(R.md), border: Border.all(color: c.line)),
+        child: Row(children: [
+          Icon(missing ? AppIcons.gps : AppIcons.pinFill, size: 20, color: missing ? c.muted : c.brand),
+          Gap.w12,
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(missing ? 'Shop location not set' : place,
+                  style: context.text.bodyLarge!.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600, color: missing ? c.muted : c.ink)),
+              Text(missing ? 'Add it in your profile so customers can see how far the tool is.' : 'Your shop location, from your profile.', style: context.text.bodySmall),
+            ]),
+          ),
+          TextButton(
+            onPressed: () async {
+              await push(context, const EditProfileScreen());
+              if (mounted) setState(() {});
+            },
+            child: Text(missing ? 'Add' : 'Change'),
+          ),
+        ]),
+      ),
+    ]);
   }
 
   @override
@@ -153,7 +185,7 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
           Gap.h8,
           Text('The deposit is refunded on return. Each late day costs one day of rent, taken from it.', style: context.text.bodySmall),
           Gap.h16,
-          SelectField<String>(label: 'City', hint: 'Where the tool is', value: _city, icon: AppIcons.city, items: {for (final c in cities) c: c}, onChanged: (v) => setState(() => _city = v)),
+          _shopLocation(context),
           Gap.h16,
           Row(children: [
             Expanded(child: Text('Units in stock', style: context.text.titleSmall)),

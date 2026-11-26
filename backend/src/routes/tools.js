@@ -48,6 +48,12 @@ function pick(src) {
   return out;
 }
 
+// Tools are at the supplier's shop, so their place always comes from the
+// supplier's profile (city, map point and area), never from the listing form.
+function shopLocation(user) {
+  return { city: user.city || '', geo: user.geo || undefined, area: user.area || '' };
+}
+
 async function loadTool(id) {
   if (!mongoose.isValidObjectId(id)) throw notFound('Tool not found');
   const tool = await Tool.findById(id);
@@ -134,10 +140,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 router.post('/', authRequired, requireRole('supplier'), upload.array('images', 4), toolValidators(false), validate, async (req, res) => {
   const tool = await Tool.create({
     ...pick(req.body),
-    city: req.body.city || req.user.city || '',
-    // Tools are at the supplier's shop.
-    geo: req.user.geo || undefined,
-    area: req.user.area || '',
+    ...shopLocation(req.user),
     images: (req.files || []).map((f) => f.filename),
     supplier: req.user._id
   });
@@ -152,7 +155,7 @@ router.patch('/:id', authRequired, requireRole('supplier'), upload.array('images
     discardUploads(req);
     throw forbidden('Not your tool');
   }
-  Object.assign(tool, pick(req.body));
+  Object.assign(tool, pick(req.body), shopLocation(req.user));
 
   let remove = req.body.removeImages || [];
   if (typeof remove === 'string') {

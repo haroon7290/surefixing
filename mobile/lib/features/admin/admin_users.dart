@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../kit.dart';
 import '../../routes.dart';
+import '../shell/shell.dart' show openSection;
 
 /// Every account: search, filter by role, suspend, reactivate or delete.
 class AdminUsersScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   String _role = 'all';
   Timer? _debounce;
 
-  static const _roles = {'all': 'Everyone', 'client': 'Customers', 'technician': 'Technicians', 'supplier': 'Suppliers', 'suspended': 'Suspended'};
+  static const _roles = {'all': 'Everyone', 'client': 'Customers', 'technician': 'Technicians', 'supplier': 'Suppliers', 'dispute': 'In dispute', 'suspended': 'Suspended'};
 
   @override
   void dispose() {
@@ -86,8 +87,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             token: '$_query|$_role',
             load: () async => (await Api.list('/api/admin/users', query: {
               'q': _query,
-              'role': _role == 'all' || _role == 'suspended' ? null : _role,
+              'role': const {'all', 'suspended', 'dispute'}.contains(_role) ? null : _role,
               'status': _role == 'suspended' ? 'suspended' : null,
+              'dispute': _role == 'dispute' ? '1' : null,
               'limit': 150,
             }))
                 .map(User.fromJson)
@@ -124,9 +126,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                         Wrap(spacing: 6, runSpacing: 4, children: [
                                           Pill(roleLabels[u.role] ?? u.role, tone: u.isAdmin ? Tone.info : Tone.neutral),
                                           if (u.suspended) const Pill('Suspended', tone: Tone.danger, dot: true),
+                                          if (u.disputes.isNotEmpty) Pill(u.disputes.length == 1 ? 'In dispute' : '${u.disputes.length} disputes', tone: Tone.warning, dot: true),
                                           if (context.isWide && !u.isAdmin) Pill('Wallet ${moneyCompact(u.walletBalance)}'),
                                           if (context.isWide) Pill('Joined ${shortDate(u.createdAt)}'),
                                         ]),
+                                        if (u.disputes.isNotEmpty) ...[
+                                          Gap.h6,
+                                          for (final d in u.disputes.take(2)) _DisputeLine(d),
+                                          if (u.disputes.length > 2)
+                                            Text('+${u.disputes.length - 2} more in Reports', style: context.text.bodySmall),
+                                        ],
                                       ]),
                                     ),
                                     if (u.id != me)
@@ -160,6 +169,36 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
         ),
       ]),
+    );
+  }
+}
+
+/// "Raised against Ali Raza (Technician) · Poor quality work · SF-1083";
+/// tapping opens the Reports queue where it can be resolved.
+class _DisputeLine extends StatelessWidget {
+  final Dispute d;
+  const _DisputeLine(this.d);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final other = [d.withName.isEmpty ? 'someone' : d.withName, if (d.withRole.isNotEmpty) '(${roleLabels[d.withRole] ?? d.withRole})'].join(' ');
+    final text = [
+      d.raised ? 'Raised against $other' : 'Reported by $other',
+      reportReasons[d.reason] ?? humanize(d.reason),
+      if (d.jobNumber > 0) 'SF-${d.jobNumber}' else if (d.about.isNotEmpty) d.about,
+    ].join('  ·  ');
+    return InkWell(
+      onTap: () => openSection(context, 'reports'),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Icon(AppIcons.reports, size: 14, color: c.warning),
+          Gap.w6,
+          Expanded(child: Text(text, style: context.text.bodySmall!.copyWith(color: c.ink), maxLines: 2, overflow: TextOverflow.ellipsis)),
+        ]),
+      ),
     );
   }
 }

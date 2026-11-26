@@ -23,6 +23,7 @@ describe('tools & rental requests', () => {
   test('supplier creates a tool; server-managed fields cannot be injected', async () => {
     const res = await supplier.api('post', '/api/tools').send({
       name: 'Cordless Drill',
+      city: 'Karachi', // ignored: tools are where the supplier's shop is
       category: 'power',
       rentPricePerDay: 800,
       deposit: 5000,
@@ -45,10 +46,19 @@ describe('tools & rental requests', () => {
   test('validation and ownership on update', async () => {
     await supplier.api('post', '/api/tools').send({ name: 'X', rentPricePerDay: -1 }).expect(400);
     await otherSupplier.api('patch', `/api/tools/${tool._id}`).send({ name: 'Hijacked' }).expect(403);
-    const patched = await supplier.api('patch', `/api/tools/${tool._id}`).send({ name: 'Bosch Drill', supplier: otherSupplier.id });
+    const patched = await supplier.api('patch', `/api/tools/${tool._id}`).send({ name: 'Bosch Drill', supplier: otherSupplier.id, city: 'Karachi' });
     expect(patched.status).toBe(200);
     expect(patched.body.name).toBe('Bosch Drill');
     expect(patched.body.supplier).toBe(supplier.id);
+    expect(patched.body.city).toBe('Lahore');
+  });
+
+  test("moving the supplier's shop moves their tools, city included", async () => {
+    await supplier.api('patch', '/api/users/me').send({ city: 'Attock', lat: 33.791552, lng: 72.35585 }).expect(200);
+    const moved = (await renter.api('get', `/api/tools/${tool._id}`)).body;
+    expect(moved.city).toBe('Attock');
+    expect(moved.area).toBe('Peoples Colony');
+    await supplier.api('patch', '/api/users/me').send({ city: 'Lahore', clearLocation: true }).expect(200);
   });
 
   test('browse with search and filters', async () => {
