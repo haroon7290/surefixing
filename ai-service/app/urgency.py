@@ -13,12 +13,18 @@ from .text import normalise_phrase
 
 URGENCY_TERMS: Dict[str, List[str]] = {
     "emergency": ["flood", "burst", "spark", "smoke", "fire", "gas leak", "gas smell", "smell of gas", "electrocut",
-                  "electric shock", "short circuit", "sewage overflow", "emergency", "dangerous", "collapsed"],
+                  "electric shock", "short circuit", "sewage overflow", "emergency", "dangerous", "collapsed",
+            "aag", "current lag", "jhatka", "gas leakage", "sparking", "flooding", "burning smell",
+            "electric current"],
     "low": ["no rush", "not urgent", "whenever", "next week", "next month", "flexible", "sometime", "when possible",
-            "eventually", "no hurry"],
+            "eventually", "no hurry",
+            "koi jaldi nahi", "jab time ho", "in a few days", "next few days", "this month", "any time",
+            "anytime", "weekend", "just a quote"],
     "high": ["urgent", "asap", "as soon as possible", "immediately", "right now", "today", "tonight", "leak",
              "no water", "no power", "no electricity", "not working", "stopped working", "broken", "locked out",
-             "overflowing", "no hot water", "not cooling"],
+             "overflowing", "no hot water", "not cooling",
+            "jaldi", "foran", "abhi", "aaj", "kharab", "band ho", "tomorrow", "quickly", "not starting",
+            "no gas", "not heating", "stuck", "leakage", "tapak"],
 }
 
 _PATTERNS = {level: [(t, re.compile(r"\b" + re.escape(t))) for t in terms] for level, terms in URGENCY_TERMS.items()}

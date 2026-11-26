@@ -42,7 +42,10 @@ const STOPWORDS = new Set(
     'just so too can could would should will shall may might must do does did done have has had not ' +
     'no need needs needed want wants please help someone somebody get got fix fixed fixing repair ' +
     'repaired repairing service work working come out up down again still what when where how which ' +
-    'who why dont doesnt cant wont isnt about around one two three since than then them they their')
+    'who why dont doesnt cant wont isnt about around one two three since than then them they their ' +
+    'hai hain ho raha rahi rahe mera meri mere ka ki ke ko se mein aur bhi ye yeh wo woh kar karna karni ' +
+    'karwana karwani karo chahiye gaya gayi ga gi hy plz pls bhai sir nahi nahin bohat bahut ap aap hum ' +
+    'humara hamara liye')
     .split(/\s+/)
 );
 
@@ -96,30 +99,59 @@ function tokenize(text) {
 const LEXICON = {
   plumbing: ['leak', 'pipe', 'faucet', 'tap', 'sink', 'drain', 'clog', 'blocked', 'toilet', 'flush', 'shower',
     'geyser', 'valve', 'sewage', 'sewer', 'plumber', 'basin', 'water tank', 'water pump', 'drip', 'water pressure',
-    'overflow', 'cistern', 'commode', 'bathroom', 'water heater', 'hot water'],
+    'overflow', 'cistern', 'commode', 'bathroom', 'water heater', 'hot water',
+    'leakage', 'nalka', 'pani', 'tanki', 'water motor', 'flush tank', 'main line', 'water line', 'drainage',
+    'washroom', 'mixer', 'hand pump', 'water filter', 'sewerage', 'bidet', 'muslim shower',
+    'bath tub', 'manhole', 'pvc pipe', 'plumbing'],
   electrical: ['wiring', 'wire', 'socket', 'switch', 'outlet', 'breaker', 'fuse', 'circuit', 'short circuit',
     'light', 'bulb', 'ceiling fan', 'fan', 'power', 'electricity', 'voltage', 'electrician', 'spark', 'shock',
-    'ups', 'inverter', 'generator', 'meter', 'tripping', 'chandelier', 'led', 'electric', 'db box'],
+    'ups', 'inverter', 'generator', 'meter', 'tripping', 'chandelier', 'led', 'electric', 'db box',
+    'bijli', 'pankha', 'current', 'burnt wire', 'extension board', 'switchboard', 'energy saver',
+    'load shedding', 'solar panel', 'stabilizer', 'earthing', 'plug', 'main switch', 'light fitting',
+    'doorbell', 'wapda', 'plug point', 'wiring fault', 'electrical'],
   carpentry: ['wood', 'door', 'cabinet', 'cupboard', 'wardrobe', 'furniture', 'table', 'chair', 'shelf', 'drawer',
-    'hinge', 'carpenter', 'bed', 'wooden', 'deck', 'window frame', 'door frame', 'laminate', 'plywood', 'kitchen cabinet'],
+    'hinge', 'carpenter', 'bed', 'wooden', 'deck', 'window frame', 'door frame', 'laminate', 'plywood', 'kitchen cabinet',
+    'darwaza', 'almari', 'palang', 'lakdi', 'dressing table', 'showcase', 'mdf', 'chipboard', 'wood polish',
+    'sliding door', 'partition', 'wooden window', 'joinery', 'veneer', 'formica', 'railing',
+    'study table', 'carpentry'],
   painting: ['paint', 'wall paint', 'colour', 'color', 'primer', 'coat', 'painter', 'whitewash', 'distemper',
-    'enamel', 'wallpaper', 'peeling', 'putty', 'texture', 'repaint', 'emulsion'],
+    'enamel', 'wallpaper', 'peeling', 'putty', 'texture', 'repaint', 'emulsion',
+    'rang', 'rang rogan', 'paint job', 'weather shield', 'matt', 'gloss', 'spray paint',
+    'wall putty', 'oil paint', 'touch up', 'undercoat', 'sealer', 'roller', 'faded paint', 'painting'],
   appliance: ['washing machine', 'fridge', 'refrigerator', 'freezer', 'oven', 'microwave', 'dishwasher', 'dryer',
-    'stove', 'cooker', 'appliance', 'television', 'tv', 'iron', 'blender', 'water dispenser', 'vacuum', 'deep freezer'],
+    'stove', 'cooker', 'appliance', 'television', 'tv', 'iron', 'blender', 'water dispenser', 'vacuum', 'deep freezer',
+    'air fryer', 'juicer', 'kettle', 'toaster', 'water cooler', 'lcd', 'led tv', 'sewing machine', 'grinder',
+    'chopper', 'hob', 'cooking range', 'electric oven', 'gas oven', 'dish washer', 'appliances', 'spin dryer'],
   hvac: ['ac', 'air conditioner', 'air conditioning', 'cooling', 'heating', 'heater', 'furnace', 'thermostat',
-    'duct', 'vent', 'hvac', 'compressor', 'gas refill', 'split ac', 'chiller', 'ventilation', 'heat pump', 'not cooling'],
+    'duct', 'vent', 'hvac', 'compressor', 'gas refill', 'split ac', 'chiller', 'ventilation', 'heat pump', 'not cooling',
+    'inverter ac', 'window ac', 'dc inverter', 'ac gas', 'gas charging', 'condenser', 'indoor unit',
+    'outdoor unit', 'air cooler', 'room cooler', 'cooler', 'exhaust fan', 'ac service', 'ac installation',
+    'gas heater', 'room heater', 'refrigerant', 'thanda', 'central heating', 'ducted'],
   cleaning: ['clean', 'cleaning', 'deep clean', 'carpet', 'sofa', 'mop', 'dust', 'sanitize', 'maid', 'tank cleaning',
-    'grease', 'mold', 'mould', 'upholstery', 'pressure wash', 'disinfect', 'cleaner'],
+    'grease', 'mold', 'mould', 'upholstery', 'pressure wash', 'disinfect', 'cleaner',
+    'safai', 'jharu', 'pocha', 'dusting', 'sofa cleaning', 'carpet cleaning', 'window cleaning',
+    'kitchen cleaning', 'bathroom cleaning', 'house cleaning', 'office cleaning', 'cobweb', 'sweeping',
+    'scrub', 'shampoo', 'mopping', 'junk'],
   masonry: ['tile', 'tiling', 'brick', 'cement', 'concrete', 'plaster', 'crack', 'grout', 'marble', 'floor',
-    'flooring', 'mason', 'stone', 'granite', 'foundation', 'boundary wall'],
+    'flooring', 'mason', 'stone', 'granite', 'foundation', 'boundary wall',
+    'mistri', 'raj mistri', 'tile fixing', 'plastering', 'chips', 'terrazzo', 'porcelain', 'ceramic',
+    'wall tiles', 'floor tiles', 'stairs', 'pillar', 'cement work', 'bajri', 'sand', 'ramp'],
   roofing: ['roof', 'roofing', 'gutter', 'shingle', 'waterproofing', 'seepage', 'terrace', 'skylight', 'chimney',
-    'rain water', 'roof leak', 'ceiling leak', 'damp'],
+    'rain water', 'roof leak', 'ceiling leak', 'damp',
+    'chhat', 'roof slab', 'roof sheet', 'tin roof', 'waterproof', 'water proofing', 'heat proofing',
+    'roof insulation', 'parnala', 'roof tiles', 'bitumen', 'membrane', 'rain', 'monsoon', 'tapak'],
   pest_control: ['pest', 'termite', 'cockroach', 'roach', 'ant', 'rat', 'mouse', 'mice', 'rodent', 'bed bug',
-    'bug', 'mosquito', 'insect', 'fumigation', 'wasp', 'lizard', 'spray'],
+    'bug', 'mosquito', 'insect', 'fumigation', 'wasp', 'lizard', 'spray',
+    'deemak', 'machhar', 'chuha', 'chuhe', 'khatmal', 'fumigate', 'pest control', 'exterminator', 'flea',
+    'snake', 'bee', 'hive', 'moth', 'silverfish', 'dengue', 'larva'],
   locksmith: ['lock', 'locked', 'key', 'locksmith', 'lockout', 'deadbolt', 'padlock', 'latch', 'door lock',
-    'smart lock', 'locked out', 'safe'],
+    'smart lock', 'locked out', 'safe',
+    'tala', 'chabi', 'duplicate key', 'key cutting', 'lock change', 'lock cylinder', 'mortise', 'digital lock',
+    'fingerprint lock', 'combination lock', 'locker', 'gate lock', 'handle lock'],
   general: ['install', 'mount', 'assemble', 'assembly', 'hang', 'curtain', 'rod', 'handyman', 'tv mount',
-    'picture', 'odd job', 'small repair', 'general']
+    'picture', 'odd job', 'small repair', 'general',
+    'drill', 'drilling', 'hook', 'hanger', 'mirror', 'wall clock', 'bracket', 'wall mount', 'towel rail',
+    'flat pack', 'shifting', 'labour', 'miscellaneous', 'handyman service', 'notice board', 'drying stand']
 };
 
 // Pre-stem the lexicon once so lookups match tokenize() output.
@@ -135,12 +167,17 @@ const STEMMED_LEXICON = Object.fromEntries(
 
 const URGENCY_TERMS = {
   emergency: ['flood', 'burst', 'spark', 'smoke', 'fire', 'gas leak', 'gas smell', 'smell of gas', 'electrocut',
-    'electric shock', 'short circuit', 'sewage overflow', 'emergency', 'dangerous', 'collapsed'],
+    'electric shock', 'short circuit', 'sewage overflow', 'emergency', 'dangerous', 'collapsed',
+    'aag', 'current lag', 'jhatka', 'gas leakage', 'sparking', 'flooding', 'burning smell', 'electric current'],
   low: ['no rush', 'not urgent', 'whenever', 'next week', 'next month', 'flexible', 'sometime', 'when possible',
-    'eventually', 'no hurry'],
+    'eventually', 'no hurry',
+    'koi jaldi nahi', 'jab time ho', 'in a few days', 'next few days', 'this month', 'any time', 'anytime',
+    'weekend', 'just a quote'],
   high: ['urgent', 'asap', 'as soon as possible', 'immediately', 'right now', 'today', 'tonight', 'leak',
     'no water', 'no power', 'no electricity', 'not working', 'stopped working', 'broken', 'locked out',
-    'overflowing', 'no hot water', 'not cooling']
+    'overflowing', 'no hot water', 'not cooling',
+    'jaldi', 'foran', 'abhi', 'aaj', 'kharab', 'band ho', 'tomorrow', 'quickly', 'not starting', 'no gas',
+    'not heating', 'stuck', 'leakage', 'tapak']
 };
 
 function detectUrgency(text) {
