@@ -118,6 +118,10 @@ class Rental {
   final double deposit;
   final int lateDays;
   final double lateFee;
+  /// Returned early: days actually charged, and the rent for the unused days
+  /// that went back to the customer (or was not charged in cash).
+  final int usedDays;
+  final double earlyRefund;
   /// Rent for all days, or the sale price.
   final double totalCost;
   final double deliveryFee;
@@ -150,6 +154,8 @@ class Rental {
     this.deposit = 0,
     this.lateDays = 0,
     this.lateFee = 0,
+    this.usedDays = 0,
+    this.earlyRefund = 0,
     this.totalCost = 0,
     this.deliveryFee = 0,
     this.payment = const Payment(),
@@ -176,6 +182,19 @@ class Rental {
   /// What is paid for the rental or tool itself, delivery included (the
   /// deposit is separate).
   double get amount => totalCost + deliveryFee;
+
+  /// If it came back right now: the days the customer would pay for (at
+  /// least one; part of a day counts after an hour's grace), as the server
+  /// works it out.
+  int get usedDaysNow {
+    if (isPurchase || days <= 0 || startDate == null) return days;
+    final elapsed = DateTime.now().difference(startDate!) - const Duration(hours: 1);
+    final used = (elapsed.inMinutes / (24 * 60)).ceil();
+    return used.clamp(1, days);
+  }
+
+  /// Rent that would go back to the customer for unused days, if returned now.
+  double get earlyRefundNow => overdue ? 0 : ((days - usedDaysNow) * dailyRate).clamp(0, totalCost).toDouble();
   bool get canReview => finished && rating == null;
 
   /// Phones and addresses are shared once the supplier approves.
@@ -195,6 +214,8 @@ class Rental {
         deposit: dbl(j['deposit']),
         lateDays: integer(j['lateDays']),
         lateFee: dbl(j['lateFee']),
+        usedDays: integer(j['usedDays']),
+        earlyRefund: dbl(j['earlyRefund']),
         totalCost: dbl(j['totalCost']),
         deliveryFee: dbl(j['deliveryFee']),
         payment: Payment.fromJson(j['payment']),

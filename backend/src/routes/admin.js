@@ -97,7 +97,7 @@ router.get('/stats', async (_req, res) => {
     Rental.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
     Job.aggregate([{ $group: { _id: '$category', n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 6 }]),
     Job.aggregate([{ $match: { status: 'completed' } }, { $group: { _id: null, total: { $sum: { $ifNull: ['$agreedPrice', 0] } } } }]),
-    Rental.aggregate([{ $match: { status: { $in: ['active', 'returned', 'completed'] } } }, { $group: { _id: null, total: { $sum: '$totalCost' } } }]),
+    Rental.aggregate([{ $match: { status: { $in: ['active', 'returned', 'completed'] } } }, { $group: { _id: null, total: { $sum: { $subtract: ['$totalCost', { $ifNull: ['$earlyRefund', 0] }] } } } }]),
     User.aggregate([{ $match: { role: 'technician', ratingCount: { $gt: 0 } } }, { $group: { _id: null, avg: { $avg: '$rating' } } }]),
     perDay(User, start),
     perDay(Job, start),

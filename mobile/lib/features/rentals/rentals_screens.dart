@@ -46,7 +46,11 @@ Future<void> _markReturned(BuildContext context, Rental r, VoidCallback onChange
     title: 'Is the tool back?',
     message: r.overdue
         ? 'It is ${plural(r.lateDays, 'day')} late: ${money(r.lateFee)} is taken from the deposit and paid to you. The rest of the deposit goes back to the customer.'
-        : 'This puts it back in stock, pays you, and returns the deposit to the customer.',
+        : r.earlyRefundNow > 0
+            ? 'It is back early: the customer pays for ${plural(r.usedDaysNow, 'day')} of ${r.days}, and ${money(r.earlyRefundNow)} for the unused '
+                '${plural(r.days - r.usedDaysNow, 'day')} ${r.payment.isWallet ? 'goes back to their wallet' : "isn't charged"}. '
+                'The tool goes back in stock and the deposit is returned.'
+            : 'This puts it back in stock, pays you, and returns the deposit to the customer.',
     confirmLabel: 'Mark returned',
     icon: AppIcons.success,
   );

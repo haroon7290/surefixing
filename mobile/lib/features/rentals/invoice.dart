@@ -21,9 +21,12 @@ class RentalInvoice extends StatelessWidget {
 
   bool get _returned => r.status == 'returned';
 
+  /// Rent for unused days on an early return (refunded or not charged).
+  double get _early => r.earlyRefund;
+
   /// What the customer pays in the end (the deposit comes back, minus the
-  /// late fee).
-  double get _finalCost => _subtotal + _late;
+  /// late fee; unused days on an early return are not charged).
+  double get _finalCost => _subtotal - _early + _late;
 
   bool get _closedEarly => r.status == 'rejected' || r.status == 'cancelled';
 
@@ -51,6 +54,8 @@ class RentalInvoice extends StatelessWidget {
       'Subtotal: ${money(_subtotal)}',
       if (r.deposit > 0) 'Refundable deposit: ${money(r.deposit)}',
       if (_late > 0) 'Late fee (${plural(r.lateDays, 'day')}): ${money(_late)}',
+      if (_early > 0) 'Returned early (${plural(r.usedDays, 'day')} used): -${money(_early)} ${r.payment.isWallet ? 'refunded' : 'not charged'}',
+      if (_returned) 'Total cost: ${money(_finalCost)}',
       'Paid by: ${r.payment.isWallet ? 'SureFix Wallet' : 'Cash'} (${paymentStatus(r.payment.status).$1})',
     ];
     return lines.join('\n');
@@ -147,6 +152,9 @@ class RentalInvoice extends StatelessWidget {
         if (_late > 0)
           item(_returned ? 'Late fee' : 'Late fee so far', money(_late),
               detail: '${plural(r.lateDays, 'day')} late × ${money(r.dailyRate)}, kept from the deposit', color: c.danger),
+        if (_early > 0)
+          item(p.isWallet ? 'Unused days refunded to wallet' : 'Unused days not charged', '− ${money(_early)}',
+              detail: 'Returned early: ${plural(r.usedDays, 'day')} used of ${r.days} × ${money(r.dailyRate)}', color: c.success),
         if (_returned && r.deposit > 0)
           item(p.isWallet ? 'Deposit refunded to wallet' : 'Deposit handed back', '− ${money((r.deposit - _late).clamp(0, r.deposit))}', color: c.success),
         if (_returned || (r.isPurchase && r.status == 'completed')) ...[

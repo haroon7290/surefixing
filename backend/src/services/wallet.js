@@ -135,14 +135,26 @@ async function refundRental(rental, note) {
 
 // Returned (or a purchase handed over): the supplier is paid (amount minus
 // fee, plus any late fee) and the renter gets the deposit back minus that
-// late fee.
+// late fee. Returned early: the rent for the unused days (rental.earlyRefund)
+// is not charged, so the fee and the supplier's share are worked out on what
+// is left and the renter gets that rent back too.
 async function settleRental(rental, note) {
   const p = rental.payment;
   if (!p || p.status === 'released' || p.status === 'cash_paid') return;
+  const unused = Math.min(round(rental.earlyRefund), round(rental.totalCost));
+  if (unused > 0) {
+    p.amount = round(p.amount - unused);
+    p.fee = p.method === 'wallet' ? feeFor(p.amount) : 0;
+    p.net = p.amount - p.fee;
+  }
   if (p.status === 'held') {
     const late = Math.min(round(rental.lateFee), p.deposit);
     await credit(rental.supplier, p.net + late, 'rental_earning', { rental: rental._id, note });
     await platformFee(p.fee, { rental: rental._id, note });
+    if (unused > 0) {
+      const days = rental.days - rental.usedDays;
+      await credit(rental.renter, unused, 'rental_refund', { rental: rental._id, note: `Returned early, ${days} unused day${days === 1 ? '' : 's'} — ${note}` });
+    }
     if (p.deposit - late > 0) await credit(rental.renter, p.deposit - late, 'rental_refund', { rental: rental._id, note: `Deposit returned — ${note}` });
     p.status = 'released';
   } else if (p.status === 'cash_due') {

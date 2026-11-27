@@ -1,6 +1,7 @@
 const Rental = require('../models/Rental');
 
 const DAY_MS = 24 * 3600 * 1000;
+const HOUR_MS = 3600 * 1000;
 
 // Once a supplier approves, both sides need each other's phone and the
 // handover address; before that (or after a decline) they stay private.
@@ -20,6 +21,17 @@ function lateDaysAt(rental, when = new Date()) {
   if (rental.type !== 'rent' || !rental.endDate) return 0;
   const late = new Date(when).getTime() - new Date(rental.endDate).getTime();
   return late > 0 ? Math.ceil(late / DAY_MS) : 0;
+}
+
+// Days actually used when a rental comes back at [when]: at least one, and
+// part of a day counts as a day after an hour's grace (back 25 minutes past
+// one full day is still one day). On time or late: all the booked days.
+function usedDaysAt(rental, when = new Date()) {
+  if (rental.type !== 'rent' || !rental.days) return 0;
+  const start = new Date(rental.startDate || rental.approvedAt || when).getTime();
+  const elapsed = new Date(when).getTime() - start;
+  const used = Math.max(1, Math.ceil((elapsed - HOUR_MS) / DAY_MS));
+  return Math.min(used, rental.days);
 }
 
 // Adds what the app shows but the database doesn't store: overdue flag, days
@@ -72,4 +84,4 @@ async function listRentals(filter, { skip = 0, limit = 50 } = {}) {
   return { items: items.map(serializeRental), total };
 }
 
-module.exports = { APPROVED, DAY_MS, lateDaysAt, serializeRental, populateRental, listRentals };
+module.exports = { APPROVED, DAY_MS, lateDaysAt, usedDaysAt, serializeRental, populateRental, listRentals };

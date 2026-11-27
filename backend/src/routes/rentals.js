@@ -12,7 +12,7 @@ const { validate } = require('../middleware/validate');
 const { notify } = require('../utils/notify');
 const realtime = require('../utils/realtime');
 const wallet = require('../services/wallet');
-const { serializeRental, populateRental, listRentals, lateDaysAt, DAY_MS } = require('../services/rentals');
+const { serializeRental, populateRental, listRentals, lateDaysAt, usedDaysAt, DAY_MS } = require('../services/rentals');
 const { paginate, setTotal, sameId, badRequest, forbidden, notFound, conflict } = require('../utils/http');
 
 const router = express.Router();
@@ -140,13 +140,22 @@ router.post('/:id/return', authRequired, async (req, res) => {
   rental.returnedAt = new Date();
   rental.lateDays = lateDaysAt(rental, rental.returnedAt);
   rental.lateFee = Math.min(rental.lateDays * rental.dailyRate, rental.deposit);
+  // Back early: only the days used are charged.
+  rental.usedDays = usedDaysAt(rental, rental.returnedAt);
+  const unusedDays = rental.lateDays > 0 ? 0 : rental.days - rental.usedDays;
+  rental.earlyRefund = unusedDays > 0 ? Math.min(Math.round(unusedDays * rental.dailyRate), rental.totalCost) : 0;
   await wallet.settleRental(rental, toolName(rental));
   rental.status = 'returned';
   await rental.save();
   await Tool.updateOne({ _id: rental.tool._id }, { $inc: { stock: 1 } });
 
   const late = rental.lateFee > 0 ? ` A late fee of ${rental.lateFee} (${rental.lateDays} day${rental.lateDays === 1 ? '' : 's'}) was taken from your deposit.` : '';
-  await notify(rental.renter, 'rental', 'Rental returned', `Thanks for renting "${toolName(rental)}".${late} Leave a review?`, {
+  const unused = rental.days - rental.usedDays;
+  const early =
+    rental.earlyRefund > 0
+      ? ` You returned it early, so you pay for ${rental.usedDays} day${rental.usedDays === 1 ? '' : 's'} only: Rs ${rental.earlyRefund} for the ${unused} unused day${unused === 1 ? '' : 's'} ${rental.payment.method === 'wallet' ? 'is back in your wallet' : "isn't charged"}.`
+      : '';
+  await notify(rental.renter, 'rental', 'Rental returned', `Thanks for renting "${toolName(rental)}".${late}${early} Leave a review?`, {
     rentalId: rental._id,
     toolId: rental.tool._id
   });

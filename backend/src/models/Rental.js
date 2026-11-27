@@ -29,6 +29,10 @@ const rentalSchema = new mongoose.Schema(
     deposit: { type: Number, default: 0 },
     lateDays: { type: Number, default: 0 },
     lateFee: { type: Number, default: 0 }, // taken from the deposit on a late return
+    // Early return: only the days actually used are charged; the rent for the
+    // rest comes back to the renter (from escrow, or simply not paid in cash).
+    usedDays: { type: Number, default: 0 },
+    earlyRefund: { type: Number, default: 0 },
 
     // Rent for all days, or the sale price. Delivery is charged on top.
     totalCost: { type: Number, default: 0 },
