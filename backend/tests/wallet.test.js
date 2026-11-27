@@ -162,12 +162,37 @@ describe('wallet, rentals and purchases in escrow', () => {
     await supplier.api('post', `/api/rentals/${r.body._id}/approve`).expect(200);
     expect((await supplier.api('get', '/api/wallet')).body.incoming).toBe(1800);
 
+    // Both days used: it comes back at the end of the period.
+    await Rental.updateOne({ _id: r.body._id }, { $set: { startDate: new Date(Date.now() - 2 * DAY + 60000), endDate: new Date(Date.now() + 60000) } });
     const returned = await supplier.api('post', `/api/rentals/${r.body._id}/return`);
-    expect(returned.body).toMatchObject({ status: 'returned', lateDays: 0, lateFee: 0 });
+    expect(returned.body).toMatchObject({ status: 'returned', lateDays: 0, lateFee: 0, usedDays: 2, earlyRefund: 0 });
     expect(returned.body.payment.status).toBe('released');
     expect(await balance(supplier)).toBe(1800);
     expect(await balance(renter)).toBe(13000); // paid 2000, deposit back
     expect(await Transaction.countDocuments({ type: 'platform_fee', rental: r.body._id, amount: 200 })).toBe(1);
+  });
+
+  test('an early return charges only the days used and refunds the rest to the wallet', async () => {
+    // 3 days at 1000 a day = 3000, plus the 3000 deposit; back after one day.
+    const r = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ days: 3, paymentMethod: 'wallet' });
+    await supplier.api('post', `/api/rentals/${r.body._id}/approve`).expect(200);
+    await Rental.updateOne({ _id: r.body._id }, { $set: { startDate: new Date(Date.now() - 23 * 3600 * 1000), endDate: new Date(Date.now() + 2 * DAY) } });
+    const before = { renter: await balance(renter), supplier: await balance(supplier) };
+
+    const returned = await supplier.api('post', `/api/rentals/${r.body._id}/return`);
+    expect(returned.body).toMatchObject({ status: 'returned', usedDays: 1, earlyRefund: 2000, lateFee: 0 });
+    expect(returned.body.payment).toMatchObject({ status: 'released', amount: 1000, fee: 100, net: 900 });
+    expect(await balance(supplier)).toBe(before.supplier + 900); // one day, minus the 10% fee
+    expect(await balance(renter)).toBe(before.renter + 2000 + 3000); // two unused days + the deposit
+    expect(await Transaction.countDocuments({ type: 'platform_fee', rental: r.body._id, amount: 100 })).toBe(1);
+    const note = await Notification.findOne({ user: renter.id, title: 'Rental returned' }).sort({ createdAt: -1 });
+    expect(note.body).toMatch(/returned it early/);
+
+    // Brought back within the first hour of day two: still one day.
+    const r2 = await renter.api('post', `/api/tools/${tool._id}/rent`).send({ days: 3, paymentMethod: 'wallet' });
+    await supplier.api('post', `/api/rentals/${r2.body._id}/approve`).expect(200);
+    await Rental.updateOne({ _id: r2.body._id }, { $set: { startDate: new Date(Date.now() - DAY - 30 * 60000) } });
+    expect((await supplier.api('post', `/api/rentals/${r2.body._id}/return`)).body).toMatchObject({ usedDays: 1, earlyRefund: 2000 });
   });
 
   test('a late return is charged per day from the deposit, capped at the deposit', async () => {
